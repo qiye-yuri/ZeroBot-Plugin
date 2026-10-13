@@ -34,4 +34,4 @@ QQ内置AI语音当前走群接口，私聊不得向其他群生成语音；Agen
 
 GitHub交付使用中文提交与PR说明，目标为使用者自己的仓库。中间交流与本机调查统一保存在docs/local-notes并整体忽略；源码只包含实现与使用/开发资料，运行数据库、配置、日志、截图和原始聊天内容不上传。规则见[GitHub交付](github-delivery.md)。
 
-已更新用户仓库分支codex/local-admin，源码提交aa0aaf55；[中文PR #1](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/1)已创建，尚未自动合并或覆盖项目版本标签。
+已更新用户仓库分支codex/local-admin，源码提交aa0aaf55；[中文PR #1](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/1)已按使用者要求合并到master，合并提交03498347；没有覆盖项目版本标签。
