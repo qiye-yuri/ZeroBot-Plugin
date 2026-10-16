@@ -1,6 +1,6 @@
 # 本地机器人管理后台：使用与开发文档
 
-AI 与 Agent 本阶段的新增行为、升级方式、验证范围和限制见[交付说明](release-ai-agent.md)。
+AI 与 Agent 本阶段已通过[PR #2](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/2) 合并到 master。新增行为、升级方式、验证范围和限制见[交付说明](release-ai-agent.md)，实际合并结果见[交付记录](github-delivery.md)。
 
 主人私聊真实 QQ 基本流程复验通过：严格 GPT、历史检索、授权旧记忆迁移与重启，以及迁移后 Agent 保存去重、搜索、精确读取和实际回复均已核对。见[验收步骤](real-agent-acceptance.md)与[本轮结果](self-test.md#真实-qq-收发与-agent-复验)。
 

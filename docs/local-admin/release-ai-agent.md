@@ -33,4 +33,4 @@
 
 ## GitHub 交付
 
-已上传用户仓库分支 `codex/ai-agent-m1-m3`，功能提交 [5a159a57](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/5a159a57a86446c15f651815d6ceb1b9c1f0177c)，对应[中文 PR #2](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/2)，目标为 master，当前未合并。没有向上游推送或创建正式版本标签，详见[交付记录](github-delivery.md)。
+已通过[中文 PR #2](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/2) 合并到用户仓库 master，合并提交 [31716852](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/31716852fab99978218367f957aa7bb2ede3e261)。功能提交为 [5a159a57](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/5a159a57a86446c15f651815d6ceb1b9c1f0177c)，来源分支为 `codex/ai-agent-m1-m3`；合并前复核未发现阻断问题，交付文档同步至 master。没有向上游推送或创建正式版本标签，详见[交付记录](github-delivery.md)。
