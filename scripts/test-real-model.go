@@ -24,6 +24,7 @@ import (
 	"time"
 
 	qa "github.com/FloatTech/ZeroBot-Plugin/internal/adminqa"
+	"github.com/FloatTech/zbputils/modelconfig"
 	_ "modernc.org/sqlite"
 )
 
@@ -35,6 +36,15 @@ type provider struct {
 	API, ModelName, Key string
 	Type                int
 }
+
+func (p provider) ready() bool {
+	return p.Type >= 0 && p.Type <= 2 && p.API != "" && p.ModelName != "" && (p.Key != "" || p.Type == 1)
+}
+
+type providerSnapshot struct {
+	Mode      string
+	Providers map[string]provider
+}
 type caseResult struct {
 	Name    string         `json:"name"`
 	Passed  bool           `json:"passed"`
@@ -43,52 +53,107 @@ type caseResult struct {
 	Task    map[string]any `json:"task,omitempty"`
 }
 
-func readProviders(root string) (map[string]provider, error) {
+func readProviders(root string) (providerSnapshot, error) {
 	name := filepath.ToSlash(filepath.Join(root, "data/control/plugins.db"))
 	db, err := sql.Open("sqlite3", "file:/"+name+"?mode=ro")
 	if err != nil {
-		return nil, err
+		return providerSnapshot{}, err
 	}
 	defer db.Close()
 	rows, err := db.Query("SELECT ext FROM __resp WHERE ext IS NOT NULL AND ext NOT IN ('','-')")
 	if err != nil {
-		return nil, err
+		return providerSnapshot{}, err
 	}
 	defer rows.Close()
-	var found map[string]json.RawMessage
+	var found json.RawMessage
 	for rows.Next() {
 		var raw string
 		if err = rows.Scan(&raw); err != nil {
-			return nil, err
+			return providerSnapshot{}, err
 		}
 		var cfg map[string]json.RawMessage
-		if json.Unmarshal([]byte(raw), &cfg) != nil || cfg["ModelName"] == nil {
+		if json.Unmarshal([]byte(raw), &cfg) != nil || (cfg["ModelName"] == nil && cfg["ModelRoutes"] == nil && cfg["ModelProfiles"] == nil) {
 			continue
 		}
 		if found != nil {
-			return nil, errors.New("ambiguous AI configuration")
+			return providerSnapshot{}, errors.New("ambiguous AI configuration")
 		}
-		found = cfg
+		found = json.RawMessage(raw)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return providerSnapshot{}, err
 	}
 	if found == nil {
-		return nil, errors.New("AI configuration missing")
+		return providerSnapshot{}, errors.New("AI configuration missing")
+	}
+	var cfg struct {
+		ModelRoutes   *modelconfig.Routes
+		ModelProfiles []modelconfig.Profile
+	}
+	if json.Unmarshal(found, &cfg) != nil {
+		return providerSnapshot{}, errors.New("invalid provider configuration")
+	}
+	mode := "legacy"
+	if cfg.ModelRoutes != nil {
+		mode = "named"
 	}
 	result := map[string]provider{}
-	for _, p := range []string{"", "Agent", "Image"} {
-		var v provider
-		for name, target := range map[string]any{"API": &v.API, "ModelName": &v.ModelName, "Key": &v.Key, "Type": &v.Type} {
-			if raw := found[p+name]; raw != nil {
-				if json.Unmarshal(raw, target) != nil {
-					return nil, errors.New("invalid provider configuration")
+	if cfg.ModelRoutes != nil {
+		selected, err := modelconfig.Select(cfg.ModelProfiles, *cfg.ModelRoutes)
+		if err != nil {
+			return providerSnapshot{}, errors.New("invalid model routes; check saved AI settings")
+		}
+		for role, p := range selected {
+			result[role] = provider{API: p.API, ModelName: p.Model, Key: p.Key, Type: p.Type}
+		}
+	} else {
+		if cfg.ModelProfiles != nil {
+			return providerSnapshot{}, errors.New("named models have no routes")
+		}
+		var fields map[string]json.RawMessage
+		_ = json.Unmarshal(found, &fields)
+		for _, role := range []string{"", "Agent", "Image"} {
+			var p provider
+			for field, target := range map[string]any{"API": &p.API, "ModelName": &p.ModelName, "Key": &p.Key, "Type": &p.Type} {
+				if raw := fields[role+field]; raw != nil && json.Unmarshal(raw, target) != nil {
+					return providerSnapshot{}, errors.New("invalid legacy provider configuration")
 				}
 			}
+			result[role] = p
 		}
-		result[p] = v
 	}
-	return result, nil
+	return providerSnapshot{Mode: mode, Providers: result}, nil
+}
+
+// Validate the entire selection before starting an instance or admitting HTTP.
+func selectedCases(text string, providers map[string]provider) ([]string, error) {
+	names := []string{}
+	seen := map[string]bool{}
+	for _, name := range strings.Split(text, ",") {
+		name = strings.TrimSpace(name)
+		var required []string
+		switch name {
+		case "gpt", "chat":
+			required = []string{""}
+		case "agent", "memory-save", "history", "memory":
+			required = []string{"Agent"}
+		case "vision":
+			required = []string{"Agent", "Image"}
+		default:
+			return nil, errors.New("unknown or empty case name")
+		}
+		if seen[name] {
+			return nil, errors.New("duplicate case name")
+		}
+		seen[name] = true
+		for _, role := range required {
+			if !providers[role].ready() {
+				return nil, fmt.Errorf("case %s requires a configured %s model", name, map[string]string{"": "chat", "Agent": "Agent", "Image": "vision"}[role])
+			}
+		}
+		names = append(names, name)
+	}
+	return names, nil
 }
 
 func main() {
@@ -101,22 +166,32 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	providers, err := readProviders(root)
+	snapshot, err := readProviders(root)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Cannot read AI provider configuration.")
 		os.Exit(1)
 	}
+	providers := snapshot.Providers
 	summary := map[string]any{}
 	for role, p := range providers {
 		if role == "" {
 			role = "Chat"
 		}
-		summary[role] = map[string]any{"model": p.ModelName, "type": p.Type, "ready": p.API != "" && p.ModelName != "" && (p.Key != "" || p.Type == 1)}
+		summary[role] = map[string]any{"model": p.ModelName, "type": p.Type, "enabled": p.API != "" || p.ModelName != "", "ready": p.ready()}
 	}
+	names, selectionErr := selectedCases(*caseNames, providers)
 	if !*execute {
-		b, _ := json.MarshalIndent(map[string]any{"preflight": summary, "realModelCalls": 0, "note": "Add -run to make real billable requests; only synthetic data will be sent."}, "", "  ")
+		view := map[string]any{"mode": snapshot.Mode, "preflight": summary, "casesReady": selectionErr == nil, "realModelCalls": 0, "note": "Add -run to make real billable requests; only synthetic data will be sent."}
+		if selectionErr != nil {
+			view["selectionError"] = selectionErr.Error()
+		}
+		b, _ := json.MarshalIndent(view, "", "  ")
 		fmt.Println(string(b))
 		return
+	}
+	if selectionErr != nil {
+		fmt.Fprintln(os.Stderr, selectionErr)
+		os.Exit(1)
 	}
 	parent := filepath.Join(root, ".local/real-model")
 	if err = os.MkdirAll(parent, 0700); err != nil {
@@ -127,8 +202,10 @@ func main() {
 		panic(err)
 	}
 	result := map[string]any{"passed": false, "startedAt": time.Now().Format(time.RFC3339), "realProvider": true, "syntheticOneBot": true, "realQQMessagesSent": false, "realChatDataRead": false, "dailyConfigurationWrites": 0, "providers": summary}
+	result["configurationMode"] = snapshot.Mode
+	result["configurationSnapshot"] = "resolved once before starting the isolated instance; projected into its legacy fields; named-route persistence is covered by N2 integration"
 	fmt.Println("ARTIFACTS=" + out)
-	err = run(root, out, providers, result)
+	err = run(root, out, providers, names, result)
 	result["completedAt"] = time.Now().Format(time.RFC3339)
 	result["passed"] = err == nil
 	if err != nil {
@@ -145,7 +222,7 @@ func main() {
 	}
 }
 
-func run(root, out string, providers map[string]provider, result map[string]any) (err error) {
+func run(root, out string, providers map[string]provider, names []string, result map[string]any) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
 	defer cancel()
 	binary := filepath.Join(root, ".local/bin", *binaryName)
@@ -171,7 +248,7 @@ func run(root, out string, providers map[string]provider, result map[string]any)
 		return err
 	}
 	owners := []int64{qa.Owner}
-	for index := range strings.Split(*caseNames, ",") {
+	for index := range names {
 		owners = append(owners, int64(23456000+index))
 	}
 	config["zero"].(map[string]any)["super_users"] = owners
@@ -240,11 +317,7 @@ func run(root, out string, providers map[string]provider, result map[string]any)
 	}
 	nonce := hex.EncodeToString(random)
 	results := []caseResult{}
-	for index, name := range strings.Split(*caseNames, ",") {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
-		}
+	for index, name := range names {
 		fmt.Println("RUN " + name)
 		start := time.Now()
 		item := caseResult{Name: name}

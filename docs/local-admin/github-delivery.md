@@ -1,5 +1,7 @@
 # 第一版 GitHub 交付规则
 
+2026-10-16，第一批 R1 命名模型真实测试适配、R2 会话设置快捷入口已完成统一验收，使用与开发文档同步。交付分支为 `codex/model-tests-and-session-shortcuts`，目标为用户仓库 master，上传不自动合并或部署。13 步、138 项 Chrome、最终构建、R1 四类业务专项及完整隔离整机 147 项检查通过，范围见[自测](self-test.md#r1r2-第一批验收)。仅显式提交本批源码、测试、纯解析依赖补丁与文档；本机证据、初次失败资料、data 子模块运行变化和其他已有改动保留本机。PR 与远端提交核对结果见本批交付信息。
+
 2026-10-16 16:32 +08:00：N1/N2 主人私聊实机复验通过。日常后台实际保存人物覆盖和三个独立编号的命名配置，真实 QQ 验证人物暗号、严格 GPT、Agent 发送及图片颜色识别；任务、平台回执和模型 HTTP 均已核对。测试后恢复原人物及旧模型配置模式，按恢复提示仅重启 ZeroBot，原程序、凭据、其他控制设置和 OneBot 登录保持。见[实机结果](self-test.md#n1n2-主人私聊实机验证)与[复验步骤](real-agent-acceptance.md#n1n2-的主人私聊实机复验)。 本轮仅同步公开使用、维护和实机验收文档至用户仓库 master；原始 QQ 记录、后台会话、临时工具、备份及 data 子模块运行变化仍留本机，不新增正式标签。
 
 当前交付状态：2026-10-16 15:55 +08:00：N1、N2 已复核并依次合并至 master（[PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)、[PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4)），合并版本已完成停机备份、日常服务部署及部署后测试。原配置、后台密码、插件开关和 OneBot 登录保持；人物覆盖未批量设置，命名模型未自动迁移，首次显式保存才迁移。见[本次部署验证](self-test.md#n1n2-合并与日常部署验证)。 #3 锁定提交 `8cce122d`，合并提交 [bc33195e](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/bc33195e25f7ef9b014d7bb74529c5de962ade0e)；#4 在 #3 合并后改为 master，锁定 `793e0cde`，合并提交 [0056d2de](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/0056d2ded2f9f655565550096ed9ff72f3478443)。无待处理审查意见，GitHub 无 CI 检查项；合并树与已验收 N2 提交一致，随后重新完成 master 的统一验收。以下阶段上传记录中的“未合并/未部署”保留其当时含义。备份、真实身份、原始证据和 data 子模块运行变化不上传。

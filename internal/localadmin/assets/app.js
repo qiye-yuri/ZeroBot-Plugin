@@ -578,7 +578,8 @@ $("copy-plugin-usage").addEventListener("click", copyPluginUsage);
 $("download-plugin-usage").addEventListener("click", downloadPluginUsage);
 $("download-plugin-catalog").addEventListener("click", downloadPluginCatalog);
 document.addEventListener("visibilitychange",renderPluginCatalogControls);
-document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => {
+function showWorkspaceView(name, {autoLoadAI=true}={}) {
+  const button=document.querySelector('[data-view="'+name+'"]');
   if (typeof connectionDeleteCanLeave === "function" && !connectionDeleteCanLeave()) return;
   if (typeof connectionAddCanLeave === "function" && !connectionAddCanLeave()) return;
   if (typeof agentMemoryCanLeave === "function" && !agentMemoryCanLeave()) return;
@@ -590,13 +591,15 @@ document.querySelectorAll("[data-view]").forEach((button) => button.addEventList
   showOverview(button.dataset.view === "overview");
   if (button.dataset.view === "plugins") ensurePluginList();
   if (button.dataset.view === "connections" && !connectionSettings) loadConnections();
-  if (button.dataset.view === "ai" && !aiState) loadAI();
+  if (button.dataset.view === "ai" && !aiState && autoLoadAI) loadAI();
   if (typeof showLogs === "function") showLogs(button.dataset.view === "logs");
   if (typeof showBackups === "function") showBackups(button.dataset.view === "backups");
   if (typeof showSecurity === "function") showSecurity(button.dataset.view === "security");
   if (typeof showAgentArchive === "function") showAgentArchive(button.dataset.view === "agent");
   if (typeof showConnectionDelete === "function") showConnectionDelete(button.dataset.view === "connections");
-}));
+  return true;
+}
+document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => showWorkspaceView(button.dataset.view)));
 
 function selectedConnection() { return connectionSettings?.connections?.[connectionIndex]; }
 function connectionSnapshot() {
