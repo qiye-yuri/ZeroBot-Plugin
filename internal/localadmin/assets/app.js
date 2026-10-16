@@ -596,6 +596,7 @@ function showWorkspaceView(name, {autoLoadAI=true}={}) {
   if (typeof showBackups === "function") showBackups(button.dataset.view === "backups");
   if (typeof showSecurity === "function") showSecurity(button.dataset.view === "security");
   if (typeof showAgentArchive === "function") showAgentArchive(button.dataset.view === "agent");
+  if (typeof showAIProbe === "function") showAIProbe(button.dataset.view === "ai");
   if (typeof showConnectionDelete === "function") showConnectionDelete(button.dataset.view === "connections");
   return true;
 }
