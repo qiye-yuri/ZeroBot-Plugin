@@ -1,6 +1,6 @@
 # 第一版待办与后续范围
 
-当前安排详见[开发优先级与详细计划](next-stage-development.md)：第一批 R1 命名模型真实测试适配、R2 会话设置快捷入口已实现并通过统一 13 步验收，结果见[自测](self-test.md#r1r2-第一批验收)，上传信息见[交付记录](github-delivery.md)。未部署日常服务。第二批 R3 后台手动模型测试、R4 使用导航整理（P2）已实现，验证及上传状态见[第二批验收](self-test.md#r3r4-第二批验收)。N3 联网搜索保持暂缓。
+R1～R4已全部开发、测试、合并master并部署日常服务，原配置保持，统一及部署后检查通过，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)与[交付记录](github-delivery.md)。[阶段计划](next-stage-development.md)不再有待开发项；R5～R7仅为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，尚未实现，不作为本次部署门槛。N3联网搜索保持暂缓。
 
 ## 后续开发计划
 

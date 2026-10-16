@@ -1,6 +1,6 @@
 # 后续开发设计与执行计划
 
-2026-10-16 后续更新：本文 N1/N2 已交付，原设计与排期作为历史基线保留。当前安排见[开发优先级与详细计划](next-stage-development.md)：优先补齐命名模型测试工具及会话设置入口，再做手动模型测试和使用导航。N3 联网搜索继续暂缓，原详细方案见[暂缓设计](deferred-web-search-design.md)。
+2026-10-16 后续更新：本文N1/N2已交付，原设计与排期作为历史基线保留；[R1～R4阶段](next-stage-development.md)也已实现、测试、合并master并正式部署，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)。R5～R7仅为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，未实现。N3联网搜索继续暂缓，原详细方案见[暂缓设计](deferred-web-search-design.md)。
 
 日期：2026-10-16。基线：master 的 AI 与 Agent M1～M3 已交付实现（PR #2，合并提交 31716852；文档同步 bea405f5）。后续实现状态以末尾状态表为准，设计章节中的候选能力不代表已经交付。
 
