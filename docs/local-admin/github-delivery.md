@@ -2,6 +2,8 @@
 
 2026-10-17：R5命名模型独立请求参数在 `codex/model-request-parameters` 完成，基于主分支 `70ab8e72` 独立交付。最大输出长度、TopP和推理设置逐项继承或覆盖，兼容旧配置；后台折叠表单、业务请求、诊断与R1脚本已同步。统一14步、146项Chrome、R1参数专项与148项隔离整机检查通过，见[验收记录](self-test.md#r5-模型独立参数验收)。本批只上传实现、测试及公开说明，日常服务未切换、原配置未改；没有真实提供商或QQ调用，也未开发R6/R7或联网搜索。原始证据、密钥、临时工具、运行数据和其他并行开发改动保留本机。
 
+功能提交 `8dc3cb5a` 已推送并创建[中文 PR #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)，目标为用户仓库master，尚未合并或部署；本段交付记录随后在同一分支同步，不新增标签或向上游推送。
+
 2026-10-16 23:42 +08:00：补充当前日常服务的真实QQ主人私聊复验：主动提示发送及回读、2条真实入站与GPT/Agent准确回复通过，Agent任务完成且无普通聊天兜底，来源事件和平台发送回执已关联。测试期间程序及进程保持，未改配置；本轮实际程序摘要与先前部署记录分别记载。仅同步3份公开验收/操作说明，真实身份、原始消息、任务资料和临时工具留本机，其他并行开发改动不纳入本次交付。见[本轮结果](self-test.md#r1-r4-日常服务真实-qq-收发复验)及[复验步骤](real-agent-acceptance.md#主人私聊基础收发复验)。以下历史“未发送真实QQ”仅表示各次原有验收范围。
 
 2026-10-16：R1～R4已按使用者要求合并至用户仓库master并部署。第一批[PR #5](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/5)锁定7ea1ce97，合并为[befedb61](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/befedb616dc88ae59506bea90133d17c16afa901)；第二批[PR #6](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/6)转master后锁定30b42f84，合并为[8b8eec36](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/8b8eec368fb082d0bb7ccceaf4b5f6b90670d5b3)。无待处理审查意见；GitHub未返回CI检查项，本机主分支统一14步、144项Chrome和148项隔离整机，以及部署后真实接口/日常后台验证通过。214份停机备份、原配置及219张控制表保持，OneBot保留登录；未新增标签或向上游推送，未发送真实QQ。此前PR #8中的R1～R4实测说明随本次主分支文档同步，R5～R7规划PR #7保持独立。当前状态见[部署验证](self-test.md#r1-r4-合并与日常部署验证)；以下旧记录的“待合并/未部署/已恢复旧程序”仅表示当次状态。
