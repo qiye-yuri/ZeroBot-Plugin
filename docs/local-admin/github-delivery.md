@@ -1,5 +1,7 @@
 # 第一版 GitHub 交付规则
 
+2026-10-16，R1～R4实机测试的阶段记录在 `codex/r1-r4-real-validation` 整理，基于规划分支 `codex/next-batch-model-plan`，仅更新6份公开使用和测试说明。R1两模式共14组真实接口业务测试、R3真实诊断复验通过；R2/R4及R3日常页面尚未执行，不记完整实机验收。产品源码、日常程序/配置未变，原始证据、含密钥测试副本、临时工具和运行数据保留本机。详细范围见[本轮实测](self-test.md#r1-r4-实机测试进度)。
+
 2026-10-16，R5～R7 后续规划在文档分支 `codex/next-batch-model-plan` 交付，基于已上传 R3/R4 分支 `codex/model-probe-and-usage-navigation`，仅提交规划、索引和进度/检查记录。规划提交 `99507dc5` 已推送，已创建[中文 PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，仅展示本次文档差异。新功能尚未实现，未运行机器人功能测试、未合并、部署或改动日常配置；本次不重开已暂缓联网搜索。8份公开文档的435个本地文件引用、8处新增链接锚点、编码、代码围栏、13个工作包及差异检查通过。实际范围见[新计划](next-batch-development.md)与[规划检查](self-test.md#r5-r7-规划文档检查)。
 
 2026-10-16，第二批 R3 后台手动模型测试与 R4 使用导航整理完成，交付分支为 `codex/model-probe-and-usage-navigation`，基于第一批 `codex/model-tests-and-session-shortcuts`（PR #5）单独审阅。本批统一14步、144项Chrome、最终构建及148项完整隔离整机检查通过，具体范围见[第二批验收](self-test.md#r3r4-第二批验收)。仅上传本批源码、测试和公开使用/开发说明；模型调用均为模拟，未真实QQ验收、未合并或部署。data 子模块、其他原有改动和原始证据保留本机。功能提交 `0a494391` 已上传并核对远端一致，已创建[中文 PR #6](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/6)，基于第一批分支单独审阅；两批均未合并或部署。14份交付文档的599个本地引用、编码、代码围栏与差异检查通过，原指南9个章节锚点及6个任务导航锚点已核对。
