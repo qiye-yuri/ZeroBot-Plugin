@@ -36,6 +36,28 @@ type modelsUpdate struct {
 	Routes   chat.ModelRoutes     `json:"routes"`
 }
 
+type modelRouteView struct {
+	ProfileID  string                        `json:"profileId"`
+	Inherited  bool                          `json:"inherited"`
+	Parameters modelconfig.RequestParameters `json:"parameters"`
+}
+
+func modelRouteViews(profiles []chat.ModelProfile, routes chat.ModelRoutes, defaults modelconfig.RequestParameters) map[string]modelRouteView {
+	byID := map[string]chat.ModelProfile{}
+	for _, p := range profiles {
+		byID[p.ID] = p
+	}
+	views := map[string]modelRouteView{}
+	for entry, id := range map[string]string{"chat": routes.Chat, "gpt": routes.GPT, "summary": routes.Summary, "agent": routes.Agent, "image": routes.Image} {
+		inherited := (entry == "gpt" || entry == "summary") && id == ""
+		if inherited {
+			id = routes.Chat
+		}
+		views[entry] = modelRouteView{ProfileID: id, Inherited: inherited, Parameters: byID[id].Parameters.Resolve(defaults)}
+	}
+	return views
+}
+
 func (s *AIStore) SaveModels(update modelsUpdate) error {
 	if !validRevision(update.Revision) {
 		return invalidAI("配置版本无效")
@@ -118,6 +140,7 @@ func (s *Server) aiModels(w http.ResponseWriter, r *http.Request) {
 		views = append(views, modelProfileView{ID: p.ID, Name: c.Redact(p.Name), Type: p.Type, Model: c.Redact(p.Model), API: c.Redact(api), KeyConfigured: p.Key != "", AddressRedacted: redacted, Parameters: p.Parameters, EffectiveParameters: p.Parameters.Resolve(c.GlobalParameters())})
 	}
 	value := map[string]any{"named": c.ModelRoutes != nil, "revision": revision, "profiles": views, "routes": routes, "parameterDefaults": c.GlobalParameters()}
+	value["entries"] = modelRouteViews(profiles, routes, c.GlobalParameters())
 	if view, err := s.cfg.AI.Get(0); err == nil {
 		value["global"] = view.Global
 	}

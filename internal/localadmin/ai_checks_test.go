@@ -16,6 +16,9 @@ func TestAIConfigCheckTypesRequiredFieldsAndIndependence(t *testing.T) {
 			c := chat.AgentConfig{Type: kind, ModelName: "fixture", API: "http://fixture.invalid/chat", Key: chat.ModelKey(key)}
 			checks := aiConfigChecks(c)
 			got := checks["chat"]
+			if checks["gpt"] != got || checks["summary"] != got {
+				t.Fatal("legacy GPT/summary checks lost chat inheritance")
+			}
 			want := kind >= 0 && kind <= 2 && (kind == 1 || key != "")
 			if got.Complete != want || got.KeyRequired != (kind != 1) || got.KeyConfigured != (key != "") || !got.ModelRequired {
 				t.Fatal("type/key check disagrees", kind, got)

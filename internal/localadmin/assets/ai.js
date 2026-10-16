@@ -151,7 +151,7 @@ function renderAIConfigChecks(value) {
   const panel = $("ai-config-checks"), list = $("ai-config-check-list");
   list.replaceChildren(); panel.hidden = !authenticated || !value?.available;
   if (panel.hidden) return;
-  for (const [name,title] of [["chat","聊天 / GPT"],["agent","Agent"],["image","识图（可选）"]]) {
+  for (const [name,title] of [["chat","聊天"],["gpt","GPT"],["summary","群总结"],["agent","Agent"],["image","识图（可选）"]]) {
     const item = document.createElement("article"), heading = document.createElement("h3"), status = document.createElement("p"), detail = document.createElement("p");
     item.dataset.aiCheck = name; heading.textContent = title; status.className = "ai-check-result"; detail.className = "field-help";
     const check = value.global?.checks?.[name];
@@ -331,16 +331,18 @@ function modelParameterInputs(row, profile, defaults) {
 
 function renderAIModels(value) {
   const form=$("ai-models-form");form.replaceChildren();form.hidden=false;
-  const fields=document.createElement("fieldset"),heading=document.createElement("h2"),note=document.createElement("p"),list=document.createElement("div"),rows=new Map(),routes={};
+  const fields=document.createElement("fieldset"),heading=document.createElement("h2"),note=document.createElement("p"),list=document.createElement("div"),rows=new Map(),routes={},routeHelp={};
   heading.textContent="命名模型与入口选择";note.className="field-help";note.textContent=value.named ? "命名配置已启用。一个配置可被多个入口引用；更改会影响所有引用入口。" : "当前为旧配置迁移预览，尚未写库；首次保存同时迁移配置与入口。";fields.append(heading,note,list);
-  for(const [key,title] of [["chat","聊天 / GPT / 群总结"],["agent","Agent"],["image","识图"]]) {
-    const label=document.createElement("label"),select=document.createElement("select");select.id="ai-model-route-"+key;label.htmlFor=select.id;label.textContent=title;routes[key]=select;fields.append(label,select);
+  for(const [key,title] of [["chat","聊天"],["gpt","GPT"],["summary","群总结"],["agent","Agent"],["image","识图"]]) {
+    const label=document.createElement("label"),select=document.createElement("select"),help=document.createElement("p");select.id="ai-model-route-"+key;label.htmlFor=select.id;label.textContent=title;routes[key]=select;help.className="field-help";routeHelp[key]=help;fields.append(label,select,help);select.addEventListener("change",updateRouteHelp);
   }
+  function updateRouteHelp(){for(const [entry,select] of Object.entries(routes)){const inherited=(entry==="gpt"||entry==="summary")&&!select.value;const id=inherited?routes.chat.value:select.value;routeHelp[entry].textContent=id&&!rows.has(id)?"引用配置不存在，请重新选择。":id?(inherited?"继承聊天模型：":"当前选择：")+(rows.get(id).name.value||id)+"；使用该配置的请求参数。":"当前未选择配置。";}}
   function updateRoutes(){
     for(const [key,select] of Object.entries(routes)){
-      const selected=select.value;select.replaceChildren();const empty=document.createElement("option");empty.value="";empty.textContent=key==="chat" ? "请选择模型配置" : "不启用";select.append(empty);
-      for(const [id,row] of rows){const option=document.createElement("option");option.value=id;option.textContent=row.name.value||"未命名配置";select.append(option);}select.value=selected;
+      const selected=select.value;select.replaceChildren();const empty=document.createElement("option");empty.value="";empty.textContent=key==="chat" ? "请选择模型配置" : key==="gpt"||key==="summary"?"继承聊天模型":"不启用";select.append(empty);
+      for(const [id,row] of rows){const option=document.createElement("option");option.value=id;option.textContent=row.name.value||"未命名配置";select.append(option);}if(selected&&!rows.has(selected)){const option=document.createElement("option");option.value=selected;option.textContent="引用配置不存在，请重新选择";select.append(option);}select.value=selected;
     }
+    updateRouteHelp();
   }
   function addRow(p){
     const row=document.createElement("article"),title=document.createElement("h3");row.className="panel ai-model-row";row.dataset.modelId=p.id;title.textContent="模型配置";row.append(title);
@@ -360,7 +362,8 @@ function renderAIModels(value) {
     row.append(remove);list.append(row);rows.set(p.id,{name,type,model,address,action,key,confirm,parameters});name.addEventListener("input",updateRoutes);updateRoutes();
   }
   for(const p of value.profiles)addRow(p);
-  for(const [key,select] of Object.entries(routes))select.value=value.routes[key];
+  for(const [key,select] of Object.entries(routes)){const id=value.routes[key]??"";if(id&&!rows.has(id)){const option=document.createElement("option");option.value=id;option.textContent="引用配置不存在，请重新选择";select.append(option);}select.value=id;}
+  updateRouteHelp();
   const add=document.createElement("button"),save=document.createElement("button"),discard=document.createElement("button");add.type=discard.type="button";save.type="submit";add.className=discard.className="secondary";save.className="primary";add.textContent="新增模型配置";save.textContent="备份并保存命名模型";discard.textContent="放弃此表单更改";discard.dataset.aiDiscard="models";
   add.addEventListener("click",()=>{addRow({id:"m-"+Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,"0")).join(""),name:"",type:0,model:"",api:"",keyConfigured:false});renderAIDrafts();});discard.addEventListener("click",()=>discardAIForm("models"));fields.append(add,save,discard);form.append(fields);
   rememberAIForm("models",form);aiBaselines.get("models").models=structuredClone(value);

@@ -77,6 +77,16 @@ func parameterFixture(address string) savedProviders {
 	return cfg
 }
 
+func routeFixture(address string) savedProviders {
+	cfg := parameterFixture(address)
+	cfg.ModelRoutes.GPT, cfg.ModelRoutes.Summary = "gpt", "summary"
+	for i, role := range []string{"gpt", "summary"} {
+		max, top, reasoning := uint(1280+i*256), float32(.4+float64(i)*.1), []string{"medium", ""}[i]
+		cfg.ModelProfiles = append(cfg.ModelProfiles, modelconfig.Profile{ID: role, API: address + "/" + role, Model: "actual-" + role, Key: "synthetic-" + role, Parameters: &modelconfig.Parameters{MaxN: &max, TopP: &top, ReasoningEffort: &reasoning}})
+	}
+	return cfg
+}
+
 func TestNamedProvidersReachActualHTTPAndStaySnapshot(t *testing.T) {
 	calls := map[string]int{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +129,11 @@ func TestNamedProvidersReachActualHTTPAndStaySnapshot(t *testing.T) {
 		}
 	}
 	for _, role := range []string{"chat", "agent", "image"} {
-		if calls[role] != 1 {
+		want := 1
+		if role == "chat" {
+			want = 3
+		}
+		if calls[role] != want {
 			t.Fatal(calls)
 		}
 	}
@@ -226,7 +240,7 @@ func TestRealModelIsolatedNamedRuntime(t *testing.T) {
 	}
 	var mu sync.Mutex
 	calls := map[string]int{}
-	nonce := regexp.MustCompile(`REAL_(?:gpt|chat|agent)_[0-9a-f]+`)
+	nonce := regexp.MustCompile(`REAL_(?:gpt|chat|agent|summary)_[0-9a-f]+`)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		role := strings.TrimPrefix(r.URL.Path, "/")
 		var body map[string]any
@@ -235,14 +249,17 @@ func TestRealModelIsolatedNamedRuntime(t *testing.T) {
 			http.Error(w, "invalid", 400)
 			return
 		}
-		index := map[string]int{"chat": 0, "agent": 1, "image": 2}[role]
-		wantTop := []float64{.21, .43, .65}[index]
+		index := map[string]int{"chat": 0, "agent": 1, "image": 2, "gpt": 3, "summary": 4}[role]
+		wantTop := []float64{.21, .43, .65, .4, .5}[index]
 		if body["max_tokens"] != float64(512+index*256) || body["top_p"] != wantTop {
 			t.Error("isolated per-entry parameters lost", role, body["max_tokens"], body["top_p"])
 		}
 		wantReasoning := any(nil)
 		if index < 2 {
 			wantReasoning = []string{"low", "high"}[index]
+		}
+		if role == "gpt" {
+			wantReasoning = "medium"
 		}
 		if body["reasoning_effort"] != wantReasoning {
 			t.Error("isolated reasoning lost", role, body["reasoning_effort"])
@@ -282,11 +299,11 @@ func TestRealModelIsolatedNamedRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("ARTIFACTS=" + out)
-	snapshot, err := readProviders(providerFixture(t, parameterFixture(server.URL)))
+	snapshot, err := readProviders(providerFixture(t, routeFixture(server.URL)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	names, err := selectedCases("gpt,chat,agent,vision", snapshot.Providers)
+	names, err := selectedCases("gpt,chat,agent,vision,summary", snapshot.Providers)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +322,7 @@ func TestRealModelIsolatedNamedRuntime(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if calls["chat"] != 2 || calls["agent"] != 2 || calls["image"] != 1 {
+	if calls["chat"] != 1 || calls["gpt"] != 1 || calls["summary"] != 1 || calls["agent"] != 2 || calls["image"] != 1 {
 		t.Fatal("unexpected model calls", calls)
 	}
 }

@@ -34,9 +34,14 @@ func checkAIConfig(kind chat.ModelType, model, address, key, addressField string
 }
 
 func aiConfigChecks(c chat.AgentConfig) map[string]AIConfigCheck {
-	return map[string]AIConfigCheck{
+	checks := map[string]AIConfigCheck{
 		"chat":  checkAIConfig(c.Type, c.ModelName, c.API, string(c.Key), "API", true),
 		"agent": checkAIConfig(c.AgentType, c.AgentModelName, c.AgentAPI, string(c.AgentKey), "AgentAPI", true),
 		"image": checkAIConfig(c.ImageType, c.ImageModelName, c.ImageAPI, string(c.ImageKey), "ImageAPI", false),
 	}
+	for entry, role := range map[string]string{"gpt": "GPT", "summary": "Summary"} {
+		target := c.ForModel(role)
+		checks[entry] = checkAIConfig(target.Type, target.ModelName, target.API, string(target.Key), "API", true)
+	}
+	return checks
 }

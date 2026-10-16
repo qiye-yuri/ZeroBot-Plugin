@@ -127,6 +127,7 @@ func readProviders(root string) (providerSnapshot, error) {
 			}
 			result[role] = p
 		}
+		result["GPT"], result["Summary"] = result[""], result[""]
 	}
 	return providerSnapshot{Mode: mode, Providers: result}, nil
 }
@@ -139,8 +140,12 @@ func selectedCases(text string, providers map[string]provider) ([]string, error)
 		name = strings.TrimSpace(name)
 		var required []string
 		switch name {
-		case "gpt", "chat":
+		case "chat":
 			required = []string{""}
+		case "gpt":
+			required = []string{"GPT"}
+		case "summary":
+			required = []string{"Summary"}
 		case "agent", "memory-save", "history", "memory":
 			required = []string{"Agent"}
 		case "vision":
@@ -154,7 +159,7 @@ func selectedCases(text string, providers map[string]provider) ([]string, error)
 		seen[name] = true
 		for _, role := range required {
 			if !providers[role].ready() {
-				return nil, fmt.Errorf("case %s requires a configured %s model", name, map[string]string{"": "chat", "Agent": "Agent", "Image": "vision"}[role])
+				return nil, fmt.Errorf("case %s requires a configured %s model", name, map[string]string{"": "chat", "GPT": "GPT", "Summary": "summary", "Agent": "Agent", "Image": "vision"}[role])
 			}
 		}
 		names = append(names, name)
@@ -274,6 +279,9 @@ func run(root, out string, providers map[string]provider, names []string, result
 	fields := map[string]any{"SystemP": "你是软件验收助手。严格完成当前合成测试，不编造工具结果。", "AgentChar": "你是软件验收助手。优先按用户要求使用本地工具，工具成功后简短回复；不做额外动作。", "AgentSex": "unknown", "MaxN": 4096, "TopP": 0.9, "NoSystemP": false}
 	keys := map[string]any{}
 	for p, v := range providers {
+		if p == "GPT" || p == "Summary" {
+			continue
+		}
 		fields[p+"API"], fields[p+"ModelName"], fields[p+"Type"] = v.API, v.ModelName, v.Type
 		if v.Key != "" {
 			keys[p+"Key"] = map[string]any{"action": "replace", "value": v.Key}
@@ -292,13 +300,13 @@ func run(root, out string, providers map[string]provider, names []string, result
 		return err
 	}
 	profiles := []map[string]any{}
-	routes := map[string]string{"chat": "", "agent": "", "image": ""}
-	for _, role := range []string{"", "Agent", "Image"} {
+	routes := map[string]string{"chat": "", "gpt": "", "summary": "", "agent": "", "image": ""}
+	for _, role := range []string{"", "GPT", "Summary", "Agent", "Image"} {
 		p := providers[role]
 		if !p.ready() {
 			continue
 		}
-		entry := map[string]string{"": "chat", "Agent": "agent", "Image": "image"}[role]
+		entry := map[string]string{"": "chat", "GPT": "gpt", "Summary": "summary", "Agent": "agent", "Image": "image"}[role]
 		id := "check-" + entry
 		routes[entry] = id
 		key := map[string]any{"action": "keep"}
@@ -352,7 +360,7 @@ func run(root, out string, providers map[string]provider, names []string, result
 		start := time.Now()
 		item := caseResult{Name: name}
 		uid := int64(23456000 + index)
-		agent := name != "chat" && name != "gpt"
+		agent := name != "chat" && name != "gpt" && name != "summary"
 		if err = configure(c, uid, agent); err == nil {
 			item.Task, err = checkCase(ctx, c, h, out, uid, name, nonce)
 		}
@@ -422,6 +430,21 @@ func checkCase(ctx context.Context, c *qa.Client, h *qa.Harness, out string, uid
 	checkCtx, cancel := context.WithTimeout(ctx, 100*time.Second)
 	defer cancel()
 	expected := "REAL_" + strings.ReplaceAll(name, "-", "_") + "_" + nonce
+	if name == "summary" {
+		// This is synthetic platform history, never a real group's archive.
+		history := "合成验收议题代号是 " + expected + "。请在极简总结中保留该代号，整条回复不超过100字。"
+		reply, e := h.SendGroupWithContext(checkCtx, uid, uid, "群聊总结 1", history)
+		if e != nil {
+			return nil, e
+		}
+		if e = qa.WriteJSON(filepath.Join(out, name+"-reply.json"), map[string]any{"reply": reply}); e != nil {
+			return nil, e
+		}
+		if !strings.Contains(reply, expected) {
+			return nil, errors.New("summary did not contain the synthetic history nonce")
+		}
+		return nil, nil
+	}
 	prompt := "请只输出以下字符串，不要增加标点或解释：" + expected
 	var segments []map[string]any
 	if name != "gpt" && name != "chat" {

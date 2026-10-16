@@ -13,9 +13,11 @@ type Profile struct {
 }
 
 type Routes struct {
-	Chat  string `json:"chat"`
-	Agent string `json:"agent"`
-	Image string `json:"image"`
+	Chat    string `json:"chat"`
+	GPT     string `json:"gpt,omitempty"`
+	Summary string `json:"summary,omitempty"`
+	Agent   string `json:"agent"`
+	Image   string `json:"image"`
 }
 
 // Select returns zero profiles for disabled optional entrances. Explicit invalid
@@ -35,7 +37,10 @@ func Select(profiles []Profile, routes Routes) (map[string]Profile, error) {
 		return nil, errors.New("聊天入口必须选择模型配置")
 	}
 	result := map[string]Profile{}
-	for role, id := range map[string]string{"": routes.Chat, "Agent": routes.Agent, "Image": routes.Image} {
+	for role, id := range map[string]string{"": routes.Chat, "GPT": routes.GPT, "Summary": routes.Summary, "Agent": routes.Agent, "Image": routes.Image} {
+		if id == "" && (role == "GPT" || role == "Summary") {
+			id = routes.Chat
+		}
 		if id == "" {
 			result[role] = Profile{}
 			continue
