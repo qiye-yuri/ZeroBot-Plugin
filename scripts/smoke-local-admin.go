@@ -163,17 +163,21 @@ func run() error {
 		w.Header().Set("Content-Type", "application/json")
 		bodyJSON, _ := json.Marshal(body)
 		reply := shortModelReply
-		switch body["model"] {
-		case "smoke-named-chat":
-			reply = "NAMED_CHAT_OK"
-		case "smoke-named-image":
-			reply = "NAMED_IMAGE_DESCRIPTION"
-		case "smoke-named-agent":
-			if !bytes.Contains(bodyJSON, []byte("NAMED_IMAGE_DESCRIPTION")) {
-				http.Error(w, "named vision result missing", 400)
-				return
+		if bytes.Contains(bodyJSON, []byte("这是后台模型连通性测试。请只回复 OK。")) {
+			reply = "PROBE_RESPONSE_MUST_NOT_BE_EXPOSED"
+		} else {
+			switch body["model"] {
+			case "smoke-named-chat":
+				reply = "NAMED_CHAT_OK"
+			case "smoke-named-image":
+				reply = "NAMED_IMAGE_DESCRIPTION"
+			case "smoke-named-agent":
+				if !bytes.Contains(bodyJSON, []byte("NAMED_IMAGE_DESCRIPTION")) {
+					http.Error(w, "named vision result missing", 400)
+					return
+				}
+				reply = `{"action":"send_group_msg","params":{"group_id":707,"message":"NAMED_MODELS_OK"}}` + "\n" + `{"action":"end_action","params":{}}`
 			}
-			reply = `{"action":"send_group_msg","params":{"group_id":707,"message":"NAMED_MODELS_OK"}}` + "\n" + `{"action":"end_action","params":{}}`
 		}
 		if body["model"] == "smoke-voice-chat" {
 			reply = "VOICE_TEXT_OK"
@@ -591,8 +595,13 @@ func run() error {
 		return fmt.Errorf("voice side-effect regression: get=%d direct=%d record=%d empty=%t invalid=%t", voiceGets.Load(), voiceDirects.Load(), voiceRecordAttempts.Load(), voiceEmptyRecord.Load(), voiceInvalidTarget.Load())
 	}
 	modelMu.Lock()
-	chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, preparationCalls, descriptionCalls, outputCalls, namedCalls := 0, 0, 0, 0, 0, 0, 0, 0, 0
+	chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, preparationCalls, descriptionCalls, outputCalls, namedCalls, probeCalls := 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	for _, request := range modelRequests {
+		body, _ := json.Marshal(request)
+		if bytes.Contains(body, []byte("这是后台模型连通性测试。请只回复 OK。")) {
+			probeCalls++
+			continue
+		}
 		if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-named-") {
 			namedCalls++
 		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-output-limit-") {
@@ -624,6 +633,10 @@ func run() error {
 	if namedCalls != 4 {
 		modelMu.Unlock()
 		return fmt.Errorf("named entrances did not make exactly four requests: %d", namedCalls)
+	}
+	if probeCalls != 2 {
+		modelMu.Unlock()
+		return fmt.Errorf("manual probes made %d requests, want two", probeCalls)
 	}
 	requestsJSON, _ := json.Marshal(modelRequests)
 	groupRequest, privateRequest := modelRequests[0], modelRequests[1]
@@ -708,6 +721,7 @@ func run() error {
 	result["aiAgentRolePromptsPassed"] = true
 	result["aiConversationPersonaModelAndHTTPPassed"] = true
 	result["aiNamedModelsSelectionAndRequestsPassed"] = true
+	result["aiManualModelProbeAndBusinessStatsPassed"] = true
 	result["agentArchiveReadSearchIsolationPassed"] = true
 	result["agentArchiveTimeRangeSearchPassed"] = true
 	result["agentArchiveSourceContextHTTPPassed"] = true
@@ -2595,6 +2609,35 @@ func verifyNamedModelRuntime(do func(string, string, any, string) (int, map[stri
 	newStats := after["modelRequests"].(map[string]any)
 	if newStats["started"].(float64) != oldStats["started"].(float64)+4 || newStats["completed"].(float64) != oldStats["completed"].(float64)+4 || newStats["active"] != float64(0) || newStats["incomplete"] != float64(0) {
 		return fmt.Errorf("named model statistics not fully settled")
+	}
+	status, settings, err := do("GET", "/api/ai", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("probe saved settings missing")
+	}
+	revision := settings["global"].(map[string]any)["revision"]
+	for _, entry := range []string{"chat", "agent"} {
+		status, probe, e := do("POST", "/api/ai-test", map[string]any{"entry": entry, "revision": revision}, csrf)
+		if e != nil || status != 200 || probe["success"] != true || probe["model"] != "smoke-named-"+entry || probe["revision"] != revision {
+			return fmt.Errorf("manual %s probe failed: %d %v", entry, status, e)
+		}
+		raw, _ := json.Marshal(probe)
+		if bytes.Contains(raw, []byte("PROBE_RESPONSE_MUST_NOT_BE_EXPOSED")) || bytes.Contains(raw, []byte("synthetic-named-")) {
+			return fmt.Errorf("probe disclosed private response or key")
+		}
+	}
+	status, settings, err = do("GET", "/api/ai", nil, "")
+	if err != nil || status != 200 || settings["global"].(map[string]any)["revision"] != revision {
+		return fmt.Errorf("probe changed saved settings")
+	}
+	status, afterProbe, err := do("GET", "/api/overview", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("probe statistics unavailable")
+	}
+	statsAfter := afterProbe["modelRequests"].(map[string]any)
+	for _, field := range []string{"started", "completed", "failed", "incomplete", "active"} {
+		if statsAfter[field] != newStats[field] {
+			return fmt.Errorf("probe changed business model statistics")
+		}
 	}
 	for _, gid := range []int64{707, 708} {
 		if text, err := send(12345678, gid, "member", "/沉默", true); err != nil || !strings.Contains(text, "休息") {

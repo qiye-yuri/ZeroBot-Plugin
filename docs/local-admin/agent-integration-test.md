@@ -1,5 +1,7 @@
 # AI 与 Agent 隔离整机自测
 
+R3/R4 批次在统一入口增加 `ai-probe.js` 语法检查，合计 14 步；浏览器纳入 `scripts/test-ai-probe-ui.mjs`。原命名模型流程增加聊天/Agent 两次显式诊断，模拟服务核对地址、模型和凭据，返回结果不得包含提供商正文，配置修订及业务统计保持。完整通过时新增 `aiManualModelProbeAndBusinessStatsPassed=true`；诊断请求与原业务请求分开计数，不增加业务类别。
+
 R1/R2 批次在统一入口新增 `model-provider-tests` 和最终构建后的 `model-provider-integration`，合计 13 步。后者使用真实模型测试脚本的实际运行路径、命名配置解析快照和最终程序，完成 GPT、普通聊天、Agent、识图四个用例并核对三入口，服务全部为本机模拟。统一浏览器列表加入 `scripts/test-conversation-shortcuts-ui.mjs`，覆盖已加载范围、草稿确认、失败清理、退出及窄屏。当次结果见[自测](self-test.md#r1r2-第一批验收)，下文历史数量按当时范围保留。
 
 N2 命名模型：在既有回归完成后，后台保存三个独立地址、模型名和密钥的命名配置，分别执行 GPT、普通聊天及带图 Agent。模拟服务核对每次模型名对应的地址和凭据，Agent 必须收到识图结果；共新增 4 次 HTTP，检查全部完成且不混入原 53 次基线统计。成功输出 `aiNamedModelsSelectionAndRequestsPassed=true`。三种协议的实际请求、迁移去重、备份失败零写入、数据库恢复、编号/密钥/引用及重启由 Go 覆盖，模型表单草稿由 Chrome 覆盖。

@@ -93,6 +93,7 @@ function confirmAIDiscard(action) {
 }
 
 function resetAI() {
+  if(typeof resetAIProbe==="function")resetAIProbe();
   aiGeneration++; aiState = null; aiGroup = "0"; aiPrivate = "";
   aiBaselines.clear(); aiBusy=false; $("ai-models-form").replaceChildren(); $("ai-models-form").hidden=true; $("ai-persona-form").replaceChildren(); $("ai-persona-form").hidden=true; $("ai-persona-bot").value=""; $("ai-persona-id").value="";
   renderAIConfigChecks(null);
@@ -105,6 +106,7 @@ function aiBusyState(busy) {
   $("ai-global-fields").disabled = busy || !aiState?.available;
   for (const fields of document.querySelectorAll("#ai-models-form fieldset,#ai-group-forms fieldset,#ai-persona-form fieldset,#ai-persona-scope input,#ai-persona-scope select,#ai-persona-scope button")) fields.disabled = busy;
   renderAIDrafts();
+  if(typeof renderAIProbeControls==="function")renderAIProbeControls();
 }
 function aiInput(container, name, labelText, kind, value, min, max) {
   const label = document.createElement("label"), input = document.createElement(kind === "textarea" ? "textarea" : kind === "type" ? "select" : "input");
@@ -124,6 +126,7 @@ function aiInput(container, name, labelText, kind, value, min, max) {
 }
 function renderAIGlobal(value) {
   renderAIConfigChecks(value);
+  if(typeof renderAIProbeControls==="function")renderAIProbeControls();
   if (!value.available) { $("ai-status").textContent = "当前程序没有编译 AI 配置插件。"; $("ai-global-inputs").replaceChildren(); aiBaselines.delete("global"); renderAIDrafts(); return; }
   const container = $("ai-global-inputs"); container.replaceChildren();
   for (const [name,label,kind,min,max] of aiFields) {
