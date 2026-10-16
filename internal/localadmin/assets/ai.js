@@ -201,9 +201,9 @@ function renderAIGroups(groups, onlyService="") {
     });
   }
 }
-async function loadAI(group=aiGroup,privateId=aiPrivate) {
+async function loadAI(group=aiGroup,privateId=aiPrivate,{confirmed=false}={}) {
   if (aiBusy || !authenticated) return;
-  if (!confirmAIDiscard(group===aiGroup && privateId===aiPrivate ? "重新加载设置" : "切换会话参数")) return;
+  if (!confirmed && !confirmAIDiscard(group===aiGroup && privateId===aiPrivate ? "重新加载设置" : "切换会话参数")) return;
   const generation=++aiGeneration; aiBusyState(true); $("ai-error").hidden=true;
   try { const value=await api("/api/ai?"+(privateId ? "private="+encodeURIComponent(privateId) : "group="+encodeURIComponent(group))); if (generation!==aiGeneration || !authenticated) return; aiGroup=group; aiPrivate=privateId; aiState=value; aiBaselines.delete("models"); $("ai-models-form").replaceChildren(); $("ai-models-form").hidden=true; aiBaselines.delete("persona"); $("ai-persona-form").replaceChildren(); $("ai-persona-form").hidden=true; $("ai-scope-kind").value=privateId ? "private" : "group"; if (privateId || group!=="0") $("ai-group").value=privateId || group; renderAIScopeLabel(); renderAIGlobal(value); renderAIGroups(value.groups); }
   catch(error) { if (generation===aiGeneration && authenticated) { $("ai-status").textContent="读取失败，请重新加载。"; showError("ai-error",error); } }
@@ -264,16 +264,43 @@ function renderAIPersona(value) {
     finally{if(generation===aiGeneration)aiBusyState(false);}
   };
 }
-$("ai-persona-scope").addEventListener("submit",async event=>{
-  event.preventDefault();if(aiBusy||!authenticated)return;
-  if(aiDrafts().includes("persona")&&!window.confirm("切换会话人物将放弃该表单未保存的更改，是否继续？"))return;
-  const scope={botId:$("ai-persona-bot").value.trim(),type:$("ai-persona-type").value,id:$("ai-persona-id").value.trim()};
+async function loadAIPersona(scope,{confirmed=false,clearPrevious=false}={}) {
+  if(aiBusy||!authenticated)return;
+  if(!confirmed&&aiDrafts().includes("persona")&&!window.confirm("切换会话人物将放弃该表单未保存的更改，是否继续？"))return;
   if(!/^[1-9][0-9]{0,18}$/.test(scope.botId)||!/^[1-9][0-9]{0,18}$/.test(scope.id)){showError("ai-error",new Error("机器人及会话 QQ 须为正整数。"));return;}
   const generation=aiGeneration;aiBusyState(true);$("ai-error").hidden=true;
+  if(clearPrevious){aiBaselines.delete("persona");$("ai-persona-form").replaceChildren();$("ai-persona-form").hidden=true;renderAIDrafts();}
   try{const value=await api("/api/ai-persona?"+new URLSearchParams(scope));if(generation!==aiGeneration||!authenticated)return;renderAIPersona(value);}
   catch(error){if(generation===aiGeneration&&authenticated)showError("ai-error",error);}
   finally{if(generation===aiGeneration)aiBusyState(false);}
+}
+$("ai-persona-scope").addEventListener("submit",event=>{
+  event.preventDefault();loadAIPersona({botId:$("ai-persona-bot").value.trim(),type:$("ai-persona-type").value,id:$("ai-persona-id").value.trim()});
 });
+
+async function openConversationAI(scope,kind) {
+  if(!authenticated||aiBusy)return;
+  const needsGlobal=kind==="parameters"||!aiState;
+  if(needsGlobal){if(!confirmAIDiscard("进入此会话设置"))return;}
+  else if(aiDrafts().includes("persona")&&!window.confirm("切换会话人物将放弃该表单未保存的更改，是否继续？"))return;
+  if(!showWorkspaceView("ai",{autoLoadAI:false}))return;
+  if(needsGlobal){
+    // Clear the previous target before reading, so a failed shortcut cannot
+    // leave an editable form for another conversation beneath the new scope.
+    resetAI();
+    await loadAI(scope.type==="group"?scope.id:"0",scope.type==="private"?scope.id:"",{confirmed:true});
+    if(!authenticated||!aiState||$("ai-view").hidden)return;
+  }
+  if(kind==="persona"){
+    $("ai-persona-bot").value=scope.botId;$("ai-persona-type").value=scope.type;$("ai-persona-id").value=scope.id;
+    await loadAIPersona({botId:scope.botId,type:scope.type,id:scope.id},{confirmed:true,clearPrevious:true});
+    if(!authenticated||$("ai-view").hidden)return;
+    $("ai-persona-scope").scrollIntoView({block:"start"});
+  }else{
+    $("ai-status").textContent="已读取机器人 "+scope.botId+" 的"+(scope.type==="group"?"群 ":"私聊 QQ ")+scope.id+"；会话参数由本实例各机器人共享，不是机器人专属设置。";
+    $("ai-scope-form").scrollIntoView({block:"start"});
+  }
+}
 
 function lockLegacyModelFields(named) {
   if (!named || $("ai-global-inputs").querySelector("[data-model-notice]")) return;

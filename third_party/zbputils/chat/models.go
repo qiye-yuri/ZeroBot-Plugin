@@ -5,6 +5,8 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+
+	"github.com/FloatTech/zbputils/modelconfig"
 )
 
 type ModelProfile struct {
@@ -16,11 +18,7 @@ type ModelProfile struct {
 	Key   ModelKey  `json:"key"`
 }
 
-type ModelRoutes struct {
-	Chat  string `json:"chat"`
-	Agent string `json:"agent"`
-	Image string `json:"image"`
-}
+type ModelRoutes = modelconfig.Routes
 
 var profileID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 var ErrNamedModelFields = errors.New("已启用命名模型，请在后台命名模型配置中修改模型、接口和密钥")
@@ -49,50 +47,37 @@ func (c AgentConfig) validateModelRoutes() error {
 		}
 		return nil
 	}
-	ids := map[string]ModelProfile{}
+	_, err := c.selectModels()
+	return err
+}
+
+func (c AgentConfig) selectModels() (map[string]modelconfig.Profile, error) {
+	profiles := make([]modelconfig.Profile, 0, len(c.ModelProfiles))
 	for _, p := range c.ModelProfiles {
-		if _, ok := ids[p.ID]; ok {
-			return errors.New("模型配置编号重复")
-		}
-		ids[p.ID] = p
+		profiles = append(profiles, modelconfig.Profile{ID: p.ID, Type: int(p.Type), API: p.API, Model: p.Model, Key: string(p.Key)})
 	}
-	if c.ModelRoutes.Chat == "" {
-		return errors.New("聊天入口必须选择模型配置")
-	}
-	for _, id := range []string{c.ModelRoutes.Chat, c.ModelRoutes.Agent, c.ModelRoutes.Image} {
-		if id == "" {
-			continue
-		}
-		p, ok := ids[id]
-		if !ok {
-			return errors.New("入口引用的命名模型不存在，请重新选择")
-		}
-		if p.API == "" || p.Model == "" || (p.Type != 1 && p.Key == "") {
-			return errors.New("入口引用的命名模型配置不完整，请核对地址、模型与密钥")
-		}
-	}
-	return nil
+	return modelconfig.Select(profiles, *c.ModelRoutes)
 }
 
 // ResolveModels projects a single immutable selection into the existing clients.
 // Empty optional routes disable that entrance, never fall back to another model.
 func (c AgentConfig) ResolveModels() (AgentConfig, error) {
-	if err := c.validateModelRoutes(); err != nil {
-		return AgentConfig{}, err
-	}
 	if c.ModelRoutes == nil {
+		if err := c.validateModelRoutes(); err != nil {
+			return AgentConfig{}, err
+		}
 		return c, nil
 	}
-	profiles := map[string]ModelProfile{}
-	for _, p := range c.ModelProfiles {
-		profiles[p.ID] = p
+	profiles, err := c.selectModels()
+	if err != nil {
+		return AgentConfig{}, err
 	}
-	p := profiles[c.ModelRoutes.Chat]
-	c.Type, c.ModelName, c.API, c.Key = p.Type, p.Model, p.API, p.Key
-	p = profiles[c.ModelRoutes.Agent]
-	c.AgentType, c.AgentModelName, c.AgentAPI, c.AgentKey = p.Type, p.Model, p.API, p.Key
-	p = profiles[c.ModelRoutes.Image]
-	c.ImageType, c.ImageModelName, c.ImageAPI, c.ImageKey = p.Type, p.Model, p.API, p.Key
+	p := profiles[""]
+	c.Type, c.ModelName, c.API, c.Key = ModelType(p.Type), p.Model, p.API, ModelKey(p.Key)
+	p = profiles["Agent"]
+	c.AgentType, c.AgentModelName, c.AgentAPI, c.AgentKey = ModelType(p.Type), p.Model, p.API, ModelKey(p.Key)
+	p = profiles["Image"]
+	c.ImageType, c.ImageModelName, c.ImageAPI, c.ImageKey = ModelType(p.Type), p.Model, p.API, ModelKey(p.Key)
 	return c, nil
 }
 

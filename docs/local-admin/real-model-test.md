@@ -2,7 +2,9 @@
 
 用于验证已配置提供商的实际返回，以及完整程序中的聊天、Agent 动作、检索和识图链路。它使用 `.local/bin` 中的程序、独立配置和合成 OneBot；模型是真实接口，QQ 事件及回执是模拟的，不向真实 QQ 发消息。
 
-当前真实测试入口读取日常控制库中的旧模型字段；N2 尚未迁移时可核对现有模型。本次部署保持旧字段，因此部署后七组测试对应日常原模型。首次保存命名模型后，该入口尚不解析命名路由，不能用其通过结果证明当前命名配置有效；N2 入口选择与请求匹配的自动化范围见[部署验证](self-test.md#n1n2-合并与日常部署验证)。
+测试入口同时支持旧字段与 N2 命名模型。命名模式按聊天、Agent、识图的已保存引用选择配置，和机器人运行时共用纯解析规则，不回退到旧字段。读取配置只做一次，作为本次测试快照；预检及脚本初始化不加载机器人聊天/素材模块，不创建控制库或备份。
+
+预检显示 `mode`（legacy/named）、各入口模型/类型、`enabled`、`ready` 与所选用例的 `casesReady`；停用入口明确为不可用，凭据不输出。预检退出成功表示完成只读检查，是否可运行看 `casesReady`；缺项会附 `selectionError`。显式 `-run` 发现缺项、停用、未知/空/重复用例时非零退出，在启动实例或请求提供商前拒绝。失效命名引用直接读取失败，不能据此测试旧模型。
 
 ## 运行
 
@@ -23,6 +25,12 @@ go run scripts/test-real-model.go -run -binary-name zerobot-agent-complete.exe -
 ```
 
 支持 `gpt,chat,agent,memory-save,history,memory,vision`，逗号分隔。测试不自动切换模型或重试失败场次；缺失配置、无返回、任务失败或断言不符时记录失败。单项等待回复最多 100 秒，整个进程最多 12 分钟，退出时停止自己的机器人实例。
+
+`gpt/chat` 需要聊天入口，`agent/memory-save/history/memory` 需要 Agent 入口，`vision` 同时需要 Agent 与识图入口。可用 `-cases gpt,chat` 只验证文字聊天，不能将未选用例或停用入口记为通过。
+
+报告新增 `configurationMode` 与 `configurationSnapshot`，说明测试时固定选择并将解析后的三个入口映射到隔离实例的旧字段。该脚本验证实际提供商和业务用例；命名列表保存、迁移和引用持久性由原 N2 隔离整机覆盖。运行前后台修改配置不需要先迁回旧模式，运行途中再保存不会替换本轮快照。
+
+离线回归为 `go test scripts/test-real-model.go scripts/test-real-model_test.go -count=1 -timeout=120s`。统一复验另在最终构建后显式运行带 `-validation-binary` 的隔离测试，覆盖 GPT、普通聊天、Agent 及识图四类流程，核对三入口地址/模型/凭据，全部使用模拟模型与合成 OneBot，不消耗真实服务额度。
 
 ## 判定范围
 

@@ -5,6 +5,7 @@ function clearAgentSearchContinue() {
   agentSearchContinue=null;$("agent-search-continue").hidden=true;$("agent-search-continue").disabled=true;
 }
 function agentControls() {
+  for(const id of ["agent-open-persona","agent-open-ai"])$(id).disabled=!authenticated||!agentVisible||agentBusy||!agentScope;
   $("agent-search-continue").hidden=!agentSearchContinue;
   $("agent-search-continue").disabled=agentBusy||!agentSearchContinue;
   for(const id of ["agent-refresh","agent-bot","agent-type","agent-id","agent-archived"] ) $(id).disabled=agentBusy;
@@ -239,4 +240,6 @@ $("agent-search-continue").addEventListener("click",()=>{
 $("agent-history-refresh").addEventListener("click",()=>loadAgentHistory({reload:true}));
 $("agent-next").addEventListener("click",()=>{if(agentNext)loadAgentHistory({cursor:agentNext});});
 $("agent-list-next").addEventListener("click",()=>{if(agentListNext)loadAgentConversations(agentListNext);});
+$("agent-open-persona").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"persona");});
+$("agent-open-ai").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"parameters");});
 agentControls();
