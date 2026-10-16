@@ -7,9 +7,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"image"
+	"image/color"
+	_ "image/jpeg"
+	"image/png"
 	"io"
 	"net"
 	"net/http"
@@ -74,9 +79,59 @@ func run() error {
 	}
 	var modelMu sync.Mutex
 	modelRequests := []map[string]any{}
+	modelRounds := map[string]int{}
+	var knowledgeFailures []string
+	var visionImageGets, visionLargeGets atomic.Int32
+	var descriptionImageGets atomic.Int32
+	var preparationImageWait, preparationVisionWait atomic.Bool
+	var preparationImageGets, preparationNextImageGets atomic.Int32
+	var visionFixture bytes.Buffer
+	visionImage := image.NewRGBA(image.Rect(0, 0, 32, 32))
+	for y := 0; y < 32; y++ {
+		for x := 0; x < 32; x++ {
+			visionImage.Set(x, y, color.RGBA{R: uint8(x * 8), G: uint8(y * 8), B: 120, A: 255})
+		}
+	}
+	if err := png.Encode(&visionFixture, visionImage); err != nil {
+		return err
+	}
+	var taskModelInFlight, taskActionInFlight, taskFallbackInFlight atomic.Bool
 	shortModelReply := "本地模型模拟回复🙂" + strings.Repeat("中", 200-utf8.RuneCountInString("本地模型模拟回复🙂"))
 	longModelReply := shortModelReply + "😀"
 	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/description-image-") {
+			descriptionImageGets.Add(1)
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(visionFixture.Bytes())
+			return
+		}
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/prepare-image-") {
+			if r.URL.Path == "/prepare-image-next" {
+				preparationNextImageGets.Add(1)
+			} else {
+				preparationImageGets.Add(1)
+			}
+			if r.URL.Path == "/prepare-image-download" {
+				preparationImageWait.Store(true)
+				defer preparationImageWait.Store(false)
+				time.Sleep(1500 * time.Millisecond)
+			}
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(visionFixture.Bytes())
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/agent-image-ok" {
+			visionImageGets.Add(1)
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(visionFixture.Bytes())
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/agent-image-large" {
+			visionLargeGets.Add(1)
+			w.Header().Set("Content-Length", strconv.Itoa((8<<20)+1))
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		if r.Header.Get("Authorization") != "Bearer synthetic-model-key" {
 			http.Error(w, "fake key mismatch", 401)
 			return
@@ -88,12 +143,32 @@ func run() error {
 		}
 		modelMu.Lock()
 		modelRequests = append(modelRequests, body)
+		modelRounds[fmt.Sprint(body["model"])]++
+		round := modelRounds[fmt.Sprint(body["model"])]
 		modelMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		bodyJSON, _ := json.Marshal(body)
 		reply := shortModelReply
 		if body["model"] == "smoke-voice-chat" {
 			reply = "VOICE_TEXT_OK"
+		}
+		if body["model"] == "smoke-task-model-wait" {
+			taskModelInFlight.Store(true)
+			defer taskModelInFlight.Store(false)
+			time.Sleep(1500 * time.Millisecond)
+			reply = `{"action":"send_group_msg","params":{"group_id":303,"message":"TASK_MUST_NOT_SEND"}}` + "\n" + `{"action":"end_action","params":{}}`
+		}
+		if body["model"] == "smoke-task-action-wait" {
+			reply = `{"action":"get_group_member_info","params":{"group_id":303,"user_id":987654321}}` + "\n" + `{"action":"send_group_msg","params":{"group_id":303,"message":"TASK_MUST_NOT_SEND"}}` + "\n" + `{"action":"end_action","params":{}}`
+		}
+		if body["model"] == "smoke-task-fallback-wait" {
+			reply = `{"action":"end_action","params":{}}`
+		}
+		if body["model"] == "smoke-task-chat-wait" {
+			taskFallbackInFlight.Store(true)
+			defer taskFallbackInFlight.Store(false)
+			time.Sleep(1500 * time.Millisecond)
+			reply = "TASK_MUST_NOT_SEND"
 		}
 		if bytes.Contains(bodyJSON, []byte("quoted smoke")) {
 			reply = longModelReply
@@ -112,7 +187,7 @@ func run() error {
 				}
 			}
 			text := "ROLE_AGENT_" + kind
-			pre := ""
+			pre := `{"action":"search_history","params":{"from":"2000-01-01T00:00:00Z","limit":1}}` + "\n" + `{"action":"save_memory","params":{"text":"synthetic managed memory"}}` + "\n"
 			if strings.LastIndex(string(bodyJSON), "ROLE_AGENT_CROSS_INFO") > strings.LastIndex(string(bodyJSON), "ROLE_AGENT_CHECK") {
 				pre = `{"action":"get_group_info","params":{"group_id":202}}` + "\n"
 				text = "ROLE_BLOCKED_OK"
@@ -123,7 +198,60 @@ func run() error {
 			}
 			reply = pre + `{"action":"send_group_msg","params":{"group_id":303,"message":"` + text + `"}}` + "\n" + `{"action":"end_action","params":{}}`
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": reply}}}})
+		if strings.HasPrefix(fmt.Sprint(body["model"]), "smoke-knowledge-") {
+			var err error
+			reply, err = smokeKnowledgeReply(body, round)
+			if err != nil {
+				modelMu.Lock()
+				knowledgeFailures = append(knowledgeFailures, err.Error())
+				modelMu.Unlock()
+				http.Error(w, "synthetic knowledge assertion failed", 500)
+				return
+			}
+		}
+		if strings.HasPrefix(fmt.Sprint(body["model"]), "smoke-vision-") || body["model"] == "smoke-prepare-vision" {
+			if body["model"] == "smoke-prepare-vision" {
+				preparationVisionWait.Store(true)
+				defer preparationVisionWait.Store(false)
+				time.Sleep(1500 * time.Millisecond)
+			}
+			var err error
+			reply, err = smokeVisionReply(body)
+			if err != nil {
+				modelMu.Lock()
+				knowledgeFailures = append(knowledgeFailures, err.Error())
+				modelMu.Unlock()
+				http.Error(w, "synthetic vision assertion failed", 500)
+				return
+			}
+		}
+		if strings.HasPrefix(fmt.Sprint(body["model"]), "smoke-description-") {
+			var err error
+			reply, err = smokeDescriptionReply(body, round)
+			if err != nil {
+				modelMu.Lock()
+				knowledgeFailures = append(knowledgeFailures, err.Error())
+				modelMu.Unlock()
+				http.Error(w, "synthetic description assertion failed", 500)
+				return
+			}
+		}
+		if strings.HasPrefix(fmt.Sprint(body["model"]), "smoke-output-limit-") {
+			kind := strings.TrimPrefix(fmt.Sprint(body["model"]), "smoke-output-limit-")
+			if status, text, ok := smokeModelRequestFailure(kind); ok {
+				w.Header().Set("Content-Length", strconv.Itoa(len(text)))
+				w.WriteHeader(status)
+				io.WriteString(w, text)
+				return
+			}
+			var err error
+			reply, err = smokeActionOutputReply(kind)
+			if err != nil {
+				http.Error(w, "invalid output fixture", 500)
+				return
+			}
+		}
+		_ = json.NewEncoder(w).Encode(smokeModelReplyEnvelope(fmt.Sprint(body["model"]), reply))
 	}))
 	defer modelServer.Close()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -135,6 +263,7 @@ func run() error {
 	sent := make(chan apiRequest, 8)
 	var failServiceForward atomic.Bool
 	var roleCrossGroupQuery atomic.Bool
+	var localActionForwarded atomic.Bool
 	var voiceGets, voiceDirects, voiceRecordAttempts atomic.Int32
 	var voiceEmptyRecord, voiceInvalidTarget atomic.Bool
 	var writeMu sync.Mutex
@@ -161,6 +290,10 @@ func run() error {
 			var request apiRequest
 			if err := conn.ReadJSON(&request); err != nil {
 				return
+			}
+			if request.Action == "get_group_member_info" && request.Params.UserID == 987654321 {
+				taskActionInFlight.Store(true)
+				time.Sleep(1500 * time.Millisecond)
 			}
 			data := map[string]any{"message_id": 999, "user_id": 12345678, "nickname": "Local smoke user"}
 			var apiData any = data
@@ -210,6 +343,9 @@ func run() error {
 			if request.Action == "get_group_info" && request.Params.GroupID == 202 {
 				roleCrossGroupQuery.Store(true)
 			}
+			if request.Action == "search_history" || request.Action == "read_history" || request.Action == "search_memory" || request.Action == "read_memory" || request.Action == "save_memory" {
+				localActionForwarded.Store(true)
+			}
 			failedForward := strings.HasSuffix(request.Action, "forward_msg") && failServiceForward.CompareAndSwap(true, false)
 			if failedForward {
 				data["message_id"] = 0
@@ -222,6 +358,9 @@ func run() error {
 			writeMu.Lock()
 			err := conn.WriteJSON(map[string]any{"status": apiStatus, "retcode": apiRetcode, "data": apiData, "echo": request.Echo})
 			writeMu.Unlock()
+			if request.Action == "get_group_member_info" && request.Params.UserID == 987654321 {
+				taskActionInFlight.Store(false)
+			}
 			if err != nil {
 				return
 			}
@@ -259,6 +398,13 @@ func run() error {
 	adminAddress := adminListener.Addr().String()
 	adminListener.Close()
 	adminData := filepath.Join(runtimeRoot, "admin-"+time.Now().Format("20060102-150405"))
+	legacyDir := filepath.Join(runtimeRoot, "data", "aichat", "agent")
+	if err = os.MkdirAll(legacyDir, 0700); err != nil {
+		return err
+	}
+	if err = os.WriteFile(filepath.Join(legacyDir, "404.txt"), []byte("synthetic legacy fact\n"), 0600); err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(ctx, filepath.Join(root, ".local", "bin", *binaryName), "-c", configPath, "-admin", "-admin-addr", adminAddress, "-admin-data", adminData)
 	cmd.Dir = runtimeRoot
 	cmd.Env = append(os.Environ(), "DEBUG_MODE=1")
@@ -301,6 +447,21 @@ func run() error {
 	sendMessage := func(uid, gid int64, role, command string, atBot bool) (string, error) {
 		controlMessageID++
 		segments := []map[string]any{{"type": "text", "data": map[string]string{"text": command}}}
+		if command == "VISION_IMAGE_CHECK" {
+			for _, source := range []string{modelServer.URL + "/agent-image-ok", modelServer.URL + "/agent-image-large", "base64://!", "file:///synthetic-not-read.png"} {
+				segments = append(segments, map[string]any{"type": "image", "data": map[string]string{"file": source}})
+			}
+		}
+		if command == "VISION_DESCRIPTION_CHECK" {
+			for _, name := range []string{"a", "b", "c"} {
+				segments = append(segments, map[string]any{"type": "image", "data": map[string]string{"file": modelServer.URL + "/description-image-" + name}})
+			}
+		}
+		if strings.HasPrefix(command, "PREPARE_CANCEL_") {
+			for _, source := range []string{modelServer.URL + "/prepare-image-" + strings.TrimPrefix(command, "PREPARE_CANCEL_"), modelServer.URL + "/prepare-image-next"} {
+				segments = append(segments, map[string]any{"type": "image", "data": map[string]string{"file": source}})
+			}
+		}
 		// This one fixture command exercises QQ reply-element preprocessing.
 		if command == "/gpt quoted smoke" {
 			segments = append([]map[string]any{{"type": "reply", "data": map[string]string{"id": "42"}}}, segments...)
@@ -309,6 +470,10 @@ func run() error {
 			segments = append([]map[string]any{{"type": "at", "data": map[string]string{"qq": "87654321"}}}, segments...)
 		}
 		event := map[string]any{"time": time.Now().Unix(), "self_id": 87654321, "post_type": "message", "message_type": "private", "sub_type": "friend", "message_id": controlMessageID, "user_id": uid, "raw_message": command, "message": segments, "sender": map[string]any{"user_id": uid, "nickname": "Synthetic permission user", "sex": "unknown", "age": 0, "role": role}}
+		// Repeated provider IDs must not change task or memory provenance.
+		if strings.HasPrefix(command, "ROLE_AGENT_") {
+			event["message_id"] = 777
+		}
 		if gid != 0 {
 			event["message_type"], event["sub_type"], event["group_id"] = "group", "normal", gid
 		}
@@ -367,7 +532,23 @@ func run() error {
 	sendControl := func(uid int64, command string) (string, error) {
 		return sendMessage(uid, 0, "member", command, false)
 	}
-	if err := verifyAdmin("http://"+adminAddress, adminData, modelServer.URL, sendControl, sendMessage); err != nil {
+	inFlight := func(phase string) bool {
+		switch phase {
+		case "model":
+			return taskModelInFlight.Load()
+		case "action":
+			return taskActionInFlight.Load()
+		case "fallback":
+			return taskFallbackInFlight.Load()
+		case "prepare-download":
+			return preparationImageWait.Load()
+		case "prepare-vision":
+			return preparationVisionWait.Load()
+		default:
+			return false
+		}
+	}
+	if err := verifyAdmin("http://"+adminAddress, adminData, modelServer.URL, sendControl, sendMessage, inFlight); err != nil {
 		return err
 	}
 	if err := verifyGroupResponses(sendMessage); err != nil {
@@ -377,17 +558,33 @@ func run() error {
 		return fmt.Errorf("voice side-effect regression: get=%d direct=%d record=%d empty=%t invalid=%t", voiceGets.Load(), voiceDirects.Load(), voiceRecordAttempts.Load(), voiceEmptyRecord.Load(), voiceInvalidTarget.Load())
 	}
 	modelMu.Lock()
-	chatCalls, agentCalls := 0, 0
+	chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, preparationCalls, descriptionCalls, outputCalls := 0, 0, 0, 0, 0, 0, 0, 0
 	for _, request := range modelRequests {
-		if request["model"] == "smoke-role-agent" {
+		if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-output-limit-") {
+			outputCalls++
+		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-description-") {
+			descriptionCalls++
+		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-prepare-") {
+			if request["model"] != "smoke-prepare-vision" {
+				modelMu.Unlock()
+				return fmt.Errorf("Agent model called after preparation stop")
+			}
+			preparationCalls++
+		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-vision-") {
+			visionCalls++
+		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-knowledge-") {
+			knowledgeCalls++
+		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-task-") {
+			taskCalls++
+		} else if request["model"] == "smoke-role-agent" {
 			agentCalls++
 		} else {
 			chatCalls++
 		}
 	}
-	if chatCalls != 6 || agentCalls != 5 || roleCrossGroupQuery.Load() {
+	if chatCalls != 6 || agentCalls != 5 || taskCalls != 4 || knowledgeCalls != 13 || visionCalls != 3 || preparationCalls != 1 || descriptionCalls != 5 || outputCalls != 16 || descriptionImageGets.Load() != 9 || preparationImageGets.Load() != 2 || preparationNextImageGets.Load() != 0 || visionImageGets.Load() != 3 || visionLargeGets.Load() != 3 || len(knowledgeFailures) != 0 || roleCrossGroupQuery.Load() || localActionForwarded.Load() {
 		modelMu.Unlock()
-		return fmt.Errorf("unexpected role model calls or cross-group query: chat=%d agent=%d cross=%t", chatCalls, agentCalls, roleCrossGroupQuery.Load())
+		return fmt.Errorf("unexpected model calls or local dispatch: chat=%d agent=%d task=%d knowledge=%d vision=%d imageGets=%d largeGets=%d failures=%v cross=%t local=%t", chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, visionImageGets.Load(), visionLargeGets.Load(), knowledgeFailures, roleCrossGroupQuery.Load(), localActionForwarded.Load())
 	}
 	requestsJSON, _ := json.Marshal(modelRequests)
 	groupRequest, privateRequest := modelRequests[0], modelRequests[1]
@@ -470,6 +667,67 @@ func run() error {
 	result["gptQuoteBoundaryPassed"] = true
 	result["aiRoleCommandsPassed"] = true
 	result["aiAgentRolePromptsPassed"] = true
+	result["agentArchiveReadSearchIsolationPassed"] = true
+	result["agentArchiveTimeRangeSearchPassed"] = true
+	result["agentArchiveSourceContextHTTPPassed"] = true
+	result["agentArchiveContextRadiusHTTPPassed"] = true
+	result["agentArchiveExactLookupHTTPPassed"] = true
+	result["agentTaskReasonFilterHTTPPassed"] = true
+	result["agentTaskPhaseFilterHTTPPassed"] = true
+	result["agentTaskOutcomeFilterHTTPPassed"] = true
+	result["agentTaskStartRangeHTTPPassed"] = true
+	result["agentHistorySenderModelRoundTripPassed"] = true
+	result["agentHistorySenderOnlyModelRoundTripPassed"] = true
+	result["agentHistoryEventTypeModelRoundTripPassed"] = true
+	result["agentArchiveEventTypeSearchHTTPPassed"] = true
+	result["agentArchiveSenderSearchHTTPPassed"] = true
+	result["agentArchiveSenderOnlySearchHTTPPassed"] = true
+	result["agentHistoryTimeRangeModelRoundTripPassed"] = true
+	result["agentHistoryTimeOnlyQueryPassed"] = true
+	result["agentArchiveTimeOnlySearchHTTPPassed"] = true
+	result["agentHistoryContinuationModelRoundTripPassed"] = true
+	result["agentArchiveSearchContinuationAssetsPassed"] = true
+	result["agentMemoryContinuationModelRoundTripPassed"] = true
+	result["agentMemorySourceSearchModelRoundTripPassed"] = true
+	result["agentMemorySourceSearchHTTPPassed"] = true
+	result["agentMemorySourceOnlyModelAndHTTPPassed"] = true
+	result["agentMemoryRevisionTimeModelAndHTTPPassed"] = true
+	result["agentMemoryCurrentReadAndLifecycleHTTPPassed"] = true
+	result["agentMemoryNewestVersionsHTTPPassed"] = true
+	result["agentMemoryExactRevisionHTTPPassed"] = true
+	result["agentMemoryHistoryComparisonAssetsPassed"] = true
+	result["agentMemoryDisabledSearchAndRestoreHTTPPassed"] = true
+	result["agentHistorySourceContextModelRoundTripPassed"] = true
+	result["agentLocalSearchMemoryManagementMigrationPassed"] = true
+	result["agentTaskModelAndActionCancellationPassed"] = true
+	result["agentManualMemoryDedupAndVersionLifecyclePassed"] = true
+	result["agentMemorySearchReadModelRoundTripPassed"] = true
+	result["agentMemoryBeforeModelRoundTripPassed"] = true
+	result["agentMemoryBeforeAdminAPIPassed"] = true
+	result["agentHistoryBeforeReadModelRoundTripPassed"] = true
+	result["agentStaleMemoryReadRejectedPassed"] = true
+	result["agentTaskRetrievalAndActivitySummaryPassed"] = true
+	result["agentTaskExactReadScopeAndTerminalPassed"] = true
+	result["agentTaskLatestEntryAssetsPassed"] = true
+	result["agentTaskStatisticsDisclosureAssetsPassed"] = true
+	result["agentTaskTriggerSourceArchivePassed"] = true
+	result["agentMemoryExactTriggerSourcePassed"] = true
+	result["agentTaskSettledResultSummaryPassed"] = true
+	result["agentTaskQueryUsageAndCoveragePassed"] = true
+	result["agentTaskPhaseAndStopTimesPassed"] = true
+	result["agentTaskObservationSnapshotsPassed"] = true
+	result["agentVisionBoundedInputAndCachePassed"] = true
+	result["agentPreparationStopBeforeNextRequestPassed"] = true
+	result["agentVisionDescriptionAndResponseLimitsPassed"] = true
+	result["agentActionOutputBatchAndResponseLimitsPassed"] = true
+	result["agentActionStructureLimitsAndRecoveryPassed"] = true
+	result["agentMalformedActionBatchRejectedPassed"] = true
+	result["agentDuplicateJSONFieldsRejectedPassed"] = true
+	result["agentModelRequestFailureAndRecoveryPassed"] = true
+	result["agentModelTextPartsAndInvalidOutputPassed"] = true
+	result["agentVisionTextPartsPassed"] = true
+	result["agentMemorySaveReferenceRoundTripPassed"] = true
+	result["agentMemoryAndTaskFilteredPaginationPassed"] = true
 	result["aiAgentGroupIsolationPassed"] = true
 	result["aiAgentMemberAtAllDeniedPassed"] = true
 	result["qqVoiceDeliveryPassed"] = true
@@ -1070,10 +1328,39 @@ func verifyAIConfigChecks(value map[string]any) error {
 	return nil
 }
 
-func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, string) (string, error), sendGroup func(int64, int64, string, string, bool) (string, error)) error {
+func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, string) (string, error), sendGroup func(int64, int64, string, string, bool) (string, error), inFlight func(string) bool) error {
 	jar, _ := cookiejar.New(nil)
 	client := &http.Client{Jar: jar, Timeout: 15 * time.Second}
 	for _, asset := range []struct{ path, kind, marker string }{
+		{"/", "text/html; charset=utf-8", `id="memory-search-continue"`},
+		{"/agent-memory.js", "text/javascript; charset=utf-8", `clearMemorySearchContinue`},
+		{"/", "text/html; charset=utf-8", `id="memory-current-id"`},
+		{"/", "text/html; charset=utf-8", `id="memory-search-state-filter"`},
+		{"/agent-memory.js", "text/javascript; charset=utf-8", `loadCurrentMemory`},
+		{"/agent-memory.js", "text/javascript; charset=utf-8", `的版本记录（从新到旧）`},
+		{"/agent-memory.js", "text/javascript; charset=utf-8", `定位历史修订`},
+		{"/", "text/html; charset=utf-8", `id="agent-search-continue"`},
+		{"/", "text/html; charset=utf-8", `id="agent-record-form"`},
+		{"/agent-archive.js", "text/javascript; charset=utf-8", `readAgentRecord`},
+		{"/agent-memory.js", "text/javascript; charset=utf-8", `对比两次修订`},
+		{"/agent-memory.js", "text/javascript; charset=utf-8", `memoryHistoryComparison`},
+		{"/agent-archive.js", "text/javascript; charset=utf-8", `clearAgentSearchContinue`},
+		{"/agent-archive.js", "text/javascript; charset=utf-8", `searchScope:saved.scope`},
+		{"/agent-archive.js", "text/javascript; charset=utf-8", `查看前后事件`},
+		{"/agent-archive.js", "text/javascript; charset=utf-8", `context:String(radius)`},
+		{"/agent-archive.js", "text/javascript; charset=utf-8", `相邻事件范围（每侧最多）`},
+		{"/", "text/html; charset=utf-8", `id="tasks-reason"`},
+		{"/", "text/html; charset=utf-8", `id="tasks-outcome"`},
+		{"/", "text/html; charset=utf-8", `id="tasks-from"`},
+		{"/", "text/html; charset=utf-8", `id="tasks-until"`},
+		{"/", "text/html; charset=utf-8", `id="agent-search-sender"`},
+		{"/", "text/html; charset=utf-8", `id="agent-search-event-type"`},
+		{"/agent-tasks.js", "text/javascript; charset=utf-8", `tasksReason`},
+		{"/agent-tasks.js", "text/javascript; charset=utf-8", `taskDurationText`},
+		{"/agent-tasks.js", "text/javascript; charset=utf-8", `核对最新状态`},
+		{"/agent-tasks.js", "text/javascript; charset=utf-8", `上下文、记忆与执行统计`},
+		{"/style.css", "text/css; charset=utf-8", `.task-statistics>summary`},
+		{"/agent-tasks.js", "text/javascript; charset=utf-8", `容量、动作数量或结构限制`},
 		{"/", "text/html; charset=utf-8", `data-theme-select`},
 		{"/", "text/html; charset=utf-8", `id="password-change-form"`},
 		{"/security.js", "text/javascript; charset=utf-8", `changeAdminPassword`},
@@ -1631,7 +1918,10 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	if text, err := sendControl(12345678, "/gpt"); err != nil || !strings.Contains(text, "填写问题") {
 		return fmt.Errorf("empty GPT did not show usage")
 	}
-	if err := verifyAIRolePermissions(do, sendControl, sendGroup, csrf, modelURL); err != nil {
+	if err := verifyAIRolePermissions(do, sendControl, sendGroup, csrf, modelURL, inFlight); err != nil {
+		return err
+	}
+	if err := verifyAgentArchive(do, csrf); err != nil {
 		return err
 	}
 	if err := verifyVoiceCommands(do, csrf, sendControl, sendGroup); err != nil {
@@ -1648,7 +1938,7 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 		return err
 	}
 	logJSON, _ := json.Marshal(logs)
-	if bytes.Contains(logJSON, []byte("synthetic-model-key")) || bytes.Contains(logJSON, []byte("local-smoke-only")) || !bytes.Contains(logJSON, []byte("正文已隐藏")) {
+	if bytes.Contains(logJSON, []byte("synthetic-model-key")) || bytes.Contains(logJSON, []byte("local-smoke-only")) || bytes.Contains(logJSON, []byte(smokeModelFailureText)) || !bytes.Contains(logJSON, []byte("正文已隐藏")) {
 		return fmt.Errorf("runtime logs did not protect credentials/message bodies")
 	}
 	status, updatedOverview, err := do("GET", "/api/overview", nil, "")
@@ -1656,21 +1946,27 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 		return fmt.Errorf("post-AI overview alerts unavailable")
 	}
 	stats, ok := updatedOverview["modelRequests"].(map[string]any)
-	if !ok || stats["started"] != float64(11) || stats["completed"] != float64(11) || stats["active"] != float64(0) || stats["failed"] != float64(0) || stats["incomplete"] != float64(0) {
-		return fmt.Errorf("post-AI model statistics disagree with 11 synthetic requests")
+	if !ok || stats["started"] != float64(53) || stats["completed"] != float64(50) || stats["active"] != float64(0) || stats["failed"] != float64(3) || stats["incomplete"] != float64(0) {
+		return fmt.Errorf("post-AI model statistics disagree with 53 synthetic requests (two oversized responses and one HTTP 503 expected): started=%v completed=%v active=%v failed=%v incomplete=%v", stats["started"], stats["completed"], stats["active"], stats["failed"], stats["incomplete"])
 	}
 	rows, ok := stats["categories"].([]any)
 	if !ok || len(rows) != 4 {
 		return fmt.Errorf("post-AI model categories missing")
 	}
-	for i, want := range []float64{4, 2, 5, 0} {
+	for i, want := range []float64{4, 3, 41, 5} {
 		row, ok := rows[i].(map[string]any)
-		if !ok || row["started"] != want || row["completed"] != want || row["active"] != float64(0) {
-			return fmt.Errorf("post-AI model category differs: %d", i)
+		failed := float64(0)
+		if i == 2 {
+			failed = 2
+		} else if i == 3 {
+			failed = 1
+		}
+		if !ok || row["started"] != want || row["completed"] != want-failed || row["failed"] != failed || row["active"] != float64(0) {
+			return fmt.Errorf("post-AI model category differs: %d want=%v started=%v completed=%v", i, want, row["started"], row["completed"])
 		}
 	}
 	statsJSON, _ := json.Marshal(stats)
-	for _, secret := range []string{"synthetic-model-key", "smoke-chat-model", modelURL, "quoted smoke", "本地模型模拟回复"} {
+	for _, secret := range []string{"synthetic-model-key", "smoke-chat-model", modelURL, "quoted smoke", "本地模型模拟回复", smokeModelFailureText} {
 		if bytes.Contains(statsJSON, []byte(secret)) {
 			return fmt.Errorf("model aggregates retained sensitive request data")
 		}
@@ -2308,7 +2604,1745 @@ func verifyChatVoiceScope(do func(string, string, any, string) (int, map[string]
 	return nil
 }
 
-func verifyAIRolePermissions(do func(string, string, any, string) (int, map[string]any, error), private func(int64, string) (string, error), send func(int64, int64, string, string, bool) (string, error), csrf, modelURL string) error {
+// The fake model consumes actual serialized local responses, so an expected
+// final message cannot hide a missing query result or a fabricated source ID.
+func smokeVisionReply(body map[string]any) (string, error) {
+	if body["model"] == "smoke-vision-model" || body["model"] == "smoke-prepare-vision" || body["model"] == "smoke-description-vision" {
+		messages, _ := body["messages"].([]any)
+		images := 0
+		for _, raw := range messages {
+			m, _ := raw.(map[string]any)
+			content, _ := m["content"].([]any)
+			for _, raw := range content {
+				c, _ := raw.(map[string]any)
+				if c["type"] != "image_url" {
+					continue
+				}
+				images++
+				u, _ := c["image_url"].(map[string]any)
+				source, _ := u["url"].(string)
+				mime, encoded, ok := strings.Cut(source, ";base64,")
+				if !ok || (mime != "data:image/png" && mime != "data:image/jpeg") || len(encoded) > 1<<20 {
+					return "", fmt.Errorf("vision did not receive a bounded embedded image")
+				}
+				data, err := base64.StdEncoding.DecodeString(encoded)
+				if err != nil {
+					return "", fmt.Errorf("vision received invalid image data")
+				}
+				cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+				if err != nil || "data:image/"+format != mime || cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > 1024 || cfg.Height > 1024 {
+					return "", fmt.Errorf("vision received invalid image dimensions")
+				}
+			}
+		}
+		if images != 1 {
+			return "", fmt.Errorf("vision request image count differs: %d", images)
+		}
+		if body["model"] == "smoke-vision-model" {
+			return strings.Repeat("字", 1500) + "VISION_UNSEEN_TAIL", nil
+		}
+		return "SYNTHETIC_VISION_DESCRIPTION", nil
+	}
+	if body["model"] != "smoke-vision-agent" {
+		return "", fmt.Errorf("unexpected vision fixture model")
+	}
+	records := smokeModelRecords(body)
+	for i := len(records) - 1; i >= 0; i-- {
+		if records[i]["post_type"] != "message" {
+			continue
+		}
+		segments, _ := records[i]["message"].([]any)
+		images := 0
+		described := 0
+		trigger := false
+		for _, raw := range segments {
+			s, _ := raw.(map[string]any)
+			data, _ := s["data"].(map[string]any)
+			if s["type"] == "text" && data["text"] == "VISION_IMAGE_CHECK" {
+				trigger = true
+			}
+			if s["type"] != "image" {
+				continue
+			}
+			images++
+			source, _ := data["file"].(string)
+			if strings.HasSuffix(source, "/agent-image-ok") {
+				if data["__agent_desc__"] != strings.Repeat("字", 1333) || data["__agent_desc_truncated__"] != "true" {
+					return "", fmt.Errorf("valid image description missing from Agent context")
+				}
+				described++
+			} else if _, exists := data["__agent_desc__"]; exists {
+				return "", fmt.Errorf("invalid image was described")
+			}
+		}
+		if !trigger || images != 4 || described != 1 {
+			return "", fmt.Errorf("current vision trigger or bounded image selection missing")
+		}
+		return `{"action":"send_group_msg","params":{"group_id":404,"message":"VISION_IMAGE_OK"}}` + "\n" + `{"action":"end_action","params":{}}`, nil
+	}
+	return "", fmt.Errorf("vision event missing")
+}
+
+func smokeDescriptionReply(body map[string]any, round int) (string, error) {
+	if body["model"] == "smoke-description-vision" {
+		if _, err := smokeVisionReply(body); err != nil {
+			return "", err
+		}
+		switch round {
+		case 1:
+			return " \n\t ", nil
+		case 2:
+			return strings.Repeat("X", (256<<10)+1) + "OVERSIZED_VISION_TAIL", nil
+		case 3:
+			return "RECOVERED_IMAGE_DESCRIPTION", nil
+		default:
+			return "", fmt.Errorf("description was not cached after recovery")
+		}
+	}
+	if body["model"] != "smoke-description-agent" || (round != 1 && round != 2) {
+		return "", fmt.Errorf("unexpected description model or round")
+	}
+	records := smokeModelRecords(body)
+	for i := len(records) - 1; i >= 0; i-- {
+		if records[i]["post_type"] != "message" {
+			continue
+		}
+		segments, _ := records[i]["message"].([]any)
+		seen := map[string]bool{}
+		trigger := false
+		for _, raw := range segments {
+			s, _ := raw.(map[string]any)
+			data, _ := s["data"].(map[string]any)
+			if s["type"] == "text" && data["text"] == "VISION_DESCRIPTION_CHECK" {
+				trigger = true
+			}
+			if s["type"] != "image" {
+				continue
+			}
+			file, _ := data["file"].(string)
+			_, name, ok := strings.Cut(file, "/description-image-")
+			if !ok || (name != "a" && name != "b" && name != "c") || seen[name] {
+				return "", fmt.Errorf("description fixture image mismatch")
+			}
+			seen[name] = true
+			if round == 1 && name != "c" {
+				if _, ok := data["__agent_desc__"]; ok {
+					return "", fmt.Errorf("blank or oversized description attached")
+				}
+			} else if data["__agent_desc__"] != "RECOVERED_IMAGE_DESCRIPTION" {
+				return "", fmt.Errorf("recovered description missing")
+			}
+			if _, ok := data["__agent_desc_truncated__"]; ok {
+				return "", fmt.Errorf("invalid or normal description has stale truncation flag")
+			}
+		}
+		if !trigger || len(seen) != 3 {
+			return "", fmt.Errorf("description event missing")
+		}
+		return `{"action":"send_group_msg","params":{"group_id":607,"message":"VISION_DESCRIPTION_OK"}}` + "\n" + `{"action":"end_action","params":{}}`, nil
+	}
+	return "", fmt.Errorf("description event unavailable")
+}
+
+func verifyVisionDescriptionRuntime(do func(string, string, any, string) (int, map[string]any, error), send func(int64, int64, string, string, bool) (string, error), csrf string, configure func(string, bool) error) error {
+	status, snapshot, err := do("GET", "/api/ai", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("description config read failed")
+	}
+	status, _, err = do("POST", "/api/ai", map[string]any{"revision": snapshot["global"].(map[string]any)["revision"], "fields": map[string]any{"AgentModelName": "smoke-description-agent", "ImageModelName": "smoke-description-vision"}}, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("description model setup failed")
+	}
+	if err = configure("group=607", true); err != nil {
+		return err
+	}
+	for i := 0; i < 2; i++ {
+		text, err := send(23456789, 607, "member", "VISION_DESCRIPTION_CHECK", true)
+		if err != nil || text != "VISION_DESCRIPTION_OK" {
+			return fmt.Errorf("description recovery flow failed: %q %v", text, err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	status, page, err := do("GET", "/api/agent/tasks?botId=87654321&type=group&id=607&state=completed", nil, "")
+	rows, _ := page["items"].([]any)
+	if err != nil || status != 200 || len(rows) != 2 {
+		return fmt.Errorf("description tasks not completed")
+	}
+	for _, raw := range rows {
+		v, _ := raw.(map[string]any)
+		a, _ := v["activity"].(map[string]any)
+		if !smokeTaskTimingValid(v) || !smokeTaskResultsMatch(v, 1, 0, 0, 0) || !smokeTaskQueriesMatch(v, 0, 0, 0) || a["modelPreparations"] != float64(1) || a["localActions"] != float64(0) || a["platformActions"] != float64(1) {
+			return fmt.Errorf("description task summary inconsistent")
+		}
+	}
+	return configure("group=607", false)
+}
+
+const smokeModelFailureText = "SYNTHETIC_PROVIDER_FAILURE_PRIVATE"
+
+func smokeModelReplyEnvelope(name, text string) map[string]any {
+	var content any = text
+	if name == "smoke-output-limit-ok" || name == "smoke-vision-model" || name == "smoke-description-vision" {
+		runes := []rune(text)
+		cut := len(string(runes[:len(runes)/2])) // Preserve UTF-8 at the text-part boundary.
+		content = []any{map[string]any{"type": "text", "text": text[:cut]}, map[string]any{"type": "text", "text": text[cut:]}}
+	}
+	return map[string]any{"choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": content}}}}
+}
+
+func smokeModelRequestFailure(kind string) (int, string, bool) {
+	switch kind {
+	case "request-http":
+		return http.StatusServiceUnavailable, smokeModelFailureText, true
+	case "request-protocol":
+		return http.StatusOK, smokeModelFailureText, true
+	case "request-empty":
+		return http.StatusOK, "", true
+	case "request-missing":
+		body, _ := json.Marshal(map[string]any{"error": map[string]any{"message": smokeModelFailureText}})
+		return http.StatusOK, string(body), true
+	case "request-unsupported":
+		parts := []any{map[string]any{"type": "text", "text": `{"action":"save_memory","params":{"text":"MUST_NOT_SAVE"}}`}, map[string]any{"type": "private-unknown-type", "text": smokeModelFailureText}}
+		body, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": parts}}}})
+		return http.StatusOK, string(body), true
+	default:
+		return 0, "", false
+	}
+}
+
+func smokeActionOutputReply(kind string) (string, error) {
+	if kind == "ok" {
+		return `{"action":"send_group_msg","params":{"group_id":608,"message":[{"type":"text","data":{"text":"OUTPUT_LIMIT_"}},{"type":"text","data":{"text":"RECOVERY_OK"}}]},"extra":` + strings.Repeat("[", 63) + "null" + strings.Repeat("]", 63) + `}` + "\n" + `{"action":"end_action","params":{}}`, nil
+	}
+	if kind == "http" {
+		return strings.Repeat("H", (2<<20)+1), nil
+	}
+	prefix := `{"action":"save_memory","params":{"text":"LIMIT_BATCH_MUST_NOT_SAVE"}}`
+	if kind == "structure-depth" {
+		return prefix + `{"action":"send_group_msg","params":{"group_id":608,"message":"OUTPUT_MUST_NOT_SEND","extra":` + strings.Repeat("[", 63) + "null" + strings.Repeat("]", 63) + `}}`, nil
+	}
+	if kind == "structure-values" {
+		part := `{"action":"send_group_msg","params":{"group_id":608,"message":"OUTPUT_MUST_NOT_SEND","extra":[` + strings.TrimSuffix(strings.Repeat("null,", 5000), ",") + `]}}`
+		return prefix + part + part, nil
+	}
+	if tail, ok := map[string]string{
+		"syntax-closing": "]", "syntax-truncated": `{"action":`, "syntax-null": "null",
+		"syntax-duplicate-action": `{"action":"send_group_msg","Action":"end_action","params":{}}`,
+		"syntax-duplicate-params": `{"action":"send_group_msg","params":{"group_id":608,"group\u005fid":609,"message":"DUPLICATE_MUST_NOT_SEND"}}`,
+	}[kind]; ok {
+		return prefix + "\n" + `{"action":"send_group_msg","params":{"group_id":608,"message":"MALFORMED_MUST_NOT_SEND"}}` + "\n" + tail, nil
+	}
+	if kind == "text" {
+		return prefix + "\n" + `{"action":"send_group_msg","params":{"group_id":608,"message":"` + strings.Repeat("T", 1<<20) + `"}}`, nil
+	}
+	if kind == "batch" {
+		parts := []string{prefix}
+		for i := 0; i < 31; i++ {
+			parts = append(parts, fmt.Sprintf(`{"action":"send_group_msg","params":{"group_id":608,"message":"OUTPUT_MUST_NOT_SEND_%d"}}`, i))
+		}
+		parts = append(parts, `{"action":"end_action","params":{}}`)
+		return strings.Join(parts, "\n"), nil
+	}
+	return "", fmt.Errorf("unknown action output fixture")
+}
+
+func smokeOutputLimitTask(task map[string]any, failed bool) bool {
+	return smokeOutputTask(task, failed, "model_output_limit")
+}
+
+func smokeOutputTask(task map[string]any, failed bool, errorCode string) bool {
+	if !smokeTaskTimingValid(task) || !smokeTaskQueriesMatch(task, 0, 0, 0) {
+		return false
+	}
+	a, _ := task["activity"].(map[string]any)
+	wantOK := 0
+	status := "failed"
+	if !failed {
+		wantOK = 1
+		status = "completed"
+	}
+	if task["status"] != status || !smokeTaskResultsMatch(task, wantOK, 0, 0, 0) || a["available"] != true || a["modelPreparations"] != float64(1) || a["fallbackPreparations"] != float64(0) || a["localActions"] != float64(0) || a["platformActions"] != float64(wantOK) {
+		return false
+	}
+	return !failed || task["error"] == errorCode
+}
+
+func verifyAgentOutputLimits(do func(string, string, any, string) (int, map[string]any, error), send func(int64, int64, string, string, bool) (string, error), csrf string, configure func(string, bool) error) error {
+	if err := configure("group=608", true); err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	byReason := map[string]map[string]bool{}
+	byOutcome := map[string]map[string]bool{}
+	for _, kind := range []string{"batch", "text", "http", "structure-depth", "structure-values", "syntax-closing", "syntax-truncated", "syntax-null", "syntax-duplicate-action", "syntax-duplicate-params", "request-http", "request-protocol", "request-empty", "request-missing", "request-unsupported", "ok"} {
+		errorCode := "model_output_limit"
+		if strings.HasPrefix(kind, "syntax-") {
+			errorCode = "model_output_invalid"
+		}
+		if strings.HasPrefix(kind, "request-") {
+			errorCode = "model_request_failed"
+		}
+		status, snapshot, err := do("GET", "/api/ai", nil, "")
+		if err != nil || status != 200 {
+			return fmt.Errorf("output limits config read failed")
+		}
+		status, _, err = do("POST", "/api/ai", map[string]any{"revision": snapshot["global"].(map[string]any)["revision"], "fields": map[string]any{"AgentModelName": "smoke-output-limit-" + kind}}, csrf)
+		if err != nil || status != 200 {
+			return fmt.Errorf("output limits setup failed")
+		}
+		text, err := send(23456789, 608, "member", "OUTPUT_LIMIT_CHECK_"+kind, true)
+		want := ""
+		if kind == "ok" {
+			want = "OUTPUT_LIMIT_RECOVERY_OK"
+		}
+		if err != nil || text != want {
+			return fmt.Errorf("limited output was partially dispatched: %s %q %v", kind, text, err)
+		}
+		time.Sleep(100 * time.Millisecond)
+		status, page, err := do("GET", "/api/agent/tasks?botId=87654321&type=group&id=608", nil, "")
+		rows, _ := page["items"].([]any)
+		if err != nil || status != 200 || len(rows) == 0 {
+			return fmt.Errorf("output task unavailable")
+		}
+		v, _ := rows[0].(map[string]any)
+		summary, _ := json.Marshal(v)
+		if bytes.Contains(summary, []byte(smokeModelFailureText)) {
+			return fmt.Errorf("provider failure body entered task summary")
+		}
+		id, _ := v["taskId"].(string)
+		if seen[id] || id == "" || !smokeOutputTask(v, kind != "ok", errorCode) {
+			return fmt.Errorf("output task summary incorrect: %s status=%v error=%v", kind, v["status"], v["error"])
+		}
+		seen[id] = true
+		actualReason, _ := v["error"].(string)
+		if byReason[actualReason] == nil {
+			byReason[actualReason] = map[string]bool{}
+		}
+		byReason[actualReason][id] = true
+		actualOutcome, _ := v["outcome"].(string)
+		if byOutcome[actualOutcome] == nil {
+			byOutcome[actualOutcome] = map[string]bool{}
+		}
+		byOutcome[actualOutcome][id] = true
+		status, exact, err := do("GET", "/api/agent/tasks/read?botId=87654321&type=group&id=608&taskId="+id, nil, "")
+		if err != nil || status != 200 || !smokeOutputTask(exact, kind != "ok", errorCode) || exact["version"] != v["version"] {
+			return fmt.Errorf("output task exact read mismatch")
+		}
+		started, parseErr := time.Parse(time.RFC3339Nano, fmt.Sprint(v["startedAt"]))
+		if parseErr != nil {
+			return fmt.Errorf("task start instant unavailable")
+		}
+		for _, bounds := range []struct {
+			from, until time.Time
+			want        int
+		}{
+			{started, started.Add(time.Nanosecond), 1},
+			{started.Add(-time.Nanosecond), started, 0},
+			{started.Add(time.Nanosecond), started.Add(2 * time.Nanosecond), 0},
+		} {
+			from := bounds.from.In(time.FixedZone("test", 8*60*60)).Format(time.RFC3339Nano)
+			until := bounds.until.Format(time.RFC3339Nano)
+			query := url.Values{"botId": {"87654321"}, "type": {"group"}, "id": {"608"}, "state": {fmt.Sprint(v["status"])}, "phase": {"finished"}, "reason": {"none"}, "from": {from}, "until": {until}}
+			if actualReason != "" {
+				query.Set("reason", actualReason)
+			}
+			code, filtered, err := do("GET", "/api/agent/tasks?"+query.Encode(), nil, "")
+			items, ok := filtered["items"].([]any)
+			if err != nil || code != 200 || !ok || len(items) != bounds.want || filtered["from"] != bounds.from.UTC().Format(time.RFC3339Nano) || filtered["until"] != until || filtered["more"] != false {
+				return fmt.Errorf("task start range boundary mismatch: %s", kind)
+			}
+			if bounds.want == 1 {
+				row, _ := items[0].(map[string]any)
+				if row["taskId"] != id || row["version"] != v["version"] {
+					return fmt.Errorf("task start range changed task")
+				}
+			}
+		}
+	}
+	for _, tc := range []struct {
+		state, reason, saved string
+		empty                bool
+	}{
+		{"failed", "model_request_failed", "model_request_failed", false},
+		{"failed", "model_output_limit", "model_output_limit", false},
+		{"failed", "model_output_invalid", "model_output_invalid", false},
+		{"completed", "none", "", false},
+		{"failed", "none", "", true},
+		{"completed", "model_request_failed", "model_request_failed", true},
+		{"all", "other", "", true},
+	} {
+		status, page, err := do("GET", "/api/agent/tasks?botId=87654321&type=group&id=608&state="+tc.state+"&reason="+tc.reason+"&phase=finished", nil, "")
+		rows, ok := page["items"].([]any)
+		want := len(byReason[tc.saved])
+		if tc.empty {
+			want = 0
+		}
+		if err != nil || status != 200 || !ok || len(rows) != want || page["more"] != false {
+			return fmt.Errorf("task reason filter count mismatch: %s/%s", tc.state, tc.reason)
+		}
+		returned := map[string]bool{}
+		for _, raw := range rows {
+			row, _ := raw.(map[string]any)
+			id, _ := row["taskId"].(string)
+			if !byReason[tc.saved][id] || returned[id] || row["error"] != tc.saved || row["status"] != tc.state || row["phase"] != "finished" {
+				return fmt.Errorf("task reason filter returned wrong task")
+			}
+			returned[id] = true
+		}
+	}
+	for _, outcome := range []string{"all", "none", "other", "ok", "unknown", "in_flight", "rejected", "local_error"} {
+		status, page, err := do("GET", "/api/agent/tasks?botId=87654321&type=group&id=608&phase=finished&outcome="+outcome, nil, "")
+		rows, ok := page["items"].([]any)
+		want := byOutcome[outcome]
+		if outcome == "none" {
+			want = byOutcome[""]
+		}
+		if outcome == "all" {
+			want = seen
+		}
+		if err != nil || status != 200 || !ok || len(rows) != len(want) || page["more"] != false {
+			return fmt.Errorf("task outcome count mismatch: %s", outcome)
+		}
+		returned := map[string]bool{}
+		for _, raw := range rows {
+			row, _ := raw.(map[string]any)
+			id, _ := row["taskId"].(string)
+			if !want[id] || returned[id] {
+				return fmt.Errorf("task outcome returned wrong task")
+			}
+			returned[id] = true
+		}
+	}
+	status, private, err := do("GET", "/api/agent/tasks?botId=87654321&type=private&id=608&reason=model_request_failed&outcome=none", nil, "")
+	privateRows, privateOK := private["items"].([]any)
+	if err != nil || status != 200 || !privateOK || len(privateRows) != 0 {
+		return fmt.Errorf("task reason filter crossed conversation scope")
+	}
+	status, memories, err := do("GET", "/api/agent/memories?botId=87654321&type=group&id=608", nil, "")
+	rows, _ := memories["items"].([]any)
+	if err != nil || status != 200 || len(rows) != 0 {
+		return fmt.Errorf("rejected output saved a memory prefix")
+	}
+	return configure("group=608", false)
+}
+
+func smokeModelRecords(body map[string]any) []map[string]any {
+	var records []map[string]any
+	messages, _ := body["messages"].([]any)
+	for _, raw := range messages {
+		message, _ := raw.(map[string]any)
+		content, _ := message["content"].(string)
+		for _, line := range strings.Split(content, "\n") {
+			var record map[string]any
+			if json.Unmarshal([]byte(line), &record) == nil && record != nil {
+				records = append(records, record)
+			}
+		}
+	}
+	return records
+}
+
+func smokeModelResponse(body map[string]any, field string, count int) ([]any, error) {
+	records := smokeModelRecords(body)
+	for i := len(records) - 1; i >= 0; i-- {
+		r := records[i]
+		if _, ok := r["status"]; !ok {
+			continue
+		}
+		data, _ := r["data"].(map[string]any)
+		rows, ok := data[field].([]any)
+		if r["status"] != "ok" || !ok || len(rows) != count {
+			return nil, fmt.Errorf("latest local response lacks %d %s", count, field)
+		}
+		return rows, nil
+	}
+	return nil, fmt.Errorf("local response missing")
+}
+
+func smokeHistoryContextAnchor(body map[string]any) (map[string]any, error) {
+	records := smokeModelRecords(body)
+	responseIndex := -1
+	for i := len(records) - 1; i >= 0; i-- {
+		if _, ok := records[i]["status"]; ok {
+			responseIndex = i
+			break
+		}
+	}
+	if responseIndex < 0 {
+		return nil, fmt.Errorf("context response absent")
+	}
+	response := records[responseIndex]
+	data, _ := response["data"].(map[string]any)
+	rows, ok := data["sources"].([]any)
+	anchor, _ := data["anchorSeq"].(string)
+	if response["status"] != "ok" || !ok || len(rows) < 2 || len(rows) > 3 || !smokePositiveID(anchor) || data["context"] != float64(1) || data["searchMore"] != false {
+		return nil, fmt.Errorf("context receipt invalid")
+	}
+	requestIndex := -1
+	for i := responseIndex - 1; i >= 0; i-- {
+		if records[i]["action"] == "read_history" {
+			params, _ := records[i]["params"].(map[string]any)
+			if params["seq"] != anchor || params["context"] != float64(1) {
+				return nil, fmt.Errorf("context request mismatch")
+			}
+			requestIndex = i
+			break
+		}
+	}
+	if requestIndex < 0 {
+		return nil, fmt.Errorf("context request absent")
+	}
+	known := false
+	for i := requestIndex - 1; i >= 0; i-- {
+		if _, ok := records[i]["status"]; !ok {
+			continue
+		}
+		previous, _ := records[i]["data"].(map[string]any)
+		sources, _ := previous["sources"].([]any)
+		if len(sources) == 1 {
+			source, _ := sources[0].(map[string]any)
+			known = source["seq"] == anchor
+		}
+		break
+	}
+	if !known {
+		return nil, fmt.Errorf("context anchor not taken from actual search result")
+	}
+	var result map[string]any
+	newer, older, total := 0, 0, 0
+	last := int64(0)
+	center, _ := strconv.ParseInt(anchor, 10, 64)
+	for i, raw := range rows {
+		row, ok := raw.(map[string]any)
+		if !ok || !smokePositiveID(row["seq"]) || row["kind"] != "event" {
+			return nil, fmt.Errorf("context contains invalid event")
+		}
+		seq, _ := strconv.ParseInt(row["seq"].(string), 10, 64)
+		if i > 0 && seq >= last {
+			return nil, fmt.Errorf("context order/duplicate invalid")
+		}
+		last = seq
+		text, _ := row["text"].(string)
+		limit := 2000
+		if seq == center {
+			limit = 8000
+			result = row
+		} else if seq > center {
+			newer++
+		} else {
+			older++
+		}
+		total += len(text)
+		if !utf8.ValidString(text) || len(text) > limit {
+			return nil, fmt.Errorf("context text bound invalid")
+		}
+	}
+	if result == nil || newer > 1 || older > 1 || total > 16384 {
+		return nil, fmt.Errorf("context center/radius invalid")
+	}
+	return result, nil
+}
+
+func smokeCommandID(body map[string]any, prefix, key string) (string, error) {
+	fields, err := smokeCommandFields(body, prefix)
+	if err != nil {
+		return "", err
+	}
+	if !smokePositiveID(fields[key]) {
+		return "", fmt.Errorf("synthetic event lacks valid %s", key)
+	}
+	return fields[key], nil
+}
+
+func smokeCommandFields(body map[string]any, prefix string) (map[string]string, error) {
+	records := smokeModelRecords(body)
+	for i := len(records) - 1; i >= 0; i-- {
+		segments, _ := records[i]["message"].([]any)
+		for _, raw := range segments {
+			segment, _ := raw.(map[string]any)
+			data, _ := segment["data"].(map[string]any)
+			text, _ := data["text"].(string)
+			if !strings.HasPrefix(text, prefix+" ") {
+				continue
+			}
+			fields := map[string]string{}
+			for _, part := range strings.Fields(text) {
+				if key, value, ok := strings.Cut(part, "="); ok {
+					fields[key] = value
+				}
+			}
+			return fields, nil
+		}
+	}
+	return nil, fmt.Errorf("synthetic event missing")
+}
+
+func smokeHistoryRange(body map[string]any) (from, until time.Time, err error) {
+	fields, err := smokeCommandFields(body, "KNOWLEDGE_HISTORY_CHECK")
+	if err != nil {
+		return from, until, err
+	}
+	from, err = time.Parse(time.RFC3339Nano, fields["FROM"])
+	if err != nil {
+		return from, until, err
+	}
+	until, err = time.Parse(time.RFC3339Nano, fields["UNTIL"])
+	if err != nil {
+		return from, until, err
+	}
+	if !from.Before(until) {
+		return from, until, fmt.Errorf("synthetic history time order invalid")
+	}
+	return from.UTC(), until.UTC(), nil
+}
+
+func smokePositiveID(value any) bool {
+	s, ok := value.(string)
+	n, e := strconv.ParseInt(s, 10, 64)
+	return ok && e == nil && n > 0 && strconv.FormatInt(n, 10) == s
+}
+
+func smokeArchiveSender(text string) (string, error) {
+	var event map[string]any
+	decoder := json.NewDecoder(strings.NewReader(text))
+	decoder.UseNumber()
+	if decoder.Decode(&event) != nil || event["post_type"] != "message" {
+		return "", fmt.Errorf("source is not a complete message event")
+	}
+	var extra any
+	if decoder.Decode(&extra) != io.EOF {
+		return "", fmt.Errorf("source contains trailing data")
+	}
+	var id string
+	switch value := event["user_id"].(type) {
+	case json.Number:
+		id = string(value)
+	case string:
+		id = value
+	}
+	if !smokePositiveID(id) {
+		return "", fmt.Errorf("source has no exact sender")
+	}
+	return id, nil
+}
+
+func smokeMemorySourceDelta(before, after map[string]any) bool {
+	b, _ := before["context"].(map[string]any)
+	a, _ := after["context"].(map[string]any)
+	previous, ok := b["memorySources"].(float64)
+	current, currentOK := a["memorySources"].(float64)
+	return before["persisted"] == true && after["persisted"] == true && b["available"] == true && a["available"] == true && b["clipped"] == false && a["clipped"] == false && ok && currentOK && previous >= 0 && previous <= 9007199254740990 && previous == float64(int64(previous)) && current == previous+1
+}
+
+func smokeSavedReference(body map[string]any, latest bool) (map[string]any, error) {
+	records := smokeModelRecords(body)
+	for i := len(records) - 1; i >= 0; i-- {
+		if records[i]["action"] != "save_memory" {
+			continue
+		}
+		params, _ := records[i]["params"].(map[string]any)
+		if params["text"] != "KNOWLEDGE_SAVED_FROM_RESULT" {
+			return nil, fmt.Errorf("current save request missing")
+		}
+		for j := i + 1; j < len(records); j++ {
+			response := records[j]
+			if _, ok := response["status"]; !ok {
+				continue
+			}
+			data, _ := response["data"].(map[string]any)
+			ref, _ := data["memory"].(map[string]any)
+			if response["status"] != "ok" || data["mode"] != "managed" || data["created"] != false || len(ref) != 4 || !smokePositiveID(ref["id"]) || !smokePositiveID(ref["revision"]) || !smokePositiveID(ref["sourceSeq"]) || ref["source"] != "agent" {
+				return nil, fmt.Errorf("save result lacks exact reused reference")
+			}
+			original := false
+			for k := i - 1; k >= 0; k-- {
+				if records[k]["action"] != "save_memory" {
+					continue
+				}
+				p, _ := records[k]["params"].(map[string]any)
+				if p["text"] != "KNOWLEDGE_SAVED_FROM_RESULT" {
+					break
+				}
+				for l := k + 1; l < i; l++ {
+					if _, ok := records[l]["status"]; !ok {
+						continue
+					}
+					d, _ := records[l]["data"].(map[string]any)
+					first, _ := d["memory"].(map[string]any)
+					original = records[l]["status"] == "ok" && d["mode"] == "managed" && d["created"] == true && len(first) == 4 && first["id"] == ref["id"] && first["revision"] == ref["revision"] && first["source"] == ref["source"] && first["sourceSeq"] == ref["sourceSeq"]
+					break
+				}
+				break
+			}
+			if !original {
+				return nil, fmt.Errorf("dedup did not preserve the first newly created reference")
+			}
+			if latest {
+				for k := j + 1; k < len(records); k++ {
+					if _, ok := records[k]["status"]; ok {
+						return nil, fmt.Errorf("save response is not latest")
+					}
+				}
+			}
+			return ref, nil
+		}
+		return nil, fmt.Errorf("save response missing")
+	}
+	return nil, fmt.Errorf("save request missing")
+}
+
+func smokeKnowledgeReply(body map[string]any, round int) (string, error) {
+	action := func(name string, params map[string]any) string {
+		raw, _ := json.Marshal(map[string]any{"action": name, "params": params})
+		return string(raw)
+	}
+	finish := func(text string) string {
+		return action("send_group_msg", map[string]any{"group_id": 303, "message": text}) + "\n" + action("end_action", map[string]any{})
+	}
+	switch body["model"] {
+	case "smoke-knowledge-save":
+		if round == 1 {
+			raw, _ := json.Marshal(body)
+			if bytes.Contains(raw, []byte("KNOWLEDGE_SAVED_FROM_RESULT")) {
+				return "", fmt.Errorf("new memory already present before saving")
+			}
+			save := action("save_memory", map[string]any{"text": "KNOWLEDGE_SAVED_FROM_RESULT"})
+			return save + "\n" + save, nil
+		}
+		ref, e := smokeSavedReference(body, round == 2)
+		if e != nil {
+			return "", e
+		}
+		if round == 2 {
+			return action("read_memory", map[string]any{"id": ref["id"], "revision": ref["revision"]}), nil
+		}
+		if round == 3 {
+			rows, e := smokeModelResponse(body, "memories", 1)
+			if e != nil {
+				return "", e
+			}
+			item, _ := rows[0].(map[string]any)
+			if item["id"] != ref["id"] || item["revision"] != ref["revision"] || item["sourceSeq"] != ref["sourceSeq"] || item["source"] != ref["source"] || item["text"] != "KNOWLEDGE_SAVED_FROM_RESULT" || item["truncated"] != false {
+				return "", fmt.Errorf("saved memory read did not match returned reference")
+			}
+			return finish("KNOWLEDGE_SAVE_OK"), nil
+		}
+	case "smoke-knowledge-memory":
+		if round == 1 {
+			raw, _ := json.Marshal(body)
+			if bytes.Contains(raw, []byte("KNOWLEDGE_TAIL_ONLY_READ")) {
+				return "", fmt.Errorf("old target unexpectedly present before retrieval")
+			}
+			return action("search_memory", map[string]any{"limit": 1, "source": "admin", "from": "2000-01-01T08:00:00.000000001+08:00", "until": "2100-01-01T00:00:00Z"}), nil
+		}
+		rows, e := smokeModelResponse(body, "memories", 1)
+		if e != nil {
+			return "", e
+		}
+		item, _ := rows[0].(map[string]any)
+		text, _ := item["text"].(string)
+		if round == 2 || round == 3 {
+			records := smokeModelRecords(body)
+			for i := len(records) - 1; i >= 0; i-- {
+				if _, ok := records[i]["status"]; !ok {
+					continue
+				}
+				data, _ := records[i]["data"].(map[string]any)
+				if data["source"] != "admin" {
+					return "", fmt.Errorf("memory source condition receipt missing")
+				}
+				if data["from"] != "2000-01-01T00:00:00.000000001Z" || data["until"] != "2100-01-01T00:00:00Z" {
+					return "", fmt.Errorf("memory revision time receipt missing")
+				}
+				if _, present := data["state"]; present {
+					return "", fmt.Errorf("management search state leaked into model response")
+				}
+				break
+			}
+		}
+		if !smokePositiveID(item["id"]) || !smokePositiveID(item["revision"]) || item["source"] != "admin" || item["sourceSeq"] != "0" || !strings.Contains(text, "KNOWLEDGE_MANUAL_TARGET") {
+			return "", fmt.Errorf("memory result identity/source/text missing")
+		}
+		if round == 2 && item["truncated"] == false && strings.Contains(text, "KNOWLEDGE_NEWER_DISTRACTOR") {
+			records := smokeModelRecords(body)
+			for i := len(records) - 1; i >= 0; i-- {
+				if records[i]["action"] != "search_memory" {
+					continue
+				}
+				params, _ := records[i]["params"].(map[string]any)
+				if _, present := params["keyword"]; present || params["source"] != "admin" {
+					return "", fmt.Errorf("source-only memory request changed")
+				}
+				break
+			}
+			for i := len(records) - 1; i >= 0; i-- {
+				if _, ok := records[i]["status"]; !ok {
+					continue
+				}
+				data, _ := records[i]["data"].(map[string]any)
+				next, _ := data["nextBefore"].(string)
+				position, _ := strconv.ParseInt(next, 10, 64)
+				id, _ := strconv.ParseInt(item["id"].(string), 10, 64)
+				if data["searchMore"] != true || !smokePositiveID(next) || position > id {
+					return "", fmt.Errorf("memory continuation receipt invalid")
+				}
+				return action("search_memory", map[string]any{"keyword": "KNOWLEDGE_MANUAL_TARGET", "limit": 1, "before": next, "source": "admin", "from": data["from"], "until": data["until"]}), nil
+			}
+			return "", fmt.Errorf("memory continuation receipt missing")
+		}
+		if round == 3 && item["truncated"] == true && !strings.Contains(text, "KNOWLEDGE_TAIL_ONLY_READ") {
+			// Check the actual request's exclusive boundary, not an expected ID.
+			boundary := int64(0)
+			records := smokeModelRecords(body)
+			for i := len(records) - 1; i >= 0; i-- {
+				if records[i]["action"] != "search_memory" {
+					continue
+				}
+				params, _ := records[i]["params"].(map[string]any)
+				if params["source"] != "admin" {
+					return "", fmt.Errorf("continued memory source condition changed")
+				}
+				if params["from"] != "2000-01-01T00:00:00.000000001Z" || params["until"] != "2100-01-01T00:00:00Z" {
+					return "", fmt.Errorf("continued memory time condition changed")
+				}
+				if smokePositiveID(params["before"]) {
+					boundary, _ = strconv.ParseInt(params["before"].(string), 10, 64)
+				}
+				break
+			}
+			id, _ := strconv.ParseInt(item["id"].(string), 10, 64)
+			if boundary == 0 || id >= boundary {
+				return "", fmt.Errorf("memory source outside actual exclusive boundary")
+			}
+			return action("read_memory", map[string]any{"id": item["id"], "revision": item["revision"]}), nil
+		}
+		if round == 4 && item["truncated"] == false && strings.Contains(text, "KNOWLEDGE_TAIL_ONLY_READ") {
+			return finish("KNOWLEDGE_MEMORY_OK"), nil
+		}
+	case "smoke-knowledge-history":
+		before, e := smokeCommandID(body, "KNOWLEDGE_HISTORY_CHECK", "BEFORE")
+		if e != nil {
+			return "", e
+		}
+		sender, e := smokeCommandID(body, "KNOWLEDGE_HISTORY_CHECK", "SENDER")
+		if e != nil {
+			return "", e
+		}
+		from, until, e := smokeHistoryRange(body)
+		if e != nil {
+			return "", e
+		}
+		if round == 1 {
+			return action("search_history", map[string]any{"keyword": "ROLE_AGENT_CHECK", "limit": 1, "before": before, "from": from.Format(time.RFC3339Nano), "until": until.Format(time.RFC3339Nano), "sender": sender, "eventType": "message"}), nil
+		}
+		var rows []any
+		if round == 4 {
+			anchor, err := smokeHistoryContextAnchor(body)
+			if err != nil {
+				return "", err
+			}
+			rows = []any{anchor}
+		} else {
+			rows, e = smokeModelResponse(body, "sources", 1)
+		}
+		if e != nil {
+			return "", e
+		}
+		item, _ := rows[0].(map[string]any)
+		stamp, parseErr := time.Parse(time.RFC3339Nano, fmt.Sprint(item["time"]))
+		if parseErr != nil || stamp.Before(from) || !stamp.Before(until) {
+			return "", fmt.Errorf("history result outside actual time range")
+		}
+		seq, _ := item["seq"].(string)
+		n, _ := strconv.ParseInt(seq, 10, 64)
+		boundary, _ := strconv.ParseInt(before, 10, 64)
+		if round >= 3 {
+			records := smokeModelRecords(body)
+			for i := len(records) - 1; i >= 0; i-- {
+				if records[i]["action"] != "search_history" {
+					continue
+				}
+				params, _ := records[i]["params"].(map[string]any)
+				if !smokePositiveID(params["before"]) {
+					return "", fmt.Errorf("continued history lacks actual boundary")
+				}
+				if params["sender"] != sender || params["eventType"] != "message" {
+					return "", fmt.Errorf("continued history changed sender condition")
+				}
+				if _, exists := params["keyword"]; exists {
+					return "", fmt.Errorf("sender-only history unexpectedly retained a keyword")
+				}
+				boundary, _ = strconv.ParseInt(params["before"].(string), 10, 64)
+				break
+			}
+		}
+		text, _ := item["text"].(string)
+		actualSender, senderErr := smokeArchiveSender(text)
+		if senderErr != nil || actualSender != sender {
+			return "", fmt.Errorf("history source sender differs from selected account")
+		}
+		if !smokePositiveID(seq) || n >= boundary || item["kind"] != "event" || (round == 2 && !strings.Contains(text, "ROLE_AGENT_CHECK")) {
+			return "", fmt.Errorf("history source outside expected event boundary")
+		}
+		if round == 2 || round == 3 {
+			records := smokeModelRecords(body)
+			confirmed := false
+			var applied map[string]any
+			for i := len(records) - 1; i >= 0; i-- {
+				if _, ok := records[i]["status"]; !ok {
+					continue
+				}
+				data, _ := records[i]["data"].(map[string]any)
+				applied = data
+				confirmed = data["from"] == from.Format(time.RFC3339Nano) && data["until"] == until.Format(time.RFC3339Nano) && data["sender"] == sender && data["eventType"] == "message"
+				break
+			}
+			if !confirmed {
+				return "", fmt.Errorf("history response lacks applied UTC range")
+			}
+			if round == 2 {
+				next, ok := applied["nextBefore"].(string)
+				position, _ := strconv.ParseInt(next, 10, 64)
+				if !ok || !smokePositiveID(next) || applied["searchMore"] != true || position > n || position >= boundary {
+					return "", fmt.Errorf("history continuation receipt invalid")
+				}
+				return action("search_history", map[string]any{"limit": 1, "before": next, "from": from.Format(time.RFC3339Nano), "until": until.Format(time.RFC3339Nano), "sender": sender, "eventType": "message"}), nil
+			}
+			return action("read_history", map[string]any{"seq": seq, "context": 1}), nil
+		}
+		if round == 4 {
+			return finish("KNOWLEDGE_HISTORY_OK"), nil
+		}
+	case "smoke-knowledge-stale":
+		if round == 1 {
+			id, e := smokeCommandID(body, "KNOWLEDGE_STALE_CHECK", "ID")
+			if e != nil {
+				return "", e
+			}
+			rev, e := smokeCommandID(body, "KNOWLEDGE_STALE_CHECK", "REV")
+			return action("read_memory", map[string]any{"id": id, "revision": rev}), e
+		}
+		if round == 2 {
+			if _, e := smokeModelResponse(body, "memories", 0); e != nil {
+				return "", e
+			}
+			return finish("KNOWLEDGE_STALE_OK"), nil
+		}
+	}
+	return "", fmt.Errorf("unexpected synthetic knowledge round %v/%d", body["model"], round)
+}
+
+func verifyAgentKnowledgeRuntime(do func(string, string, any, string) (int, map[string]any, error), send func(int64, int64, string, string, bool) (string, error), csrf string) error {
+	const scopeQuery = "botId=87654321&type=group&id=303"
+	const memoryPath = "/api/agent/memories?" + scopeQuery
+	const taskPath = "/api/agent/tasks?" + scopeQuery
+	scope := func() map[string]any { return map[string]any{"botId": "87654321", "type": "group", "id": "303"} }
+	create := func(text string, created bool) (map[string]any, error) {
+		body := scope()
+		body["text"] = text
+		status, result, e := do("POST", "/api/agent/memories/create", body, csrf)
+		item, ok := result["item"].(map[string]any)
+		if e != nil || status != 200 || result["saved"] != true || result["created"] != created || !ok || !smokePositiveID(item["id"]) {
+			return nil, fmt.Errorf("manual memory create/dedup failed: %d %v", status, e)
+		}
+		return item, nil
+	}
+	text := "KNOWLEDGE_MANUAL_TARGET " + strings.Repeat("填", 950) + " KNOWLEDGE_TAIL_ONLY_READ"
+	item, e := create(text, true)
+	if e != nil {
+		return e
+	}
+	if item["revision"] != "1" || item["source"] != "admin" || item["sourceSeq"] != "0" || item["active"] != true {
+		return fmt.Errorf("manual memory provenance incorrect")
+	}
+	duplicate, e := create(text, false)
+	if e != nil || duplicate["id"] != item["id"] || duplicate["updatedAt"] != item["updatedAt"] || duplicate["revision"] != item["revision"] {
+		return fmt.Errorf("manual duplicate modified original metadata: %v", e)
+	}
+	for i := 0; i < 105; i++ {
+		if _, e = create(fmt.Sprintf("KNOWLEDGE_FILLER_%03d", i), true); e != nil {
+			return e
+		}
+	}
+	newer, e := create("KNOWLEDGE_MANUAL_TARGET KNOWLEDGE_NEWER_DISTRACTOR", true)
+	if e != nil {
+		return e
+	}
+	readCurrent := func(query string, expected map[string]any) error {
+		status, page, err := do("GET", "/api/agent/memories/current?"+query, nil, "")
+		rows, ok := page["items"].([]any)
+		count := 0
+		if expected != nil {
+			count = 1
+		}
+		if err != nil || status != 200 || page["mode"] != "managed" || !ok || len(rows) != count {
+			return fmt.Errorf("current memory lookup mismatch: %d %v", status, err)
+		}
+		if expected != nil {
+			item := rows[0].(map[string]any)
+			for key, want := range expected {
+				if item[key] != want {
+					return fmt.Errorf("current memory field differs: %s", key)
+				}
+			}
+		}
+		return nil
+	}
+	status, firstPage, e := do("GET", memoryPath, nil, "")
+	firstItems, _ := firstPage["items"].([]any)
+	if e != nil || status != 200 || len(firstItems) != 50 || firstPage["more"] != true {
+		return fmt.Errorf("current memory lookup paging baseline missing")
+	}
+	for _, raw := range firstItems {
+		if raw.(map[string]any)["id"] == newer["id"] {
+			return fmt.Errorf("current memory fixture must be beyond the first page")
+		}
+	}
+	if e = readCurrent(scopeQuery+"&memoryId="+newer["id"].(string), newer); e != nil {
+		return e
+	}
+	for _, query := range []string{"botId=87654321&type=private&id=303", "botId=87654321&type=group&id=304"} {
+		if e = readCurrent(query+"&memoryId="+newer["id"].(string), nil); e != nil {
+			return e
+		}
+	}
+	read := func(query string, count int, expectedText string) error {
+		status, page, e := do("GET", "/api/agent/memories/read?"+query, nil, "")
+		rows, ok := page["memories"].([]any)
+		if e != nil || status != 200 || page["available"] != true || !ok || len(rows) != count {
+			return fmt.Errorf("precise memory read mismatch: %d %v", status, e)
+		}
+		if count == 1 {
+			v, _ := rows[0].(map[string]any)
+			if v["text"] != expectedText || v["truncated"] != false {
+				return fmt.Errorf("precise memory text mismatch")
+			}
+		}
+		return nil
+	}
+	id := item["id"].(string)
+	stamp, e := time.Parse(time.RFC3339Nano, item["updatedAt"].(string))
+	if e != nil {
+		return e
+	}
+	for _, tc := range []struct {
+		from, until string
+		count       int
+	}{
+		{stamp.Format(time.RFC3339Nano), stamp.Add(time.Nanosecond).Format(time.RFC3339Nano), 1},
+		{stamp.Add(-time.Nanosecond).Format(time.RFC3339Nano), stamp.Format(time.RFC3339Nano), 0},
+	} {
+		body := scope()
+		body["from"], body["until"] = tc.from, tc.until
+		time.Sleep(260 * time.Millisecond)
+		code, page, err := do("POST", "/api/agent/memories/search", body, csrf)
+		rows, ok := page["memories"].([]any)
+		if err != nil || code != 200 || !ok || len(rows) != tc.count {
+			return fmt.Errorf("memory time-only HTTP window mismatch: %d %v", code, err)
+		}
+		if tc.count == 1 && rows[0].(map[string]any)["id"] != id {
+			return fmt.Errorf("memory time window selected wrong revision")
+		}
+		if tc.from != "" && page["from"] != tc.from {
+			return fmt.Errorf("memory HTTP time receipt missing")
+		}
+	}
+	if e = read(scopeQuery+"&memoryId="+id+"&revision=1", 1, text); e != nil {
+		return e
+	}
+	for _, query := range []string{"botId=87654321&type=private&id=303", "botId=87654321&type=group&id=304"} {
+		if e = read(query+"&memoryId="+id+"&revision=1", 0, ""); e != nil {
+			return e
+		}
+	}
+	// Walk the real keyset API and verify each row, including page boundaries.
+	checkPages := func(path, field, identity string, count int, validate func(map[string]any) bool) error {
+		seen := map[string]bool{}
+		for pageNo := 0; pageNo < 10; pageNo++ {
+			status, page, e := do("GET", path, nil, "")
+			rows, ok := page[field].([]any)
+			if e != nil || status != 200 || !ok || len(rows) > 50 {
+				return fmt.Errorf("filtered pagination unavailable: %d %v", status, e)
+			}
+			for _, raw := range rows {
+				v, ok := raw.(map[string]any)
+				key, _ := v[identity].(string)
+				if !ok || key == "" || seen[key] || !validate(v) {
+					return fmt.Errorf("filtered page duplicate or wrong state")
+				}
+				seen[key] = true
+			}
+			if page["more"] != true {
+				if len(seen) != count {
+					return fmt.Errorf("filtered page count %d, want %d", len(seen), count)
+				}
+				return nil
+			}
+			next, _ := page["next"].(string)
+			if !smokePositiveID(next) {
+				return fmt.Errorf("filtered cursor missing")
+			}
+			parsed, _ := url.Parse(path)
+			q := parsed.Query()
+			cursor := "after"
+			if field == "items" && identity == "taskId" {
+				cursor = "before"
+			}
+			q.Set(cursor, next)
+			path = parsed.Path + "?" + q.Encode()
+		}
+		return fmt.Errorf("filtered pagination failed to terminate")
+	}
+	if e = checkPages(memoryPath+"&state=active", "items", "id", 107, func(v map[string]any) bool { return v["active"] == true }); e != nil {
+		return e
+	}
+	// Exercise the actual HTTP adapter's boundary, before invoking the model.
+	time.Sleep(260 * time.Millisecond)
+	bounded := scope()
+	bounded["keyword"], bounded["before"] = "KNOWLEDGE_MANUAL_TARGET", newer["id"]
+	status, matched, e := do("POST", "/api/agent/memories/search", bounded, csrf)
+	matches, _ := matched["memories"].([]any)
+	if e != nil || status != 200 || matched["available"] != true || len(matches) != 1 || matches[0].(map[string]any)["id"] != id || matches[0].(map[string]any)["revision"] != "1" || matches[0].(map[string]any)["truncated"] != true {
+		return fmt.Errorf("admin memory boundary did not return the older target: %d %v", status, e)
+	}
+	run := func(model, command, reply string, models, locals int) (map[string]any, error) {
+		status, cfg, e := do("GET", "/api/ai", nil, "")
+		if e != nil || status != 200 {
+			return nil, fmt.Errorf("knowledge model config read failed")
+		}
+		status, _, e = do("POST", "/api/ai", map[string]any{"revision": cfg["global"].(map[string]any)["revision"], "fields": map[string]any{"AgentModelName": model}}, csrf)
+		if e != nil || status != 200 {
+			return nil, fmt.Errorf("knowledge model config save failed")
+		}
+		got, e := send(23456789, 303, "member", command, true)
+		if e != nil || got != reply {
+			return nil, fmt.Errorf("knowledge Agent round trip %s: got %q, error %v", model, got, e)
+		}
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			status, page, e := do("GET", taskPath, nil, "")
+			rows, _ := page["items"].([]any)
+			if e != nil || status != 200 || len(rows) == 0 {
+				return nil, fmt.Errorf("knowledge task unavailable")
+			}
+			v, _ := rows[0].(map[string]any)
+			if v["status"] == "completed" {
+				a, _ := v["activity"].(map[string]any)
+				m, _ := v["memory"].(map[string]any)
+				if v["persisted"] != true || a["available"] != true || a["modelPreparations"] != float64(models) || a["localActions"] != float64(locals) || a["platformActions"] != float64(1) || a["fallbackPreparations"] != float64(0) || m["available"] != true || m["mode"] != "managed" || m["records"] != float64(100) || m["clipped"] != true || m["reason"] != "record_limit" {
+					return nil, fmt.Errorf("knowledge task activity/memory summary incorrect")
+				}
+				if !smokeTaskResultsMatch(v, locals+1, 0, 0, 0) {
+					return nil, fmt.Errorf("knowledge task settled results incorrect")
+				}
+				wantEmpty := 0
+				if model == "smoke-knowledge-stale" {
+					wantEmpty = 1
+				}
+				queryCount := locals
+				if model == "smoke-knowledge-save" {
+					queryCount = 1
+				}
+				if !smokeTaskQueriesMatch(v, queryCount, queryCount, wantEmpty) {
+					return nil, fmt.Errorf("knowledge task query quota/coverage incorrect")
+				}
+				q := v["queries"].(map[string]any)
+				switch model {
+				case "smoke-knowledge-save":
+					if q["readMemory"] != float64(1) || q["partial"] != float64(0) || q["searchHistory"] != float64(0) || q["searchMemory"] != float64(0) {
+						return nil, fmt.Errorf("save/read quota counted saves as queries")
+					}
+				case "smoke-knowledge-memory":
+					if q["searchMemory"] != float64(2) || q["readMemory"] != float64(1) || q["partial"].(float64) < 1 {
+						return nil, fmt.Errorf("memory query types or partial coverage missing")
+					}
+				case "smoke-knowledge-history":
+					if q["searchHistory"] != float64(2) || q["readHistory"] != float64(1) || q["partial"].(float64) < 1 {
+						return nil, fmt.Errorf("history query types or partial coverage missing")
+					}
+				case "smoke-knowledge-stale":
+					if q["readMemory"] != float64(1) || q["empty"] != float64(1) {
+						return nil, fmt.Errorf("stale memory empty result missing")
+					}
+				}
+				encoded, _ := json.Marshal(v)
+				if bytes.Contains(encoded, []byte("KNOWLEDGE_MANUAL_TARGET")) {
+					return nil, fmt.Errorf("task summary exposed memory text")
+				}
+				return v, nil
+			}
+			time.Sleep(30 * time.Millisecond)
+		}
+		return nil, fmt.Errorf("knowledge task did not finish")
+	}
+	v, e := run("smoke-knowledge-memory", "KNOWLEDGE_MEMORY_CHECK", "KNOWLEDGE_MEMORY_OK", 4, 3)
+	if e != nil {
+		return e
+	}
+	if v["context"].(map[string]any)["memorySources"] != float64(3) {
+		return fmt.Errorf("retrieved memory source count incorrect")
+	}
+	if !smokePositiveID(v["sourceSeq"]) {
+		return fmt.Errorf("knowledge task trigger source missing")
+	}
+	status, trigger, e := do("GET", "/api/agent/history?"+scopeQuery+"&archived=true&seq="+v["sourceSeq"].(string), nil, "")
+	triggerRows, _ := trigger["entries"].([]any)
+	if e != nil || status != 200 || len(triggerRows) != 1 || triggerRows[0].(map[string]any)["kind"] != "event" || !strings.Contains(triggerRows[0].(map[string]any)["text"].(string), "KNOWLEDGE_MEMORY_CHECK") {
+		return fmt.Errorf("knowledge task source does not match triggering event: %d %v", status, e)
+	}
+	time.Sleep(260 * time.Millisecond)
+	body := scope()
+	body["keyword"] = "ROLE_AGENT_CHECK"
+	status, archive, e := do("POST", "/api/agent/history/search", body, csrf)
+	entries, _ := archive["entries"].([]any)
+	before := ""
+	until := time.Time{}
+	for _, raw := range entries {
+		entry, _ := raw.(map[string]any)
+		if entry["kind"] == "event" {
+			before, _ = entry["seq"].(string)
+			until, _ = time.Parse(time.RFC3339Nano, fmt.Sprint(entry["time"]))
+			break
+		}
+	}
+	if e != nil || status != 200 || !smokePositiveID(before) || until.IsZero() {
+		return fmt.Errorf("history event boundary unavailable")
+	}
+	sender, counts := "", map[string]int{}
+	boundary, _ := strconv.ParseInt(before, 10, 64)
+	for _, raw := range entries {
+		entry, _ := raw.(map[string]any)
+		seq, _ := entry["seq"].(string)
+		number, _ := strconv.ParseInt(seq, 10, 64)
+		if entry["kind"] != "event" || number >= boundary {
+			continue
+		}
+		status, source, err := do("GET", "/api/agent/history?"+scopeQuery+"&seq="+seq, nil, "")
+		rows, _ := source["entries"].([]any)
+		if err != nil || status != 200 || len(rows) != 1 {
+			return fmt.Errorf("history sender source unavailable")
+		}
+		row, _ := rows[0].(map[string]any)
+		text, _ := row["text"].(string)
+		id, err := smokeArchiveSender(text)
+		if err != nil {
+			return err
+		}
+		counts[id]++
+		if counts[id] >= 2 {
+			sender = id
+			break
+		}
+	}
+	if sender == "" {
+		return fmt.Errorf("history fixture needs two actual messages from one sender")
+	}
+	v, e = run("smoke-knowledge-history", "KNOWLEDGE_HISTORY_CHECK BEFORE="+before+" FROM="+until.Add(-24*time.Hour).In(time.FixedZone("fixture", 8*3600)).Format(time.RFC3339Nano)+" UNTIL="+until.Format(time.RFC3339Nano)+" SENDER="+sender, "KNOWLEDGE_HISTORY_OK", 4, 3)
+	if e != nil {
+		return e
+	}
+	if v["context"].(map[string]any)["searchSources"].(float64) < 2 {
+		return fmt.Errorf("retrieved history source count incorrect")
+	}
+	update := func(revision, action, newText, target string, want int) error {
+		body := scope()
+		body["memoryId"], body["revision"], body["action"] = id, revision, action
+		if newText != "" {
+			body["text"] = newText
+		}
+		if target != "" {
+			body["targetRevision"] = target
+		}
+		status, _, e := do("POST", "/api/agent/memories/update", body, csrf)
+		if e != nil || status != want {
+			return fmt.Errorf("memory lifecycle %s status %d, want %d", action, status, want)
+		}
+		return nil
+	}
+	for _, change := range []struct {
+		revision, action, text, target string
+		status                         int
+	}{
+		{"1", "edit", "KNOWLEDGE_REVISED", "", 200},
+		{"1", "edit", "must not overwrite", "", 409},
+		{"2", "disable", "", "", 200},
+		{"3", "revert", "", "1", 200},
+	} {
+		if e = update(change.revision, change.action, change.text, change.target, change.status); e != nil {
+			return e
+		}
+	}
+	for _, revision := range []string{"1", "2", "4"} {
+		if e = read(scopeQuery+"&memoryId="+id+"&revision="+revision, 0, ""); e != nil {
+			return e
+		}
+	}
+	if e = readCurrent(scopeQuery+"&memoryId="+id, map[string]any{"id": id, "revision": "4", "text": text, "active": false}); e != nil {
+		return e
+	}
+	if e = checkPages(memoryPath+"&state=disabled", "items", "id", 2, func(v map[string]any) bool { return v["active"] == false }); e != nil {
+		return e
+	}
+	time.Sleep(260 * time.Millisecond)
+	body = scope()
+	body["keyword"] = "KNOWLEDGE_MANUAL_TARGET"
+	status, page, e := do("POST", "/api/agent/memories/search", body, csrf)
+	rows, _ := page["memories"].([]any)
+	if e != nil || status != 200 || len(rows) != 1 || rows[0].(map[string]any)["id"] == id || !strings.Contains(rows[0].(map[string]any)["text"].(string), "KNOWLEDGE_NEWER_DISTRACTOR") {
+		return fmt.Errorf("disabled target still searchable or newer match lost")
+	}
+	time.Sleep(260 * time.Millisecond)
+	status, page, e = do("POST", "/api/agent/memories/search", bounded, csrf)
+	rows, _ = page["memories"].([]any)
+	if e != nil || status != 200 || page["available"] != true || len(rows) != 0 {
+		return fmt.Errorf("admin memory boundary exposed disabled target")
+	}
+	for _, state := range []string{"disabled", "all", "active"} {
+		time.Sleep(260 * time.Millisecond)
+		query := scope()
+		query["keyword"], query["state"] = "KNOWLEDGE_MANUAL_TARGET", state
+		status, page, e = do("POST", "/api/agent/memories/search", query, csrf)
+		rows, ok := page["memories"].([]any)
+		want := 1
+		if state == "all" {
+			want = 2
+		}
+		if e != nil || status != 200 || !ok || len(rows) != want || page["state"] != state {
+			return fmt.Errorf("memory search state receipt/count mismatch: %s %d %v", state, status, e)
+		}
+		foundDisabled := false
+		for _, raw := range rows {
+			match := raw.(map[string]any)
+			if match["id"] == id {
+				foundDisabled = true
+				if match["active"] != false || match["revision"] != "4" || !strings.Contains(match["text"].(string), "KNOWLEDGE_MANUAL_TARGET") {
+					return fmt.Errorf("disabled memory search did not use current revision")
+				}
+			} else if match["id"] != newer["id"] || match["active"] != true {
+				return fmt.Errorf("memory state search returned unexpected identity/state")
+			}
+		}
+		if foundDisabled != (state != "active") {
+			return fmt.Errorf("memory search state did not isolate disabled target")
+		}
+	}
+	time.Sleep(260 * time.Millisecond)
+	query := scope()
+	query["source"], query["state"], query["before"] = "admin", "disabled", newer["id"]
+	status, page, e = do("POST", "/api/agent/memories/search", query, csrf)
+	rows, _ = page["memories"].([]any)
+	if e != nil || status != 200 || page["source"] != "admin" || page["state"] != "disabled" || len(rows) != 1 || rows[0].(map[string]any)["id"] != id {
+		return fmt.Errorf("disabled source-only memory search lost scope or boundary")
+	}
+	if e = update("4", "restore", "", "", 200); e != nil {
+		return e
+	}
+	if e = read(scopeQuery+"&memoryId="+id+"&revision=5", 1, text); e != nil {
+		return e
+	}
+	if e = readCurrent(scopeQuery+"&memoryId="+id, map[string]any{"id": id, "revision": "5", "text": text, "active": true}); e != nil {
+		return e
+	}
+	time.Sleep(260 * time.Millisecond)
+	status, page, e = do("POST", "/api/agent/memories/search", query, csrf)
+	rows, _ = page["memories"].([]any)
+	if e != nil || status != 200 || page["available"] != true || len(rows) != 0 {
+		return fmt.Errorf("restored memory remained in disabled search")
+	}
+	status, page, e = do("GET", memoryPath+"&memoryId="+id, nil, "")
+	versions, _ := page["items"].([]any)
+	if e != nil || status != 200 || len(versions) != 5 || versions[0].(map[string]any)["revision"] != "1" || versions[4].(map[string]any)["revision"] != "5" {
+		return fmt.Errorf("memory lifecycle revisions missing")
+	}
+	for _, revision := range []int{1, 4, 5} {
+		code, exact, err := do("GET", "/api/agent/memories/revision?"+scopeQuery+"&memoryId="+id+"&revision="+strconv.Itoa(revision), nil, "")
+		items, ok := exact["items"].([]any)
+		if err != nil || code != 200 || !ok || len(items) != 1 || exact["more"] != false {
+			return fmt.Errorf("exact historical memory revision unavailable: %d %v", code, err)
+		}
+		got := items[0].(map[string]any)
+		want := versions[revision-1].(map[string]any)
+		for _, key := range []string{"id", "revision", "text", "source", "sourceSeq", "active", "updatedAt"} {
+			if got[key] != want[key] {
+				return fmt.Errorf("exact historical memory revision field differs: %s", key)
+			}
+		}
+	}
+	for _, path := range []string{
+		"/api/agent/memories/revision?" + scopeQuery + "&memoryId=" + id + "&revision=6",
+		"/api/agent/memories/revision?botId=87654321&type=private&id=303&memoryId=" + id + "&revision=1",
+	} {
+		code, absent, err := do("GET", path, nil, "")
+		items, ok := absent["items"].([]any)
+		if err != nil || code != 200 || !ok || len(items) != 0 {
+			return fmt.Errorf("exact historical revision scope or missing version mismatch")
+		}
+	}
+	for _, tc := range []struct {
+		path  string
+		first int
+		count int
+	}{
+		{memoryPath + "&memoryId=" + id + "&order=desc", 5, 5},
+		{memoryPath + "&memoryId=" + id + "&order=desc&after=3", 2, 2},
+		{"/api/agent/memories?botId=87654321&type=private&id=303&memoryId=" + id + "&order=desc", 0, 0},
+	} {
+		status, history, err := do("GET", tc.path, nil, "")
+		rows, ok := history["items"].([]any)
+		if err != nil || status != 200 || !ok || len(rows) != tc.count || history["more"] != false {
+			return fmt.Errorf("newest memory revisions unavailable: %d %v", status, err)
+		}
+		for i, raw := range rows {
+			entry := raw.(map[string]any)
+			if entry["id"] != id || entry["revision"] != strconv.Itoa(tc.first-i) {
+				return fmt.Errorf("newest memory revision order or boundary changed")
+			}
+		}
+	}
+	if e = readCurrent(scopeQuery+"&memoryId="+id, map[string]any{"id": id, "revision": "5", "text": text, "active": true}); e != nil {
+		return e
+	}
+	if _, e = run("smoke-knowledge-stale", "KNOWLEDGE_STALE_CHECK ID="+id+" REV=1", "KNOWLEDGE_STALE_OK", 2, 1); e != nil {
+		return e
+	}
+	status, exact, e := do("GET", "/api/agent/tasks/read?"+scopeQuery+"&taskId="+v["taskId"].(string), nil, "")
+	if e != nil || status != 200 || exact["taskId"] != v["taskId"] || exact["version"] != v["version"] || exact["status"] != "completed" || exact["context"].(map[string]any)["searchSources"] != v["context"].(map[string]any)["searchSources"] {
+		return fmt.Errorf("exact read lost an earlier task summary: %d %v", status, e)
+	}
+	for _, query := range []string{"botId=87654321&type=private&id=303", "botId=87654321&type=group&id=304"} {
+		status, _, e = do("GET", "/api/agent/tasks/read?"+query+"&taskId="+v["taskId"].(string), nil, "")
+		if e != nil || status != 404 {
+			return fmt.Errorf("exact task read scope leaked: %d %v", status, e)
+		}
+	}
+	status, beforeSave, e := do("GET", taskPath, nil, "")
+	beforeRows, _ := beforeSave["items"].([]any)
+	if e != nil || status != 200 || len(beforeRows) == 0 {
+		return fmt.Errorf("save/read context baseline unavailable")
+	}
+	baseline := beforeRows[0].(map[string]any)
+	savedTask, e := run("smoke-knowledge-save", "KNOWLEDGE_SAVE_CHECK", "KNOWLEDGE_SAVE_OK", 3, 3)
+	if e != nil {
+		return e
+	}
+	if !smokeMemorySourceDelta(baseline, savedTask) {
+		return fmt.Errorf("save/read context sources did not increase by one: before=%v after=%v", baseline["context"].(map[string]any)["memorySources"], savedTask["context"].(map[string]any)["memorySources"])
+	}
+	time.Sleep(260 * time.Millisecond)
+	searchSaved := scope()
+	searchSaved["keyword"] = "KNOWLEDGE_SAVED_FROM_RESULT"
+	status, savedPage, e := do("POST", "/api/agent/memories/search", searchSaved, csrf)
+	savedRows, _ := savedPage["memories"].([]any)
+	if e != nil || status != 200 || len(savedRows) != 1 || savedRows[0].(map[string]any)["sourceSeq"] != savedTask["sourceSeq"] || savedRows[0].(map[string]any)["revision"] != "1" || savedRows[0].(map[string]any)["source"] != "agent" {
+		return fmt.Errorf("saved reference task scope/provenance or dedup count mismatch")
+	}
+	for _, filter := range []struct {
+		state string
+		count int
+	}{{"completed", 9}, {"cancelled", 3}, {"running", 0}} {
+		if e = checkPages(taskPath+"&state="+filter.state, "items", "taskId", filter.count, func(v map[string]any) bool { return v["status"] == filter.state }); e != nil {
+			return e
+		}
+	}
+	for _, filter := range []struct {
+		id, source, keyword string
+		count               int
+	}{
+		{"303", "admin", "KNOWLEDGE_", 20}, {"303", "agent", "KNOWLEDGE_", 1},
+		{"303", "legacy", "KNOWLEDGE_", 0}, {"404", "legacy", "synthetic legacy", 1},
+		{"303", "admin", "", 20}, {"303", "legacy", "", 0}, {"404", "legacy", "", 1},
+	} {
+		time.Sleep(260 * time.Millisecond)
+		query := scope()
+		query["id"], query["source"], query["keyword"] = filter.id, filter.source, filter.keyword
+		if filter.keyword == "" {
+			delete(query, "keyword")
+		}
+		status, page, e := do("POST", "/api/agent/memories/search", query, csrf)
+		rows, ok := page["memories"].([]any)
+		if e != nil || status != 200 || !ok || len(rows) != filter.count || page["source"] != filter.source {
+			return fmt.Errorf("memory source HTTP filter mismatch: %s %d %v", filter.source, status, e)
+		}
+		for _, raw := range rows {
+			if raw.(map[string]any)["source"] != filter.source {
+				return fmt.Errorf("memory source HTTP filter returned another provenance")
+			}
+		}
+	}
+	return nil
+}
+
+func smokeMemoryMatchesTrigger(memory, task, entry map[string]any) bool {
+	seq := memory["sourceSeq"]
+	text, _ := entry["text"].(string)
+	return memory["source"] == "agent" && smokePositiveID(seq) && seq == task["sourceSeq"] && seq == entry["seq"] && entry["kind"] == "event" && strings.Contains(text, "ROLE_AGENT_CHECK")
+}
+
+func verifyAgentMemory(do func(string, string, any, string) (int, map[string]any, error), csrf string) error {
+	status, page, err := do("GET", "/api/agent/memories?botId=87654321&type=group&id=303", nil, "")
+	if err != nil || status != 200 || page["mode"] != "managed" {
+		return fmt.Errorf("managed memory unavailable: %d %v", status, err)
+	}
+	items, ok := page["items"].([]any)
+	if !ok || len(items) != 1 {
+		return fmt.Errorf("local save_memory did not deduplicate three equal scoped writes")
+	}
+	item := items[0].(map[string]any)
+	if !smokePositiveID(item["sourceSeq"]) || item["source"] != "agent" {
+		return fmt.Errorf("memory source not captured")
+	}
+	status, tasks, err := do("GET", "/api/agent/tasks?botId=87654321&type=group&id=303&state=completed", nil, "")
+	completed, _ := tasks["items"].([]any)
+	if err != nil || status != 200 || len(completed) != 5 {
+		return fmt.Errorf("memory trigger task unavailable")
+	}
+	first := completed[len(completed)-1].(map[string]any)
+	status, source, err := do("GET", "/api/agent/history?botId=87654321&type=group&id=303&archived=true&seq="+item["sourceSeq"].(string), nil, "")
+	entries, _ := source["entries"].([]any)
+	if err != nil || status != 200 || len(entries) != 1 || !smokeMemoryMatchesTrigger(item, first, entries[0].(map[string]any)) {
+		return fmt.Errorf("memory did not retain its first task's exact trigger through repeated message IDs and dedup")
+	}
+	change := map[string]any{"botId": "87654321", "type": "group", "id": "303", "memoryId": item["id"], "revision": item["revision"], "action": "disable", "text": ""}
+	status, _, err = do("POST", "/api/agent/memories/update", change, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("memory disable failed")
+	}
+	status, _, err = do("POST", "/api/agent/memories/update", change, csrf)
+	if err != nil || status != 409 {
+		return fmt.Errorf("memory stale version accepted")
+	}
+	status, versions, err := do("GET", "/api/agent/memories?botId=87654321&type=group&id=303&memoryId="+item["id"].(string), nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("memory versions unavailable")
+	}
+	if rows, ok := versions["items"].([]any); !ok || len(rows) != 2 {
+		return fmt.Errorf("memory revisions missing")
+	}
+	scope := map[string]any{"botId": "87654321", "type": "group", "id": "404"}
+	status, preview, err := do("POST", "/api/agent/memories/migration-preview", scope, csrf)
+	if err != nil || status != 200 || preview["count"] != float64(1) {
+		return fmt.Errorf("legacy migration preview failed: %d %v", status, err)
+	}
+	scope["ticket"] = preview["ticket"]
+	for i := 0; i < 2; i++ {
+		status, _, err = do("POST", "/api/agent/memories/migrate", scope, csrf)
+		if err != nil || status != 200 {
+			return fmt.Errorf("legacy migration/retry failed")
+		}
+	}
+	status, migrated, err := do("GET", "/api/agent/memories?botId=87654321&type=group&id=404", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("migrated memory unavailable")
+	}
+	if rows, ok := migrated["items"].([]any); !ok || len(rows) != 1 {
+		return fmt.Errorf("migration duplicated memory")
+	}
+	return nil
+}
+
+func verifyAgentArchive(do func(string, string, any, string) (int, map[string]any, error), csrf string) error {
+	status, list, err := do("GET", "/api/agent/conversations?botId=87654321", nil, "")
+	if err != nil || status != 200 || list["available"] != true {
+		return fmt.Errorf("archive runtime list failed: %d %v", status, err)
+	}
+	for _, scope := range []string{"group", "private"} {
+		status, page, err := do("GET", "/api/agent/history?botId=87654321&type="+scope+"&id=303", nil, "")
+		if err != nil || status != 200 {
+			return fmt.Errorf("archive runtime read failed: %d %v", status, err)
+		}
+		entries, ok := page["entries"].([]any)
+		if !ok || (scope == "group" && len(entries) == 0) || (scope == "private" && len(entries) != 0) {
+			return fmt.Errorf("archive runtime conversation isolation failed")
+		}
+		encoded, _ := json.Marshal(page)
+		if bytes.Contains(encoded, []byte("synthetic-model-key")) {
+			return fmt.Errorf("archive exposed synthetic credential")
+		}
+	}
+	status, page, err := do("POST", "/api/agent/history/search", map[string]any{"botId": "87654321", "type": "group", "id": "303", "keyword": "ROLE_AGENT_CHECK"}, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("archive runtime search failed: %d %v", status, err)
+	}
+	entries, ok := page["entries"].([]any)
+	if !ok || len(entries) == 0 {
+		return fmt.Errorf("archive runtime search missing synthetic event")
+	}
+	selected := entries[0].(map[string]any)
+	for _, archived := range []bool{false, true} {
+		query := url.Values{"botId": {"87654321"}, "type": {"group"}, "id": {"303"}, "seq": {fmt.Sprint(selected["seq"])}, "archived": {strconv.FormatBool(archived)}}
+		status, exact, err := do("GET", "/api/agent/history?"+query.Encode(), nil, "")
+		rows, ok := exact["entries"].([]any)
+		if err != nil || status != 200 || exact["available"] != true || !ok || len(rows) != 1 || exact["nextCursor"] != "" {
+			return fmt.Errorf("archive exact lookup failed")
+		}
+		row, _ := rows[0].(map[string]any)
+		text, textOK := row["text"].(string)
+		if row["seq"] != selected["seq"] || row["kind"] != selected["kind"] || row["time"] != selected["time"] || !textOK || !strings.Contains(text, "ROLE_AGENT_CHECK") || len(text) > 8000 {
+			return fmt.Errorf("archive exact lookup returned wrong source")
+		}
+		for _, absent := range []struct{ key, value string }{{"type", "private"}, {"seq", "9223372036854775807"}} {
+			missingQuery := url.Values{}
+			for key, values := range query {
+				missingQuery[key] = append([]string(nil), values...)
+			}
+			missingQuery.Set(absent.key, absent.value)
+			code, missing, err := do("GET", "/api/agent/history?"+missingQuery.Encode(), nil, "")
+			items, ok := missing["entries"].([]any)
+			if err != nil || code != 200 || !ok || len(items) != 0 {
+				return fmt.Errorf("archive exact lookup scope or missing sequence mismatch")
+			}
+		}
+	}
+	// Read neighboring events through the final program's authenticated HTTP
+	// path, using an actual search source rather than a guessed sequence.
+	var anchor string
+	for _, entry := range entries {
+		row := entry.(map[string]any)
+		if row["kind"] == "event" {
+			anchor, _ = row["seq"].(string)
+			break
+		}
+	}
+	if anchor == "" {
+		return fmt.Errorf("archive context search has no event source")
+	}
+	contextPath := "/api/agent/history?botId=87654321&type=group&id=303&seq=" + anchor + "&context=1"
+	anchorSender := ""
+	for radius := 1; radius <= 3; radius++ {
+		status, neighbors, err := do("GET", strings.Replace(contextPath, "context=1", "context="+strconv.Itoa(radius), 1), nil, "")
+		if err != nil || status != 200 || neighbors["available"] != true || neighbors["anchorSeq"] != anchor || neighbors["context"] != float64(radius) || neighbors["nextCursor"] != "" {
+			return fmt.Errorf("archive source context HTTP failed: %d %v", status, err)
+		}
+		rows, ok := neighbors["entries"].([]any)
+		if !ok || len(rows) < 2 || len(rows) > 2*radius+1 {
+			return fmt.Errorf("archive source context missing neighbors")
+		}
+		anchorNumber, _ := strconv.ParseInt(anchor, 10, 64)
+		previous := int64(0)
+		center, older, newer, totalBytes := 0, 0, 0, 0
+		for index, item := range rows {
+			row, ok := item.(map[string]any)
+			if !ok {
+				return fmt.Errorf("archive context invalid event")
+			}
+			seq, _ := row["seq"].(string)
+			number, e := strconv.ParseInt(seq, 10, 64)
+			text, textOK := row["text"].(string)
+			limit := 2000
+			switch {
+			case number == anchorNumber:
+				center++
+				limit = 8000
+				var senderErr error
+				anchorSender, senderErr = smokeArchiveSender(text)
+				if senderErr != nil {
+					return senderErr
+				}
+			case number < anchorNumber:
+				older++
+			default:
+				newer++
+			}
+			if e != nil || number <= 0 || strconv.FormatInt(number, 10) != seq || row["kind"] != "event" || !textOK || !utf8.ValidString(text) || len(text) > limit || (index > 0 && number >= previous) {
+				return fmt.Errorf("archive context event order/type/budget invalid")
+			}
+			previous = number
+			totalBytes += len(text)
+		}
+		if center != 1 || older > radius || newer > radius || totalBytes > 16384 {
+			return fmt.Errorf("archive context anchor/radius mismatch")
+		}
+	}
+	for _, path := range []string{strings.Replace(contextPath, "type=group", "type=private", 1), strings.Replace(contextPath, "seq="+anchor, "seq=9223372036854775807", 1)} {
+		status, absent, e := do("GET", path, nil, "")
+		rows, ok := absent["entries"].([]any)
+		if e != nil || status != 200 || !ok || len(rows) != 0 {
+			return fmt.Errorf("archive context absent/cross-scope anchor leaked neighbors")
+		}
+	}
+	for _, path := range []string{contextPath + "&archived=true", contextPath + "&context=2", strings.Replace(contextPath, "context=1", "context=4", 1)} {
+		status, _, e := do("GET", path, nil, "")
+		if e != nil || status != 400 {
+			return fmt.Errorf("archive context invalid range accepted")
+		}
+	}
+	stamp, err := time.Parse(time.RFC3339Nano, fmt.Sprint(selected["time"]))
+	if err != nil {
+		return fmt.Errorf("archive runtime event has invalid creation time")
+	}
+	for _, tc := range []struct {
+		from, until time.Time
+		before      string
+		found       bool
+	}{
+		{stamp, stamp.Add(time.Nanosecond), "", true},
+		{stamp.Add(-time.Nanosecond), stamp, "", false},
+		{stamp, stamp.Add(time.Nanosecond), fmt.Sprint(selected["seq"]), false},
+	} {
+		time.Sleep(300 * time.Millisecond) // Honor the existing search rate limit.
+		body := map[string]any{"botId": "87654321", "type": "group", "id": "303", "from": tc.from.In(time.FixedZone("fixture", 8*3600)).Format(time.RFC3339Nano), "until": tc.until.Format(time.RFC3339Nano)}
+		if tc.before != "" {
+			body["before"] = tc.before
+		}
+		status, page, err = do("POST", "/api/agent/history/search", body, csrf)
+		if err != nil || status != 200 {
+			return fmt.Errorf("archive runtime time search failed: %d %v", status, err)
+		}
+		rows, ok := page["entries"].([]any)
+		if !ok {
+			return fmt.Errorf("archive time search entries missing")
+		}
+		found := false
+		for _, row := range rows {
+			if row.(map[string]any)["seq"] == selected["seq"] {
+				found = true
+			}
+		}
+		if found != tc.found {
+			return fmt.Errorf("archive time/sequence boundary mismatch")
+		}
+	}
+	for _, keyword := range []string{"ROLE_AGENT_CHECK", ""} {
+		for _, sender := range []string{anchorSender, "9223372036854775807"} {
+			time.Sleep(300 * time.Millisecond)
+			status, page, err := do("POST", "/api/agent/history/search", map[string]any{"botId": "87654321", "type": "group", "id": "303", "keyword": keyword, "sender": sender}, csrf)
+			rows, ok := page["entries"].([]any)
+			if err != nil || status != 200 || !ok || page["sender"] != sender || (sender == anchorSender && len(rows) == 0) || (sender != anchorSender && len(rows) != 0) {
+				return fmt.Errorf("archive sender HTTP search mismatch")
+			}
+			for _, raw := range rows {
+				row, _ := raw.(map[string]any)
+				text, _ := row["text"].(string)
+				actual, err := smokeArchiveSender(text)
+				if err != nil || actual != sender || row["kind"] != "event" {
+					return fmt.Errorf("archive sender search matched a mention or tool")
+				}
+			}
+		}
+	}
+	for _, eventType := range []string{"message", "notice", "request"} {
+		time.Sleep(300 * time.Millisecond)
+		status, page, err := do("POST", "/api/agent/history/search", map[string]any{"botId": "87654321", "type": "group", "id": "303", "eventType": eventType}, csrf)
+		rows, ok := page["entries"].([]any)
+		if err != nil || status != 200 || !ok || page["eventType"] != eventType || (eventType == "message" && len(rows) == 0) || (eventType != "message" && len(rows) != 0) {
+			return fmt.Errorf("archive type-only HTTP search mismatch: %s %d %v", eventType, status, err)
+		}
+		for _, raw := range rows {
+			row := raw.(map[string]any)
+			var event map[string]any
+			if row["kind"] != "event" || json.Unmarshal([]byte(row["text"].(string)), &event) != nil || event["post_type"] != eventType {
+				return fmt.Errorf("archive event type matched a tool or different post_type")
+			}
+		}
+	}
+	status, _, err = do("GET", "/api/agent/history?botId=99999999&type=group&id=303", nil, "")
+	if err != nil || status != 404 {
+		return fmt.Errorf("archive unknown bot not rejected")
+	}
+	return nil
+}
+
+func verifyAIRolePermissions(do func(string, string, any, string) (int, map[string]any, error), private func(int64, string) (string, error), send func(int64, int64, string, string, bool) (string, error), csrf, modelURL string, inFlight func(string) bool) error {
 	switchAgent := func(mode string) error {
 		status, list, err := do("GET", "/api/plugins", nil, "")
 		if err != nil || status != 200 {
@@ -2456,6 +4490,69 @@ func verifyAIRolePermissions(do func(string, string, any, string) (int, map[stri
 		// Allow the message hook to record the API response before updating roles.
 		time.Sleep(100 * time.Millisecond)
 	}
+	if err := verifyAgentTaskRuntime(do, send, csrf, inFlight); err != nil {
+		return err
+	}
+	if err := verifyAgentMemory(do, csrf); err != nil {
+		return err
+	}
+	if err := verifyAgentKnowledgeRuntime(do, send, csrf); err != nil {
+		return err
+	}
+	value, err = read("group=404")
+	if err != nil {
+		return err
+	}
+	global = value["global"].(map[string]any)
+	status, _, err = do("POST", "/api/ai", map[string]any{"revision": global["revision"], "fields": map[string]any{"AgentModelName": "smoke-vision-agent", "ImageAPI": modelURL, "ImageType": 0, "ImageModelName": "smoke-vision-model"}, "keys": map[string]any{"ImageKey": map[string]any{"action": "replace", "value": "synthetic-model-key"}}}, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("vision setup failed: %d %v", status, err)
+	}
+	if err := configure("group=404", true); err != nil {
+		return err
+	}
+	for i := 0; i < 2; i++ {
+		text, err := send(23456789, 404, "member", "VISION_IMAGE_CHECK", true)
+		if err != nil || text != "VISION_IMAGE_OK" {
+			return fmt.Errorf("actual bounded vision flow failed: %q %v", text, err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	status, visionTasks, err := do("GET", "/api/agent/tasks?botId=87654321&type=group&id=404&state=completed", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("vision task summaries unavailable")
+	}
+	visionRows, _ := visionTasks["items"].([]any)
+	if len(visionRows) != 2 {
+		return fmt.Errorf("vision task count incorrect")
+	}
+	for _, raw := range visionRows {
+		v, _ := raw.(map[string]any)
+		a, _ := v["activity"].(map[string]any)
+		if !smokeTaskTimingValid(v) || !smokeTaskResultsMatch(v, 1, 0, 0, 0) || !smokeTaskQueriesMatch(v, 0, 0, 0) || a["modelPreparations"] != float64(1) || a["localActions"] != float64(0) || a["platformActions"] != float64(1) {
+			return fmt.Errorf("vision task miscounted preparation, query or action")
+		}
+	}
+	if err := configure("group=404", false); err != nil {
+		return err
+	}
+	if err := verifyVisionDescriptionRuntime(do, send, csrf, configure); err != nil {
+		return err
+	}
+	if err := verifyAgentOutputLimits(do, send, csrf, configure); err != nil {
+		return err
+	}
+	if err := verifyAgentPreparationCancellation(do, send, csrf, configure, inFlight); err != nil {
+		return err
+	}
+	value, err = read("group=404")
+	if err != nil {
+		return err
+	}
+	status, _, err = do("POST", "/api/ai", map[string]any{"revision": value["global"].(map[string]any)["revision"], "fields": map[string]any{"ImageAPI": "", "ImageModelName": ""}, "keys": map[string]any{"ImageKey": map[string]any{"action": "clear", "confirm": true}}}, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("vision configuration cleanup failed")
+	}
 	if err := configure("group=303", false); err != nil {
 		return err
 	}
@@ -2473,6 +4570,352 @@ func verifyAIRolePermissions(do func(string, string, any, string) (int, map[stri
 	}
 	if text, err := private(12345678, "/全局沉默"); err != nil || !strings.Contains(text, "休息") {
 		return fmt.Errorf("role response cleanup failed")
+	}
+	return nil
+}
+
+func smokePreparationStoppedTask(task map[string]any) bool {
+	a, _ := task["activity"].(map[string]any)
+	return task["status"] == "cancelled" && smokeTaskTimingValid(task) && smokeTaskResultsMatch(task, 0, 0, 0, 0) && smokeTaskQueriesMatch(task, 0, 0, 0) && a["available"] == true && a["modelPreparations"] == float64(1) && a["fallbackPreparations"] == float64(0) && a["localActions"] == float64(0) && a["platformActions"] == float64(0)
+}
+
+func verifyAgentPreparationCancellation(do func(string, string, any, string) (int, map[string]any, error), send func(int64, int64, string, string, bool) (string, error), csrf string, configure func(string, bool) error, inFlight func(string) bool) error {
+	for i, phase := range []string{"download", "vision"} {
+		gid := int64(505 + i)
+		status, snapshot, err := do("GET", "/api/ai", nil, "")
+		if err != nil || status != 200 {
+			return fmt.Errorf("preparation settings read failed")
+		}
+		status, _, err = do("POST", "/api/ai", map[string]any{"revision": snapshot["global"].(map[string]any)["revision"], "fields": map[string]any{"AgentModelName": "smoke-prepare-agent-" + phase, "ImageModelName": "smoke-prepare-vision"}}, csrf)
+		if err != nil || status != 200 {
+			return fmt.Errorf("preparation model setup failed")
+		}
+		if err = configure("group="+strconv.FormatInt(gid, 10), true); err != nil {
+			return err
+		}
+		done := make(chan error, 1)
+		go func() {
+			text, err := send(23456789, gid, "member", "PREPARE_CANCEL_"+phase, true)
+			if err == nil && text != "" {
+				err = fmt.Errorf("stopped preparation sent a reply: %q", text)
+			}
+			done <- err
+		}()
+		endpoint := "/api/agent/tasks?botId=87654321&type=group&id=" + strconv.FormatInt(gid, 10)
+		var stopped map[string]any
+		var request map[string]any
+		deadline := time.Now().Add(4 * time.Second)
+		for time.Now().Before(deadline) {
+			status, page, err := do("GET", endpoint, nil, "")
+			rows, _ := page["items"].([]any)
+			if err != nil || status != 200 {
+				return fmt.Errorf("preparation task read failed")
+			}
+			if len(rows) > 0 && inFlight("prepare-"+phase) {
+				v, _ := rows[0].(map[string]any)
+				if v["status"] == "running" && v["phase"] == "model_wait" {
+					for _, filter := range []string{"model_wait", "action_wait"} {
+						code, filtered, e := do("GET", endpoint+"&state=running&reason=none&phase="+filter, nil, "")
+						items, ok := filtered["items"].([]any)
+						want := 0
+						if filter == "model_wait" {
+							want = 1
+						}
+						if e != nil || code != 200 || !ok || len(items) != want {
+							return fmt.Errorf("live task phase filter mismatch: %s", filter)
+						}
+						if want == 1 {
+							row, _ := items[0].(map[string]any)
+							if row["taskId"] != v["taskId"] || row["version"] != v["version"] {
+								return fmt.Errorf("phase filter changed task snapshot")
+							}
+						}
+					}
+					request = map[string]any{"botId": "87654321", "type": "group", "id": strconv.FormatInt(gid, 10), "taskId": v["taskId"], "version": v["version"]}
+					status, stopped, err = do("POST", "/api/agent/tasks/cancel", request, csrf)
+					if err != nil {
+						return err
+					}
+					if status == 200 {
+						break
+					}
+					if status != 409 {
+						return fmt.Errorf("preparation cancel failed: %d", status)
+					}
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		if stopped == nil || stopped["status"] != "cancel_requested" || !smokeTaskTimingValid(stopped) {
+			return fmt.Errorf("preparation stop not admitted in flight: %s", phase)
+		}
+		select {
+		case err := <-done:
+			if err != nil {
+				return err
+			}
+		case <-time.After(5 * time.Second):
+			return fmt.Errorf("stopped preparation did not settle")
+		}
+		status, terminal, err := do("GET", "/api/agent/tasks/read?botId=87654321&type=group&id="+strconv.FormatInt(gid, 10)+"&taskId="+stopped["taskId"].(string), nil, "")
+		if err != nil || status != 200 || !smokePreparationStoppedTask(terminal) || terminal["cancelRequestedAt"] != stopped["cancelRequestedAt"] {
+			return fmt.Errorf("preparation terminal summary incorrect: %s status=%v error=%v", phase, terminal["status"], err)
+		}
+		status, again, err := do("POST", "/api/agent/tasks/cancel", request, csrf)
+		if err != nil || status != 200 || !smokePreparationStoppedTask(again) || again["cancelRequestedAt"] != stopped["cancelRequestedAt"] {
+			return fmt.Errorf("preparation duplicate stop changed terminal")
+		}
+		if err = configure("group="+strconv.FormatInt(gid, 10), false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func smokeTaskTimingValid(task map[string]any) bool {
+	valid := func(value any) bool {
+		stamp, ok := value.(string)
+		if !ok || !strings.HasSuffix(stamp, "Z") {
+			return false
+		}
+		_, err := time.Parse(time.RFC3339Nano, stamp)
+		return err == nil
+	}
+	if task["persisted"] != true || !valid(task["startedAt"]) || !valid(task["phaseStartedAt"]) {
+		return false
+	}
+	if task["phase"] == "finished" && (!valid(task["endedAt"]) || task["phaseStartedAt"] != task["endedAt"]) {
+		return false
+	}
+	if stop, exists := task["cancelRequestedAt"]; exists && !valid(stop) {
+		return false
+	}
+	if task["status"] == "cancel_requested" || task["status"] == "cancelled" {
+		return valid(task["cancelRequestedAt"])
+	}
+	return true
+}
+
+func smokeTaskObservationValid(snapshot, task map[string]any) bool {
+	text, _ := snapshot["observedAt"].(string)
+	observed, err := time.Parse(time.RFC3339Nano, text)
+	if err != nil || !strings.HasSuffix(text, "Z") {
+		return false
+	}
+	for _, field := range []string{"startedAt", "phaseStartedAt", "cancelRequestedAt", "endedAt"} {
+		text, _ := task[field].(string)
+		if text == "" {
+			continue
+		}
+		stamp, err := time.Parse(time.RFC3339Nano, text)
+		if err != nil || observed.Before(stamp) {
+			return false
+		}
+	}
+	return true
+}
+
+func smokeTaskQueriesMatch(task map[string]any, used, successful, empty int) bool {
+	q, _ := task["queries"].(map[string]any)
+	return task["persisted"] == true && q["available"] == true && q["limit"] == float64(3) && q["used"] == float64(used) && q["successful"] == float64(successful) && q["empty"] == float64(empty) && q["errors"] == float64(0) && q["denied"] == float64(0)
+}
+
+func smokeTaskResultsMatch(task map[string]any, ok, rejected, unknown, localErrors int) bool {
+	r, _ := task["results"].(map[string]any)
+	return task["persisted"] == true && r["available"] == true && r["ok"] == float64(ok) && r["rejected"] == float64(rejected) && r["unknown"] == float64(unknown) && r["localErrors"] == float64(localErrors)
+}
+
+func verifyAgentTaskRuntime(do func(string, string, any, string) (int, map[string]any, error), send func(int64, int64, string, string, bool) (string, error), csrf string, inFlight func(string) bool) error {
+	const endpoint = "/api/agent/tasks?botId=87654321&type=group&id=303"
+	status, page, e := do("GET", endpoint, nil, "")
+	if e != nil || status != 200 {
+		return fmt.Errorf("task list unavailable")
+	}
+	items, ok := page["items"].([]any)
+	if !ok || len(items) != 5 {
+		return fmt.Errorf("role task count mismatch")
+	}
+	for _, raw := range items {
+		v := raw.(map[string]any)
+		if v["status"] != "completed" || v["persisted"] != true || v["context"].(map[string]any)["available"] != true {
+			return fmt.Errorf("role task terminal/context missing")
+		}
+		if !smokeTaskObservationValid(page, v) {
+			return fmt.Errorf("completed task page missing observation snapshot")
+		}
+		if !smokePositiveID(v["sourceSeq"]) {
+			return fmt.Errorf("role task trigger source missing")
+		}
+		a := v["activity"].(map[string]any)
+		if !smokeTaskResultsMatch(v, int(a["localActions"].(float64)+a["platformActions"].(float64)), 0, 0, 0) {
+			return fmt.Errorf("role task settled results mismatch")
+		}
+		queryCount := 0
+		if a["localActions"] == float64(2) {
+			queryCount = 1
+		}
+		if !smokeTaskQueriesMatch(v, queryCount, queryCount, 0) {
+			return fmt.Errorf("role task query summary mismatch")
+		}
+		status, source, e := do("GET", "/api/agent/history?botId=87654321&type=group&id=303&archived=true&seq="+v["sourceSeq"].(string), nil, "")
+		rows, _ := source["entries"].([]any)
+		if e != nil || status != 200 || len(rows) != 1 || rows[0].(map[string]any)["kind"] != "event" || !strings.Contains(rows[0].(map[string]any)["text"].(string), "ROLE_AGENT_") {
+			return fmt.Errorf("role task trigger event mismatch: %d %v", status, e)
+		}
+	}
+	for _, phase := range []string{"model", "action", "fallback"} {
+		status, snapshot, e := do("GET", "/api/ai", nil, "")
+		if e != nil || status != 200 {
+			return fmt.Errorf("task model setup read failed")
+		}
+		fields := map[string]any{"AgentModelName": "smoke-task-" + phase + "-wait"}
+		oldChatModel := snapshot["global"].(map[string]any)["fields"].(map[string]any)["ModelName"]
+		if phase == "fallback" {
+			fields["ModelName"] = "smoke-task-chat-wait"
+		}
+		status, _, e = do("POST", "/api/ai", map[string]any{"revision": snapshot["global"].(map[string]any)["revision"], "fields": fields}, csrf)
+		if e != nil || status != 200 {
+			return fmt.Errorf("task model setup failed")
+		}
+		done := make(chan error, 1)
+		go func() {
+			text, e := send(23456789, 303, "member", "TASK_CANCEL_"+phase, true)
+			if e == nil && text != "" {
+				e = fmt.Errorf("cancelled task sent unexpected reply %q", text)
+			}
+			done <- e
+		}()
+		var stopped map[string]any
+		var waiting map[string]any
+		var request map[string]any
+		deadline := time.Now().Add(4 * time.Second)
+		for time.Now().Before(deadline) {
+			status, page, e = do("GET", endpoint, nil, "")
+			if e != nil || status != 200 {
+				return fmt.Errorf("task poll failed")
+			}
+			rows := page["items"].([]any)
+			if len(rows) > 0 {
+				v := rows[0].(map[string]any)
+				waitPhase := phase + "_wait"
+				if phase == "fallback" {
+					waitPhase = "fallback_model_wait"
+				}
+				// The phase starts before prompt preparation. Only cancel after the
+				// fake server has received the request whose in-flight result we test.
+				if v["status"] == "running" && v["phase"] == waitPhase && inFlight(phase) {
+					if !smokeTaskObservationValid(page, v) {
+						return fmt.Errorf("task page missing server observation snapshot")
+					}
+					status, exact, e := do("GET", "/api/agent/tasks/read?botId=87654321&type=group&id=303&taskId="+v["taskId"].(string), nil, "")
+					if e != nil || status != 200 || exact["taskId"] != v["taskId"] || exact["status"] != "running" {
+						return fmt.Errorf("in-flight task precise read failed: %d %v", status, e)
+					}
+					if !smokeTaskResultsMatch(exact, 0, 0, 0, 0) {
+						return fmt.Errorf("pending action counted as settled")
+					}
+					if !smokeTaskTimingValid(exact) || exact["phaseStartedAt"] != v["phaseStartedAt"] {
+						return fmt.Errorf("in-flight stage timestamp missing or changed by read")
+					}
+					if !smokeTaskObservationValid(exact, exact) {
+						return fmt.Errorf("exact task missing server observation snapshot")
+					}
+					waiting = exact
+					outcome := "none"
+					if phase == "action" {
+						outcome = "in_flight"
+					}
+					filterPath := endpoint + "&state=running&reason=none&phase=" + waitPhase + "&outcome=" + outcome
+					code, filtered, err := do("GET", filterPath, nil, "")
+					filteredRows, ok := filtered["items"].([]any)
+					if err != nil || code != 200 || !ok || len(filteredRows) != 1 {
+						return fmt.Errorf("in-flight outcome filter missing task")
+					}
+					filteredTask, _ := filteredRows[0].(map[string]any)
+					if filteredTask["taskId"] != v["taskId"] || filteredTask["version"] != v["version"] {
+						return fmt.Errorf("outcome read changed in-flight task")
+					}
+					request = map[string]any{"botId": "87654321", "type": "group", "id": "303", "taskId": v["taskId"], "version": v["version"]}
+					status, stopped, e = do("POST", "/api/agent/tasks/cancel", request, csrf)
+					if e != nil {
+						return e
+					}
+					if status == 200 {
+						break
+					}
+					if status != 409 {
+						return fmt.Errorf("task cancel status %d", status)
+					}
+				}
+			}
+			time.Sleep(30 * time.Millisecond)
+		}
+		if stopped == nil || stopped["status"] != "cancel_requested" {
+			return fmt.Errorf("task cancel did not reach in-flight %s", phase)
+		}
+		if !smokeTaskTimingValid(stopped) || stopped["phaseStartedAt"] != waiting["phaseStartedAt"] {
+			return fmt.Errorf("stop timestamp missing or stop reset in-flight stage time")
+		}
+		if !smokeTaskObservationValid(stopped, stopped) {
+			return fmt.Errorf("stop response missing observation snapshot")
+		}
+		status, again, e := do("POST", "/api/agent/tasks/cancel", request, csrf)
+		if e != nil || status != 200 || again["taskId"] != stopped["taskId"] {
+			return fmt.Errorf("task cancel retry not idempotent")
+		}
+		if !smokeTaskTimingValid(again) || again["cancelRequestedAt"] != stopped["cancelRequestedAt"] {
+			return fmt.Errorf("duplicate stop changed first request time")
+		}
+		if !smokeTaskObservationValid(again, again) {
+			return fmt.Errorf("repeated stop response missing observation snapshot")
+		}
+		if e = <-done; e != nil {
+			return e
+		}
+		status, page, e = do("GET", endpoint, nil, "")
+		if e != nil || status != 200 {
+			return fmt.Errorf("task terminal unavailable")
+		}
+		v := page["items"].([]any)[0].(map[string]any)
+		if v["status"] != "cancelled" || v["persisted"] != true || v["taskId"] != stopped["taskId"] {
+			return fmt.Errorf("task terminal incorrect: %v", v["status"])
+		}
+		status, exact, e := do("GET", "/api/agent/tasks/read?botId=87654321&type=group&id=303&taskId="+v["taskId"].(string), nil, "")
+		if e != nil || status != 200 || exact["version"] != v["version"] || exact["status"] != "cancelled" {
+			return fmt.Errorf("exact cancelled task mismatch: %d %v", status, e)
+		}
+		if !smokeTaskTimingValid(v) || !smokeTaskTimingValid(exact) || v["cancelRequestedAt"] != stopped["cancelRequestedAt"] || exact["cancelRequestedAt"] != stopped["cancelRequestedAt"] || exact["phaseStartedAt"] != v["phaseStartedAt"] {
+			return fmt.Errorf("terminal read lost phase or first stop time")
+		}
+		if !smokeTaskObservationValid(page, v) || !smokeTaskObservationValid(exact, exact) {
+			return fmt.Errorf("terminal task observation snapshot missing or before task timestamps")
+		}
+		if phase == "action" && v["outcome"] != "ok" {
+			return fmt.Errorf("in-flight receipt lost")
+		}
+		wantOK := 0
+		if phase == "action" {
+			wantOK = 1
+		}
+		if !smokeTaskResultsMatch(v, wantOK, 0, 0, 0) || !smokeTaskResultsMatch(exact, wantOK, 0, 0, 0) {
+			return fmt.Errorf("cancelled task result counted twice or model cancellation invented an action")
+		}
+		if !smokeTaskQueriesMatch(v, 0, 0, 0) || !smokeTaskQueriesMatch(exact, 0, 0, 0) {
+			return fmt.Errorf("cancellation invented query usage")
+		}
+		if phase == "fallback" {
+			if v["context"].(map[string]any)["available"] != false {
+				return fmt.Errorf("fallback advertised Agent context")
+			}
+			status, snapshot, e = do("GET", "/api/ai", nil, "")
+			if e != nil || status != 200 {
+				return fmt.Errorf("fallback cleanup read failed")
+			}
+			status, _, e = do("POST", "/api/ai", map[string]any{"revision": snapshot["global"].(map[string]any)["revision"], "fields": map[string]any{"ModelName": oldChatModel}}, csrf)
+			if e != nil || status != 200 {
+				return fmt.Errorf("fallback cleanup failed")
+			}
+		}
 	}
 	return nil
 }

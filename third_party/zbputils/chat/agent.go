@@ -95,7 +95,7 @@ func AgentOf(id int64, service string) *goba.Agent {
 	if cfg, err := CurrentConfig(); err == nil {
 		character.Chars, character.Sex = cfg.AgentChar, cfg.AgentSex
 	}
-	ag := goba.NewAgent(&character, 16, 8, time.Hour*24, "", mem, true, false)
+	ag := goba.NewAgent(&character, 16, 8, time.Hour*24, "", mem, true, true)
 	history := histories[id]
 	budget := agentContextBytes
 	if cfg, err := CurrentConfig(); err == nil {
@@ -114,6 +114,7 @@ func AgentOf(id int64, service string) *goba.Agent {
 		history.budget = budget
 		history.mu.Unlock()
 		ag.SetHistoryStore(history)
+		ag.SetMemoryStorage(&MemoryStore{history: history, legacy: mem, bot: id})
 	} else {
 		logrus.Warnln("[chat] Agent 历史记录不可用，暂停 Agent 操作。")
 		ag.SetHistoryStore(unavailableHistory{})
@@ -171,8 +172,15 @@ func CallAgent(ag *goba.Agent, issudo bool, iter int, api deepinfra.API, p model
 }
 
 func NextAgentActions(ag *goba.Agent, issudo bool, iter int, api deepinfra.API, p model.Protocol, grp int64, role goba.PermRole) ([]zero.APIRequest, bool, error) {
-	reqs, err := ag.GetAction(api, p, grp, role, iter, false)
-	ended := errors.Is(err, io.EOF)
+	return NextAgentActionsChecked(ag, issudo, iter, api, p, grp, role, nil)
+}
+
+// NextAgentActionsChecked binds preparation checks to this call, not a shared Agent.
+func NextAgentActionsChecked(ag *goba.Agent, issudo bool, iter int, api deepinfra.API, p model.Protocol, grp int64, role goba.PermRole, check func() error) ([]zero.APIRequest, bool, error) {
+	reqs, err := ag.GetActionChecked(api, p, grp, role, iter, false, check)
+	// A failed HTTP/protocol read may also unwrap to EOF. It must not become
+	// an end_action or admit ordinary-chat fallback.
+	ended := errors.Is(err, io.EOF) && !errors.Is(err, goba.ErrModelRequestFailed)
 	if err != nil && !ended {
 		logrus.Warnln("[chat] Agent 请求或记录保存失败，请检查模型配置、网络与本机存储。")
 		return nil, false, err
@@ -340,9 +348,22 @@ func logev(ctx *zero.Ctx) {
 	}
 	data, _ := json.Marshal(ev)
 	logrus.Debugln("[chat] agent", gid, "add ev:", binary.BytesToString(data))
-	AgentOf(ctx.Event.SelfID, "aichat").AddEvent(gid, ev)
-
 	mp := ctx.State[control.StateKeySyncxState].(*syncx.Map[string, any])
+	mp.Delete(stateKeyAgentEventSource)
+	ag := AgentOf(ctx.Event.SelfID, "aichat")
+	agentsMu.Lock()
+	history := histories[ctx.Event.SelfID]
+	agentsMu.Unlock()
+	if history != nil {
+		seq, err := history.appendWithSequence(gid, "event", ev)
+		if err != nil {
+			logrus.Warnln("[chat] 对话事件保存失败，未绑定任务来源。")
+		} else {
+			mp.Store(stateKeyAgentEventSource, agentEventSource{event: ctx.Event, bot: ctx.Event.SelfID, conversation: gid, sequence: seq})
+		}
+	} else {
+		ag.AddEvent(gid, ev)
+	}
 
 	_, hasvalue := mp.LoadOrStore(StateKeyAgentHooked, struct{}{})
 	if hasvalue {

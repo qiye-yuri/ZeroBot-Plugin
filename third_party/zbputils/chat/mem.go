@@ -38,6 +38,12 @@ func atomicgetmemstorage(service string) (*memstorage, error) {
 }
 
 func (ms *memstorage) Save(grp int64, text string) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	return ms.saveLocked(grp, text)
+}
+
+func (ms *memstorage) saveLocked(grp int64, text string) error {
 	if ms.root == "" {
 		return errors.New("Agent 记忆存储不可用")
 	}
@@ -45,9 +51,15 @@ func (ms *memstorage) Save(grp int64, text string) error {
 	if err != nil {
 		return errors.New("Agent 记忆脱敏配置不可用")
 	}
+	return ms.saveLockedWithConfig(grp, text, cfg)
+}
+
+// Caller holds mu. Persistent memory adapters use their own checked config.
+func (ms *memstorage) saveLockedWithConfig(grp int64, text string, cfg AgentConfig) error {
+	if ms.root == "" {
+		return errors.New("Agent 记忆存储不可用")
+	}
 	text = cfg.Redact(text)
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
 	p := path.Join(ms.root, strconv.FormatInt(grp, 10)+".txt")
 	if info, err := os.Lstat(p); err == nil && (!info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0) {
 		return errors.New("Agent 记忆文件无效")
@@ -57,7 +69,7 @@ func (ms *memstorage) Save(grp int64, text string) error {
 		return err
 	}
 	defer f.Close()
-	if err = protectHistoryPath(p, false); err != nil {
+	if err := protectHistoryPath(p, false); err != nil {
 		return err
 	}
 	_, err = f.WriteString(text)

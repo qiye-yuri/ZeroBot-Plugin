@@ -18,6 +18,9 @@ type MemoryStorage interface {
 	Load(grp int64) []string
 }
 
+// CheckedMemoryStorage allows persistent implementations to fail closed.
+type CheckedMemoryStorage interface{ LoadChecked(int64) ([]string, error) }
+
 func extractMemory(r *zero.APIRequest) (string, error) {
 	txt, ok := r.Params["text"].(string)
 	if !ok || txt == "" {
@@ -31,15 +34,24 @@ func extractMemory(r *zero.APIRequest) (string, error) {
 	return txt, nil
 }
 
-func (ag *Agent) memoryof(grp int64) string {
-	mems := ag.mem.Load(grp)
+func (ag *Agent) memoryof(grp int64) (string, error) {
+	var mems []string
+	if checked, ok := ag.mem.(CheckedMemoryStorage); ok {
+		var err error
+		mems, err = checked.LoadChecked(grp)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		mems = ag.mem.Load(grp)
+	}
 	if len(mems) == 0 {
-		return ""
+		return "", nil
 	}
 	sb := strings.Builder{}
 	for _, m := range mems {
 		sb.WriteByte('\n')
 		sb.WriteString(m)
 	}
-	return sb.String()
+	return sb.String(), nil
 }

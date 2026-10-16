@@ -75,3 +75,5 @@
 .model-observation-panel { margin-top:24px; }
 .model-observation-actions { display:flex; flex-wrap:wrap; gap:12px; }
 @media (max-width:600px) { .model-observation-actions button { width:100%; } }
+
+.task-statistics{margin:14px 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;min-width:0}.task-statistics>summary{cursor:pointer;font-size:13px;font-weight:600;overflow-wrap:anywhere}.task-statistics[open]>summary{margin-bottom:10px}.task-statistics p{overflow-wrap:anywhere}
