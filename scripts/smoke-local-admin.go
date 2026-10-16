@@ -99,6 +99,11 @@ func run() error {
 	shortModelReply := "本地模型模拟回复🙂" + strings.Repeat("中", 200-utf8.RuneCountInString("本地模型模拟回复🙂"))
 	longModelReply := shortModelReply + "😀"
 	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/named-image-source" {
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(visionFixture.Bytes())
+			return
+		}
 		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/description-image-") {
 			descriptionImageGets.Add(1)
 			w.Header().Set("Content-Type", "image/png")
@@ -132,13 +137,22 @@ func run() error {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer synthetic-model-key" {
-			http.Error(w, "fake key mismatch", 401)
-			return
-		}
 		var body map[string]any
 		if json.NewDecoder(r.Body).Decode(&body) != nil {
 			http.Error(w, "bad model request", 400)
+			return
+		}
+		expectedKey := "Bearer synthetic-model-key"
+		if name, ok := body["model"].(string); ok && strings.HasPrefix(name, "smoke-named-") {
+			entry := strings.TrimPrefix(name, "smoke-named-")
+			expectedKey = "Bearer synthetic-named-" + entry
+			if r.URL.Path != "/named-"+entry {
+				http.Error(w, "named model used wrong address", 400)
+				return
+			}
+		}
+		if r.Header.Get("Authorization") != expectedKey {
+			http.Error(w, "fake key mismatch", 401)
 			return
 		}
 		modelMu.Lock()
@@ -149,6 +163,18 @@ func run() error {
 		w.Header().Set("Content-Type", "application/json")
 		bodyJSON, _ := json.Marshal(body)
 		reply := shortModelReply
+		switch body["model"] {
+		case "smoke-named-chat":
+			reply = "NAMED_CHAT_OK"
+		case "smoke-named-image":
+			reply = "NAMED_IMAGE_DESCRIPTION"
+		case "smoke-named-agent":
+			if !bytes.Contains(bodyJSON, []byte("NAMED_IMAGE_DESCRIPTION")) {
+				http.Error(w, "named vision result missing", 400)
+				return
+			}
+			reply = `{"action":"send_group_msg","params":{"group_id":707,"message":"NAMED_MODELS_OK"}}` + "\n" + `{"action":"end_action","params":{}}`
+		}
 		if body["model"] == "smoke-voice-chat" {
 			reply = "VOICE_TEXT_OK"
 		}
@@ -451,6 +477,9 @@ func run() error {
 	sendMessage := func(uid, gid int64, role, command string, atBot bool) (string, error) {
 		controlMessageID++
 		segments := []map[string]any{{"type": "text", "data": map[string]string{"text": command}}}
+		if command == "NAMED_MODEL_CHECK" {
+			segments = append(segments, map[string]any{"type": "image", "data": map[string]string{"file": modelServer.URL + "/named-image-source"}})
+		}
 		if command == "VISION_IMAGE_CHECK" {
 			for _, source := range []string{modelServer.URL + "/agent-image-ok", modelServer.URL + "/agent-image-large", "base64://!", "file:///synthetic-not-read.png"} {
 				segments = append(segments, map[string]any{"type": "image", "data": map[string]string{"file": source}})
@@ -562,9 +591,11 @@ func run() error {
 		return fmt.Errorf("voice side-effect regression: get=%d direct=%d record=%d empty=%t invalid=%t", voiceGets.Load(), voiceDirects.Load(), voiceRecordAttempts.Load(), voiceEmptyRecord.Load(), voiceInvalidTarget.Load())
 	}
 	modelMu.Lock()
-	chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, preparationCalls, descriptionCalls, outputCalls := 0, 0, 0, 0, 0, 0, 0, 0
+	chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, preparationCalls, descriptionCalls, outputCalls, namedCalls := 0, 0, 0, 0, 0, 0, 0, 0, 0
 	for _, request := range modelRequests {
-		if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-output-limit-") {
+		if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-named-") {
+			namedCalls++
+		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-output-limit-") {
 			outputCalls++
 		} else if strings.HasPrefix(fmt.Sprint(request["model"]), "smoke-description-") {
 			descriptionCalls++
@@ -588,7 +619,11 @@ func run() error {
 	}
 	if chatCalls != 6 || agentCalls != 5 || taskCalls != 4 || knowledgeCalls != 13 || visionCalls != 3 || preparationCalls != 1 || descriptionCalls != 5 || outputCalls != 16 || descriptionImageGets.Load() != 9 || preparationImageGets.Load() != 2 || preparationNextImageGets.Load() != 0 || visionImageGets.Load() != 3 || visionLargeGets.Load() != 3 || len(knowledgeFailures) != 0 || roleCrossGroupQuery.Load() || localActionForwarded.Load() {
 		modelMu.Unlock()
-		return fmt.Errorf("unexpected model calls or local dispatch: chat=%d agent=%d task=%d knowledge=%d vision=%d imageGets=%d largeGets=%d failures=%v cross=%t local=%t", chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, visionImageGets.Load(), visionLargeGets.Load(), knowledgeFailures, roleCrossGroupQuery.Load(), localActionForwarded.Load())
+		return fmt.Errorf("unexpected model calls or local dispatch: chat=%d agent=%d task=%d knowledge=%d vision=%d preparation=%d description=%d output=%d named=%d imageGets=%d largeGets=%d descriptionGets=%d preparationGets=%d nextGets=%d failures=%v cross=%t local=%t", chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, preparationCalls, descriptionCalls, outputCalls, namedCalls, visionImageGets.Load(), visionLargeGets.Load(), descriptionImageGets.Load(), preparationImageGets.Load(), preparationNextImageGets.Load(), knowledgeFailures, roleCrossGroupQuery.Load(), localActionForwarded.Load())
+	}
+	if namedCalls != 4 {
+		modelMu.Unlock()
+		return fmt.Errorf("named entrances did not make exactly four requests: %d", namedCalls)
 	}
 	requestsJSON, _ := json.Marshal(modelRequests)
 	groupRequest, privateRequest := modelRequests[0], modelRequests[1]
@@ -672,6 +707,7 @@ func run() error {
 	result["aiRoleCommandsPassed"] = true
 	result["aiAgentRolePromptsPassed"] = true
 	result["aiConversationPersonaModelAndHTTPPassed"] = true
+	result["aiNamedModelsSelectionAndRequestsPassed"] = true
 	result["agentArchiveReadSearchIsolationPassed"] = true
 	result["agentArchiveTimeRangeSearchPassed"] = true
 	result["agentArchiveSourceContextHTTPPassed"] = true
@@ -2383,6 +2419,9 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	if err = verifyPolicyCommands(dataDir, sendControl, sendGroup); err != nil {
 		return err
 	}
+	if err = verifyNamedModelRuntime(do, csrf, modelURL, sendControl, sendGroup); err != nil {
+		return err
+	}
 	// Password changes operate only on this run's synthetic credential directory.
 	const originalPassword, replacementPassword = "Local-ui-test-password-only", "Local-ui-changed-password-only"
 	passwordBody := func(current, next string) map[string]string {
@@ -2471,6 +2510,112 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 		if err != nil || status != 401 {
 			return fmt.Errorf("logout left cleanup access enabled")
 		}
+	}
+	return nil
+}
+
+func verifyNamedModelRuntime(do func(string, string, any, string) (int, map[string]any, error), csrf, modelURL string, private func(int64, string) (string, error), send func(int64, int64, string, string, bool) (string, error)) error {
+	status, catalog, err := do("GET", "/api/ai-models", nil, "")
+	if err != nil || status != 200 || catalog["named"] != false {
+		return fmt.Errorf("named migration preview unavailable")
+	}
+	profiles := []any{}
+	for _, entry := range []string{"chat", "agent", "image"} {
+		profiles = append(profiles, map[string]any{"id": entry, "name": "Synthetic " + entry, "type": 0, "model": "smoke-named-" + entry, "api": modelURL + "/named-" + entry, "key": map[string]any{"action": "replace", "value": "synthetic-named-" + entry}})
+	}
+	status, catalog, err = do("POST", "/api/ai-models", map[string]any{"revision": catalog["revision"], "profiles": profiles, "routes": map[string]string{"chat": "chat", "agent": "agent", "image": "image"}}, csrf)
+	if err != nil || status != 200 || catalog["named"] != true {
+		return fmt.Errorf("named migration save failed: %d %v", status, err)
+	}
+	encoded, _ := json.Marshal(catalog)
+	for _, entry := range []string{"chat", "agent", "image"} {
+		if bytes.Contains(encoded, []byte("synthetic-named-"+entry)) {
+			return fmt.Errorf("named model read exposed key")
+		}
+	}
+	status, list, err := do("GET", "/api/plugins", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("named plugin list unavailable")
+	}
+	var plugin map[string]any
+	for _, item := range list["plugins"].([]any) {
+		p := item.(map[string]any)
+		if p["name"] == "aichat" {
+			plugin = p
+			break
+		}
+	}
+	if plugin == nil {
+		return fmt.Errorf("named chat plugin missing")
+	}
+	status, _, err = do("POST", "/api/plugin-switch", map[string]any{"name": "aichat", "groupId": "0", "mode": "enabled", "revision": plugin["state"].(map[string]any)["revision"]}, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("named plugin enable failed")
+	}
+	for _, target := range []struct {
+		id    string
+		agent bool
+	}{{"708", false}, {"707", true}} {
+		status, v, err := do("GET", "/api/ai?group="+target.id, nil, "")
+		if err != nil || status != 200 {
+			return fmt.Errorf("named scope read failed")
+		}
+		for _, item := range v["groups"].([]any) {
+			group := item.(map[string]any)
+			if group["service"] != "aichatcfg" {
+				continue
+			}
+			status, _, err = do("POST", "/api/ai-group", map[string]any{"service": "aichatcfg", "groupId": target.id, "revision": group["revision"], "temperature": 50, "rate": 0, "useAgent": target.agent, "respondAt": true, "voiceOutput": false}, csrf)
+			if err != nil || status != 200 {
+				return fmt.Errorf("named scope setup failed")
+			}
+		}
+	}
+	if text, err := private(12345678, "/全局响应"); err != nil || !strings.Contains(text, "工作") {
+		return fmt.Errorf("named response enable failed")
+	}
+	status, before, err := do("GET", "/api/overview", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("named model statistics baseline missing")
+	}
+	if text, err := private(66778899, "/gpt NAMED_GPT_CHECK"); err != nil || text != "NAMED_CHAT_OK" {
+		return fmt.Errorf("named GPT route failed: %q %v", text, err)
+	}
+	if text, err := send(23456789, 708, "member", "NAMED_CHAT_CHECK", true); err != nil || text != "NAMED_CHAT_OK" {
+		return fmt.Errorf("named chat route failed: %q %v", text, err)
+	}
+	if text, err := send(23456789, 707, "member", "NAMED_MODEL_CHECK", true); err != nil || text != "NAMED_MODELS_OK" {
+		return fmt.Errorf("named Agent/vision route failed: %q %v", text, err)
+	}
+	status, after, err := do("GET", "/api/overview", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("named model statistics missing")
+	}
+	oldStats := before["modelRequests"].(map[string]any)
+	newStats := after["modelRequests"].(map[string]any)
+	if newStats["started"].(float64) != oldStats["started"].(float64)+4 || newStats["completed"].(float64) != oldStats["completed"].(float64)+4 || newStats["active"] != float64(0) || newStats["incomplete"] != float64(0) {
+		return fmt.Errorf("named model statistics not fully settled")
+	}
+	for _, gid := range []int64{707, 708} {
+		if text, err := send(12345678, gid, "member", "/沉默", true); err != nil || !strings.Contains(text, "休息") {
+			return fmt.Errorf("named scope cleanup failed")
+		}
+	}
+	status, list, err = do("GET", "/api/plugins", nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("named cleanup snapshot failed")
+	}
+	for _, item := range list["plugins"].([]any) {
+		p := item.(map[string]any)
+		if p["name"] == "aichat" {
+			status, _, err = do("POST", "/api/plugin-switch", map[string]any{"name": "aichat", "groupId": "0", "mode": "disabled", "revision": p["state"].(map[string]any)["revision"]}, csrf)
+			if err != nil || status != 200 {
+				return fmt.Errorf("named plugin cleanup failed")
+			}
+		}
+	}
+	if text, err := private(12345678, "/全局沉默"); err != nil || !strings.Contains(text, "休息") {
+		return fmt.Errorf("named response cleanup failed")
 	}
 	return nil
 }

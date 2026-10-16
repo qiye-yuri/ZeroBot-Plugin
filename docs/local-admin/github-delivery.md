@@ -2,6 +2,8 @@
 
 ## 发布条件和目标
 
+2026-10-16，N1 会话人物覆盖已完成阶段测试并上传到用户仓库 `codex/conversation-persona`，提交 `8cce122d`，对应[中文 PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)，目标 master，尚未合并。统一 11 步、128 项 Chrome、最终构建及 146 项隔离整机检查通过，实际范围见[自测](self-test.md#n1-会话人物覆盖验收)。未部署日常服务，原始运行证据及 data 子模块变化未随源码上传。N2 基于此阶段独立开发。
+
 先完成需求表与待办中第一版的验收范围，记录实际结果和仍存在的限制；用户明确取消的客户端体验事项保持关闭，不重新列为发布条件。已测真实角色与主人Agent按实际记录判断；其余真人Agent、客户端体验和真实持续负载已取消本轮要求，不记实测通过。
 
 目标是用户自己的`origin`：`https://github.com/qiye-yuri/ZeroBot-Plugin`，工作分支现为`codex/local-admin`。发布前重新检查远端、当前分支、已有提交与默认分支，将本轮实现推送到用户仓库；需要PR时指向用户仓库的目标分支。上游`FloatTech/ZeroBot-Plugin`不是默认发布目标。第一版完成并核对后更新该仓库；不自动向上游推送或合并。

@@ -86,6 +86,8 @@ type AgentConfig struct {
 	Separator, ReasoningEffort                string
 	NoSystemP                                 ModelBool
 	Personas                                  map[string]AgentPersona `json:",omitempty"`
+	ModelProfiles                             []ModelProfile          `json:",omitempty"`
+	ModelRoutes                               *ModelRoutes            `json:",omitempty"`
 }
 
 func newconfig() AgentConfig {
@@ -122,7 +124,11 @@ func DisplayAPI(raw string) (string, bool) {
 	return u.String(), false
 }
 func (c AgentConfig) Redact(text string) string {
-	for _, key := range []ModelKey{c.Key, c.ImageKey, c.AgentKey} {
+	keys := []ModelKey{c.Key, c.ImageKey, c.AgentKey}
+	for _, profile := range c.ModelProfiles {
+		keys = append(keys, profile.Key)
+	}
+	for _, key := range keys {
 		if key != "" {
 			text = strings.ReplaceAll(text, string(key), "[已隐藏]")
 		}
@@ -169,6 +175,25 @@ func (r *ConfigRepository) Read() (AgentConfig, string, error) {
 // validateField validates only changed fields so unrelated legacy values are
 // preserved; new URLs must place authentication in the separate key field.
 func validateField(name string, value json.RawMessage) error {
+	if name == "ModelProfiles" {
+		var profiles []ModelProfile
+		if json.Unmarshal(value, &profiles) != nil || profiles == nil {
+			return errors.New("命名模型列表格式无效")
+		}
+		for _, p := range profiles {
+			if err := p.Validate(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if name == "ModelRoutes" {
+		var routes ModelRoutes
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) || json.Unmarshal(value, &routes) != nil {
+			return errors.New("模型入口格式无效")
+		}
+		return nil
+	}
 	if name == "Personas" {
 		var personas map[string]AgentPersona
 		if json.Unmarshal(value, &personas) != nil || personas == nil {
@@ -261,8 +286,16 @@ func (r *ConfigRepository) Update(revision string, fields map[string]json.RawMes
 	}
 	changed := false
 	saved, err := r.Control.UpdateExtraJSON(revision, func(raw json.RawMessage) (json.RawMessage, error) {
-		if _, err := decodeAgentConfig(raw); err != nil {
+		current, err := decodeAgentConfig(raw)
+		if err != nil {
 			return nil, err
+		}
+		if current.ModelRoutes != nil {
+			for name := range fields {
+				if modelField(name) {
+					return nil, ErrNamedModelFields
+				}
+			}
 		}
 		if len(fields) == 0 {
 			return raw, nil
@@ -275,6 +308,9 @@ func (r *ConfigRepository) Update(revision string, fields map[string]json.RawMes
 		}
 		for name, value := range fields {
 			if err := validateField(name, value); err != nil {
+				if name == "ModelProfiles" || name == "ModelRoutes" {
+					return nil, fmt.Errorf("%w：%s", ErrInvalidModelConfig, err)
+				}
 				return nil, err
 			}
 			for oldName := range obj {
@@ -285,6 +321,16 @@ func (r *ConfigRepository) Update(revision string, fields map[string]json.RawMes
 			obj[name] = value
 		}
 		result, err := json.Marshal(obj)
+		if err != nil {
+			return nil, err
+		}
+		candidate, err := decodeAgentConfig(result)
+		if err != nil {
+			return nil, err
+		}
+		if err = candidate.validateModelRoutes(); err != nil {
+			return nil, fmt.Errorf("%w：%s", ErrInvalidModelConfig, err)
+		}
 		changed = !bytes.Equal(raw, result)
 		return result, err
 	})
@@ -302,7 +348,13 @@ func globalRepository() *ConfigRepository {
 	}
 	return NewConfigRepository(c)
 }
-func CurrentConfig() (AgentConfig, error) { c, _, err := globalRepository().Read(); return c, err }
+func CurrentConfig() (AgentConfig, error) {
+	c, _, err := globalRepository().Read()
+	if err != nil {
+		return c, err
+	}
+	return c.ResolveModels()
+}
 
 const configStateKey = zero.StateKeyPrefixKeep + "chat_config_snapshot__"
 
@@ -320,6 +372,10 @@ func EnsureConfig(ctx *zero.Ctx) bool {
 func ConfigOf(ctx *zero.Ctx) AgentConfig { c, _ := ctx.State[configStateKey].(AgentConfig); return c }
 func saveFields(ctx *zero.Ctx, fields map[string]json.RawMessage) {
 	if _, err := globalRepository().Update("", fields); err != nil {
+		if errors.Is(err, ErrNamedModelFields) {
+			ctx.SendChain(message.Text(ErrNamedModelFields.Error()))
+			return
+		}
 		ctx.SendChain(message.Text("AI 配置保存失败，原设置保留。"))
 		return
 	}

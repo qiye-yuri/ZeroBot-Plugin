@@ -1,5 +1,7 @@
 # 本地工具模块补丁
 
+AgentConfig 增加 ModelProfiles/ModelRoutes；ModelCatalog 只读生成旧配置迁移预览，按完整协议/模型/地址/密钥去重。UpdateModels 在原子配置保存边界校验列表与引用，ResolveModels 将选中配置投影到既有客户端字段；CurrentConfig 统一解析，不增加路由框架、自动重试或故障切换。命名模式拒绝旧模型字段写入，通用采样/提示词/人物仍可修改；配置字符串脱敏覆盖未引用条目的密钥。原字段、未知配置及会话人物保留。
+
 AgentConfig.Personas 按机器人及有符号会话键保存可选人物覆盖，Persona 统一返回覆盖或全局值。UpdatePersona 使用原配置修订和写前备份，单独保存覆盖不增加 Agent 代次或清理历史。NextAgentActionsChecked 转发可选任务人物快照；原调用兼容。
 
 M1～M3 的任务分页统一进入 PageMatching/TaskPageFilter，组合状态、错误类别、阶段、最近动作结果及开始时间。PageInRange 和原分页方法保留兼容；使用真实时刻保留时区/纳秒，结果 none/other 区分空值与旧值，当前进程故障摘要先覆盖旧磁盘状态，再应用全部条件。沿用创建序号分页，无数据库迁移；后台使用及完整复验见根项目 docs/local-admin/agent-tasks.md、agent-integration-test.md。
