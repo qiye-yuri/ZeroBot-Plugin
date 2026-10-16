@@ -1,5 +1,7 @@
 # 本地机器人管理后台：使用与开发文档
 
+2026-10-16 16:32 +08:00：N1/N2 主人私聊实机复验通过。日常后台实际保存人物覆盖和三个独立编号的命名配置，真实 QQ 验证人物暗号、严格 GPT、Agent 发送及图片颜色识别；任务、平台回执和模型 HTTP 均已核对。测试后恢复原人物及旧模型配置模式，按恢复提示仅重启 ZeroBot，原程序、凭据、其他控制设置和 OneBot 登录保持。见[实机结果](self-test.md#n1n2-主人私聊实机验证)与[复验步骤](real-agent-acceptance.md#n1n2-的主人私聊实机复验)。
+
 2026-10-16 15:55 +08:00：N1、N2 已复核并依次合并至 master（[PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)、[PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4)），合并版本已完成停机备份、日常服务部署及部署后测试。原配置、后台密码、插件开关和 OneBot 登录保持；人物覆盖未批量设置，命名模型未自动迁移，首次显式保存才迁移。见[本次部署验证](self-test.md#n1n2-合并与日常部署验证)。
 
 后续开发见[开发设计与详细计划](next-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)支持按机器人及群/私聊自定义、恢复继承和任务人物快照；N2 [命名模型配置](named-models.md)支持模型列表、密钥操作与三个入口固定选择。验证与上传结果见[进度](progress.md)。
