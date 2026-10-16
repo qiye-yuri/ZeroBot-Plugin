@@ -1,5 +1,13 @@
 # 第一版验证摘要与复验入口
 
+## N2 命名模型配置验收
+
+2026-10-16 15:05 +08:00：`pwsh -File scripts/test-agent.ps1 -OutputName zerobot-n2-final.exe` 的 11 步全部退出 0。SDK、chat、后台/AI/统计与脚本 Go 回归、四项 JavaScript 语法、132 项 Chrome、最终构建及完整隔离整机通过。整机 147 项 `*Passed` 检查及总判定成功，`aiNamedModelsSelectionAndRequestsPassed=true`，N1 人物覆盖检查仍通过。构建 SHA256：`8FD903DF4DEF2A340BFB233DA09B75803628D0D5F5B981533D7353D72631EDC1`。
+
+后台保存三个独立地址、模型名与密钥的配置后，GPT、普通聊天、识图及 Agent 共四次新增 HTTP 均准确匹配选中的配置，识图结果实际进入 Agent 请求，统计全部结算。原 53 次回归请求与新请求分开计数，原故障及零重放断言保持。OpenAI、OLLaMA、GenAI 的实际协议请求由 Go 模拟服务验证；迁移预览只读、完整组合去重、写前备份失败不写库、恢复原控制数据库、修订冲突、密钥操作/脱敏、引用删除与数据库重开通过。页面新增、编辑、删除、草稿整体撤销、旧字段停用、迟到响应及 320px 深浅主题通过。
+
+首次整机汇总失败源于新测试复用了取消测试会话，保留档案中的图片被后续正常新任务处理，额外产生图片下载；补全诊断后改用独立会话，保留原计数和停止断言，完成以上最终复验。失败记录、截图与完整日志留本机 `.local/`；9 份使用/开发文档的 396 个本地引用及差异检查通过。未部署日常服务，未调用真实模型或发送真实 QQ 消息。使用与回退见[命名模型配置](named-models.md)及[维护说明](operations.md)。
+
 ## N1 会话人物覆盖验收
 
 2026-10-16 14:32 +08:00：`pwsh -File scripts/test-agent.ps1 -OutputName zerobot-n1-final.exe` 的 11 步全部退出 0，包括 SDK、chat、后台/AI/统计、脚本判定、四项 JavaScript 语法、128 项 Chrome、最终构建及完整隔离整机。整机 146 项 `*Passed` 检查及总判定通过，新增 `aiConversationPersonaModelAndHTTPPassed=true`；实际后台保存的自定义人物进入五次角色模型请求，同号私聊保持继承，随后恢复群继承，原动作权限测试保持。

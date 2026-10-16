@@ -39,6 +39,7 @@ func NewAIStore(controls []*ctrl.Control[*zero.Ctx]) *AIStore {
 }
 
 type AISettings struct {
+	NamedModels     bool                     `json:"namedModels"`
 	Fields          map[string]any           `json:"fields"`
 	Keys            map[string]bool          `json:"keys"`
 	AddressRedacted map[string]bool          `json:"addressRedacted"`
@@ -73,6 +74,10 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 	if err != nil {
 		return v, err
 	}
+	c, err = c.ResolveModels()
+	if err != nil {
+		return v, invalidAI(err.Error())
+	}
 	raw, err := json.Marshal(c)
 	if err != nil {
 		return v, err
@@ -84,6 +89,8 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 		delete(fields, name)
 	}
 	delete(fields, "Personas")
+	delete(fields, "ModelProfiles")
+	delete(fields, "ModelRoutes")
 	redacted := map[string]bool{}
 	for _, name := range []string{"API", "ImageAPI", "AgentAPI"} {
 		fields[name], redacted[name] = chat.DisplayAPI(fields[name].(string))
@@ -96,6 +103,7 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 	v.Available = true
 	v.Global = &AISettings{Fields: fields, Keys: keys, AddressRedacted: redacted, Revision: revision, Ready: c.Ready()}
 	v.Global.Checks = aiConfigChecks(c)
+	v.Global.NamedModels = c.ModelRoutes != nil
 	if gid != 0 {
 		for _, service := range []string{"aichatcfg", "llm"} {
 			control := s.groups[service]
@@ -144,8 +152,8 @@ func (s *AIStore) Save(update AIUpdate) error {
 	}
 	fields := map[string]json.RawMessage{}
 	for name, value := range update.Fields {
-		if name == "Personas" {
-			return invalidAI("会话人物须通过会话人物表单设置")
+		if name == "Personas" || name == "ModelProfiles" || name == "ModelRoutes" {
+			return invalidAI("会话人物和命名模型须通过各自的专用表单设置")
 		}
 		if name == "Key" || name == "ImageKey" || name == "AgentKey" {
 			return invalidAI("密钥须通过保留、替换或清除操作设置")
@@ -258,6 +266,10 @@ func (s *Server) getAI(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := s.cfg.AI.Get(gid)
 	if err != nil {
+		if errors.Is(err, errAIValidation) {
+			apiError(w, 400, err.Error())
+			return
+		}
 		apiError(w, 500, "AI 配置读取失败，请检查控制数据库")
 		return
 	}
@@ -312,6 +324,10 @@ func (s *Server) saveAIGroup(w http.ResponseWriter, r *http.Request) {
 	jsonReply(w, 200, v)
 }
 func (s *Server) aiSaveError(w http.ResponseWriter, err error) {
+	if errors.Is(err, chat.ErrNamedModelFields) {
+		apiError(w, 400, err.Error())
+		return
+	}
 	if errors.Is(err, ctrl.ErrConfigConflict) {
 		apiError(w, 409, "AI 配置已变化，请重新加载后核对再保存")
 		return

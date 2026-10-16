@@ -152,6 +152,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/plugins", s.authorize(s.getPlugins, false))
 	mux.HandleFunc("POST /api/plugin-switch", s.authorize(s.setPluginSwitch, true))
 	mux.HandleFunc("GET /api/ai", s.authorize(s.getAI, false))
+	mux.HandleFunc("GET /api/ai-models", s.authorize(s.aiModels, false))
+	mux.HandleFunc("POST /api/ai-models", s.authorize(s.aiModels, true))
 	mux.HandleFunc("GET /api/ai-persona", s.authorize(s.aiPersona, false))
 	mux.HandleFunc("POST /api/ai-persona", s.authorize(s.aiPersona, true))
 	mux.HandleFunc("GET /api/agent/conversations", s.authorize(s.archive, false))

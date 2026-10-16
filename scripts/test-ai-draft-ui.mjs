@@ -37,6 +37,38 @@ async function harness(t){
 const dirty=page=>page.evaluate(()=>aiDrafts());
 const waitIdle=page=>page.waitForFunction(()=>!aiBusy);
 
+const modelsFixture={named:false,revision:'e'.repeat(64),profiles:[{id:'first',name:'聊天模型',type:0,model:'chat',api:'https://chat.invalid',keyConfigured:true},{id:'second',name:'Agent 模型',type:1,model:'agent',api:'http://localhost:11434',keyConfigured:false}],routes:{chat:'first',agent:'second',image:''}};
+test('named model preview edits stable references saves keys explicitly and retains global drafts',async t=>{
+  const page=await harness(t);await page.evaluate(value=>replies.push(value),modelsFixture);await page.locator('#ai-models-load').click();await waitIdle(page);
+  assert.equal(await page.evaluate(()=>requests.length),1);assert.equal(await page.locator('#ai-model-route-agent').inputValue(),'second');
+  await page.locator('#ai-field-model-first-name').fill('改名');assert.equal(await page.locator('#ai-model-route-chat').inputValue(),'first');assert.equal(await page.locator('#ai-model-route-chat option:checked').textContent(),'改名');
+  await page.locator('[data-model-id=first]').getByRole('button',{name:'删除配置'}).click();assert.match(await page.locator('#ai-error').textContent(),/引用/);assert.equal(await page.locator('.ai-model-row').count(),2);
+  await page.selectOption('#ai-model-first-action','replace');await page.locator('#ai-model-first-key').fill('SYNTHETIC_PRIVATE_MODEL_KEY');await page.locator('#ai-field-AgentChar').fill('保留人物草稿');
+  await page.evaluate(value=>replies.push(value),{...modelsFixture,named:true,revision:'f'.repeat(64)});await page.locator('#ai-models-form button[type=submit]').click();await waitIdle(page);
+  const body=await page.evaluate(()=>requests.at(-1).body);assert.equal(body.revision,'e'.repeat(64));assert.equal(body.profiles[0].id,'first');assert.equal(body.profiles[0].name,'改名');assert.deepEqual(body.profiles[0].key,{action:'replace',value:'SYNTHETIC_PRIVATE_MODEL_KEY'});assert.deepEqual(body.routes,modelsFixture.routes);
+  assert.deepEqual(await dirty(page),['global']);assert.equal(await page.locator('#ai-field-AgentChar').inputValue(),'保留人物草稿');assert.equal(await page.locator('#ai-model-first-key').inputValue(),'');assert.doesNotMatch(await page.locator('#ai-draft-status').textContent(),/SYNTHETIC_PRIVATE/);
+});
+
+test('named model draft add delete and discard restore the full list and conflicts retain input',async t=>{
+  const page=await harness(t);await page.evaluate(value=>renderAIModels(value),modelsFixture);
+  await page.selectOption('#ai-model-route-agent','');await page.locator('[data-model-id=second]').getByRole('button',{name:'删除配置'}).click();assert.equal(await page.locator('.ai-model-row').count(),1);
+  await page.locator('#ai-models-form').getByRole('button',{name:'新增模型配置'}).click();assert.equal(await page.locator('.ai-model-row').count(),2);assert.deepEqual(await dirty(page),['models']);
+  await dialogAction(page,true,()=>page.locator('#ai-models-form [data-ai-discard]').click());assert.equal(await page.locator('#ai-model-route-agent').inputValue(),'second');assert.equal(await page.locator('[data-model-id=second]').count(),1);assert.deepEqual(await dirty(page),[]);
+  await page.locator('#ai-field-model-first-name').fill('未保存');await page.evaluate(()=>replies.push({error:'配置已变化',status:409}));await page.locator('#ai-models-form button[type=submit]').click();await waitIdle(page);assert.deepEqual(await dirty(page),['models']);assert.equal(await page.locator('#ai-field-model-first-name').inputValue(),'未保存');
+  await page.selectOption('#ai-model-first-action','clear');await page.locator('#ai-models-form button[type=submit]').click();assert.equal(await page.evaluate(()=>requests.length),1);assert.match(await page.locator('#ai-error').textContent(),/确认清除/);
+});
+
+test('named model loaded global disables obsolete fields and logout ignores late reads',async t=>{
+  const page=await harness(t);await page.evaluate(value=>renderAIGlobal(value),{...fixture(),global:{...fixture().global,namedModels:true}});assert.equal(await page.locator('#ai-field-ModelName').isDisabled(),true);assert.equal(await page.locator('#ai-action-Key').isDisabled(),true);assert.equal(await page.locator('#ai-field-AgentChar').isDisabled(),false);
+  await page.locator('#ai-models-load').click();await page.waitForFunction(()=>pending.length===1);await page.evaluate(()=>{authenticated=false;showAuth();});await page.evaluate(value=>pending[0]({ok:true,status:200,json:async()=>value}),modelsFixture);await page.waitForTimeout(20);assert.equal(await page.locator('#ai-models-form').isHidden(),true);assert.deepEqual(await dirty(page),[]);
+});
+
+test('named model and conversation persona forms fit narrow light and dark layouts',async t=>{
+  const page=await harness(t);await page.addStyleTag({content:await fs.readFile('internal/localadmin/assets/style.css','utf8')+'\n'+await fs.readFile('internal/localadmin/assets/appearance.css','utf8')});await page.setViewportSize({width:320,height:800});
+  await page.evaluate(value=>renderAIModels(value),{...modelsFixture,profiles:modelsFixture.profiles.map(p=>({...p,id:p.id==='first'?'m'.repeat(64):p.id,name:'很长的模型配置名称'.repeat(8)})),routes:{...modelsFixture.routes,chat:'m'.repeat(64)}});await page.evaluate(value=>renderAIPersona(value),{botId:'9007199254740993',type:'private',id:'9007199254740995',mode:'custom',revision:'a'.repeat(64),character:'人物正文🙂'.repeat(50),sex:'女'});
+  await fs.mkdir('.local/named-model-layout',{recursive:true});for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.locator('#ai-models-form').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await page.screenshot({path:'.local/named-model-layout/'+theme+'.png'});}
+});
+
 const personaFixture={botId:'12345678',type:'group',id:'10',revision:'c'.repeat(64),mode:'inherit',character:'全局人物',sex:'女'};
 test('conversation persona custom save restore and drafts keep loaded bot scope',async t=>{
   const page=await harness(t);
