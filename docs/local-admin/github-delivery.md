@@ -1,5 +1,7 @@
 # 第一版 GitHub 交付规则
 
+当前交付状态：2026-10-16 15:55 +08:00：N1、N2 已复核并依次合并至 master（[PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)、[PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4)），合并版本已完成停机备份、日常服务部署及部署后测试。原配置、后台密码、插件开关和 OneBot 登录保持；人物覆盖未批量设置，命名模型未自动迁移，首次显式保存才迁移。见[本次部署验证](self-test.md#n1n2-合并与日常部署验证)。 #3 锁定提交 `8cce122d`，合并提交 [bc33195e](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/bc33195e25f7ef9b014d7bb74529c5de962ade0e)；#4 在 #3 合并后改为 master，锁定 `793e0cde`，合并提交 [0056d2de](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/0056d2ded2f9f655565550096ed9ff72f3478443)。无待处理审查意见，GitHub 无 CI 检查项；合并树与已验收 N2 提交一致，随后重新完成 master 的统一验收。以下阶段上传记录中的“未合并/未部署”保留其当时含义。备份、真实身份、原始证据和 data 子模块运行变化不上传。
+
 ## 发布条件和目标
 
 2026-10-16，N2 命名模型配置已完成测试并上传至用户仓库 `codex/named-models`，功能提交 `9167e2a9`，对应[中文 PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4)。该 PR 基于 N1 的 `codex/conversation-persona`，便于单独审查本阶段差异；N1/N2 均尚未合并或部署。统一 11 步、132 项 Chrome、最终构建与 147 项隔离整机检查通过，13 份交付 Markdown 的 581 个本地文件引用及差异检查通过，见[验收摘要](self-test.md#n2-命名模型配置验收)。测试场景复用引起的计数失败保留记录，最终改为独立会话后复验成功。真实模型/QQ 体验未测，运行证据和 data 子模块变化保留本机。
@@ -8,7 +10,7 @@
 
 先完成需求表与待办中第一版的验收范围，记录实际结果和仍存在的限制；用户明确取消的客户端体验事项保持关闭，不重新列为发布条件。已测真实角色与主人Agent按实际记录判断；其余真人Agent、客户端体验和真实持续负载已取消本轮要求，不记实测通过。
 
-目标是用户自己的`origin`：`https://github.com/qiye-yuri/ZeroBot-Plugin`，工作分支现为`codex/local-admin`。发布前重新检查远端、当前分支、已有提交与默认分支，将本轮实现推送到用户仓库；需要PR时指向用户仓库的目标分支。上游`FloatTech/ZeroBot-Plugin`不是默认发布目标。第一版完成并核对后更新该仓库；不自动向上游推送或合并。
+目标是用户自己的`origin`：`https://github.com/qiye-yuri/ZeroBot-Plugin`，N1/N2 已合并后在 `master` 同步部署与交付文档。发布前重新检查远端、当前分支、已有提交与默认分支，将本轮实现推送到用户仓库；后续功能分支使用 `codex/` 前缀，需要 PR 时指向用户仓库的目标分支。上游`FloatTech/ZeroBot-Plugin`不是默认发布目标。第一版完成并核对后更新该仓库；不自动向上游推送或合并。
 
 后台文档中的v0.1表示本地管理后台的第一版范围，项目自身另有版本号。正式标签及发布标题应与已有项目版本核对，不能覆盖已有标签或混用两个版本体系。
 

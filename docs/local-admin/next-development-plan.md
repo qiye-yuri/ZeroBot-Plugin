@@ -164,8 +164,8 @@ git diff --check
 | 项目 | 当前状态 |
 | --- | --- |
 | 本开发计划与入口 | 已编写，验证结果见[开发进度](progress.md) |
-| N1 会话人物覆盖 | 已实现，使用见[会话人物覆盖](conversation-persona.md)，验收结果见[自测](self-test.md) |
-| N2 命名模型配置 | 已实现，使用见[命名模型配置](named-models.md)，验收结果见[自测](self-test.md) |
+| N1 会话人物覆盖 | 已实现、合并 master 并部署，使用见[会话人物覆盖](conversation-persona.md)，验收结果见[自测](self-test.md) |
+| N2 命名模型配置 | 已实现、合并 master 并部署，使用见[命名模型配置](named-models.md)，验收结果见[自测](self-test.md) |
 | N3 联网搜索 | 候选，首批之外 |
 
 后续若调整优先级，修改本表、排期和对应验收条件；上阶段结项保持不变。发现缺陷按实际影响修复，不自动升级为框架重写、额外兼容层或新的长期项目。

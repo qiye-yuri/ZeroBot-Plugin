@@ -1,5 +1,19 @@
 # 第一版验证摘要与复验入口
 
+## N1/N2 合并与日常部署验证
+
+2026-10-16 15:55 +08:00：复核会话人物作用域与任务快照、认证/CSRF、修订冲突、模型引用与密钥脱敏、旧配置兼容及写前备份，未发现阻断问题。按要求先合并 [PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)（`bc33195e`），再将 [PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4) 改为 master 并合并（`0056d2de`）；均锁定已审查的头提交。GitHub 没有 CI 检查项，不将空列表记为 CI 通过。
+
+合并后执行 `pwsh -File scripts/test-agent.ps1 -OutputName zerobot-n1-n2-master.exe`：统一 11 步全部退出 0，132 项 Chrome、Go 回归、JavaScript 语法、最终构建及 147 项隔离整机检查通过。N1 人物实际请求与 N2 三入口选择检查均通过；模拟提供商和模拟 OneBot 不记为真实 QQ 验收。日常程序 SHA256：`E2445CA5E51BDC756D164451C8D01D911D364089BA70AD671FC2CBB3B089DA3A`，与统一验收产物及部署后真实模型测试所用程序一致。
+
+只停止并重启 ZeroBot；停止后备份旧程序、运行配置、后台目录、计划任务记录、OneBot 配置、控制库、语音配置库以及整个聊天/记忆目录（含 SQLite 辅助文件）。186 份文件逐一核对源文件摘要并生成 SHA256 清单，部署后再次核验备份。首次完整性检查刷新了一份派生的 SQLite 共享内存索引，数据库、WAL 和其余文件摘要均未变；已保留原始与验证后清单、索引变化说明及首次失败记录，最终逐项复核通过。后续检查备份库时先复制校验副本，避免更改归档中的辅助文件。原程序、运行数据和回退材料留本机 `.local/n1-n2-deployment/`。6 个日常与备份 SQLite 数据库只读完整性检查通过，旧记忆原件未变。
+
+部署后核对程序哈希、新进程身份与单实例、指定账号握手、真实 OneBot 连接、QQ 在线及三个只读接口，均通过；OneBot 进程与登录保持，后台仅监听回环。17 份实际静态资源与源码一致，25 项未登录接口拒绝、跨来源拒绝及 Chrome 登录页桌面/窄屏检查通过。运行配置、后台凭据、控制设置和 OneBot 配置摘要保持，未设置日常会话人物或自动迁移命名模型，未改日常模型、权限及插件开关。
+
+使用部署程序执行 `go run scripts/test-real-model.go -run`，7 组真实提供商用例通过：GPT、普通聊天、Agent 发送、保存记忆、历史搜索/精确读取、记忆搜索/精确读取及识图；采用独立配置、合成资料和模拟 OneBot。实际 HTTP started=16、completed=16、incomplete=0、failed=0、active=0，Agent 无普通聊天兜底，测试实例退出。未发送真实 QQ 消息，未登录日常后台执行表单写入，不将这些结果记作新人物的真人体验或持续负载验收。部署后再次核对进程、配置及备份通过。
+
+使用入口见[会话人物覆盖](conversation-persona.md)、[命名模型配置](named-models.md)；备份与回退见[维护说明](operations.md)。详细日志、截图和凭据所在测试库仅保留本机，不上传。本次 11 份交付文档的 586 个本地文件引用及差异检查通过。
+
 ## N2 命名模型配置验收
 
 2026-10-16 15:05 +08:00：`pwsh -File scripts/test-agent.ps1 -OutputName zerobot-n2-final.exe` 的 11 步全部退出 0。SDK、chat、后台/AI/统计与脚本 Go 回归、四项 JavaScript 语法、132 项 Chrome、最终构建及完整隔离整机通过。整机 147 项 `*Passed` 检查及总判定成功，`aiNamedModelsSelectionAndRequestsPassed=true`，N1 人物覆盖检查仍通过。构建 SHA256：`8FD903DF4DEF2A340BFB233DA09B75803628D0D5F5B981533D7353D72631EDC1`。

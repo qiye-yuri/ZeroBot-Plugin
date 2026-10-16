@@ -2,7 +2,7 @@
 
 ## 后续开发计划
 
-详细设计、工作包、排期、测试与上传条件见[后续开发计划](next-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)、N2 [命名模型配置](named-models.md)已实现；N3 联网搜索为独立候选。验证与上传结果见[进度](progress.md)。遵循复用现有实现、必要边界校验和有限验收范围，不增加无实际需求的防御层。上阶段结项及已取消验收不变。
+详细设计、工作包、排期、测试与上传条件见[后续开发计划](next-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)、N2 [命名模型配置](named-models.md)已实现、依次合并 master 并部署日常服务，备份与部署后测试通过，见[验证](self-test.md#n1n2-合并与日常部署验证)；N3 联网搜索为独立候选。验证与上传结果见[进度](progress.md)。遵循复用现有实现、必要边界校验和有限验收范围，不增加无实际需求的防御层。上阶段结项及已取消验收不变。
 
 ## AI 与 Agent 本阶段结项
 

@@ -1,5 +1,7 @@
 # 第一版开发进度
 
+2026-10-16 15:55 +08:00：N1、N2 已复核并依次合并至 master（[PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)、[PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4)），合并版本已完成停机备份、日常服务部署及部署后测试。原配置、后台密码、插件开关和 OneBot 登录保持；人物覆盖未批量设置，命名模型未自动迁移，首次显式保存才迁移。见[本次部署验证](self-test.md#n1n2-合并与日常部署验证)。 下文“未合并/未部署”为各阶段完成时的历史状态，当前状态以本条为准。
+
 2026-10-16：N2 功能提交 `9167e2a9` 已推送，已创建[PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4)，基于 N1 [PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3) 的分支单独审查。两阶段均完成开发、测试、使用文档和源码上传；PR 待合并，日常服务未部署。实际交付见[上传记录](github-delivery.md)。
 
 2026-10-16 15:05：完成 N2 [命名模型配置](named-models.md)，提供稳定编号的配置列表、密钥保留/替换/确认清除、聊天/GPT/总结、Agent、识图三入口选择，以及只读旧配置预览和原子迁移。复用既有客户端、修订与备份；命名模式下旧模型字段明确拒绝写入。统一 11 步、132 项 Chrome、最终构建与 147 项隔离整机检查通过，三种协议实际请求、备份失败和恢复、重启持久性及新增入口实际地址/模型/密钥均核对。使用文档、维护、开发计划与依赖补丁说明同步，真实模型与 QQ 体验未测，未部署日常服务。N1 已上传为[PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)，N2 基于该阶段独立交付，见[验证结果](self-test.md#n2-命名模型配置验收)。

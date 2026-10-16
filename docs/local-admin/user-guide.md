@@ -1,5 +1,7 @@
 # 本地机器人使用指南
 
+2026-10-16 15:55 +08:00：N1、N2 已复核并依次合并至 master（[PR #3](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/3)、[PR #4](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/4)），合并版本已完成停机备份、日常服务部署及部署后测试。原配置、后台密码、插件开关和 OneBot 登录保持；人物覆盖未批量设置，命名模型未自动迁移，首次显式保存才迁移。见[本次部署验证](self-test.md#n1n2-合并与日常部署验证)。 重新登录后台，在“AI 设置”按[会话人物步骤](conversation-persona.md)自定义目标会话，或按[命名模型步骤](named-models.md)读取预览并选择三个入口后保存；读取本身不迁移或调用模型。
+
 聊天响应完整读取修复：普通聊天、GPT/群总结在解析成功后读完响应再返回，避免分块 JSON 已解码却提前关闭而记为 incomplete；本机日常服务已于 2026-10-16 更新，其他安装需使用新程序重启生效，无需修改 AI 配置。见[统计说明](model-request-statistics.md#统计口径)及[验证记录](self-test.md#聊天响应完整读取修复)。
 
 需要核验已配置模型的实际返回时，使用[真实模型测试入口](real-model-test.md)。GPT、普通聊天、Agent 动作/检索/保存及识图七组已在独立实例使用真实接口通过，范围和统计见[验证记录](self-test.md#真实模型链路验证)；不等于真实 QQ 客户端验收。
