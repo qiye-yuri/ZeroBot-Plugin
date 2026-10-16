@@ -1,5 +1,7 @@
 #2026-10-17：N3在 `codex/deepseek-web-search` 基于R6提交 `f1e2568f` 实现DeepSeek独立Search，只取5条结果并附来源，不接Fetch。新增独立密钥、默认关闭的全局/会话角色与最小任务摘要，复用备份、修订、停止和原有动作执行；使用与计划已同步。统一16步、160项Chrome、五入口模拟及148项隔离冒烟通过；最终源码补验后台/聊天、构建、3组搜索整机、真实Search与完整冒烟通过，见[验收](self-test.md#n3-deepseek-联网搜索验收)。真实Search用模拟模型/OneBot，不代表真实QQ验收。
 
+N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/11)，以 `codex/gpt-summary-model-routes` 为基础，仅包含N3的39个文件差异；R5 #9、R6 #10及本批均尚未合并或部署。本段上传结果随后在同一分支同步，不新增标签或向上游推送。
+
 本批只向用户仓库origin上传源码、测试与公开文档，PR以R6分支为基础，R5 #9、R6 #10仍未合并。没有合并、部署或修改日常配置；凭据、真实身份、原始搜索结果、日志、截图、临时工具及运行数据保留本机。
 
  第一版 GitHub 交付规则
