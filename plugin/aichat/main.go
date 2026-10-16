@@ -153,6 +153,8 @@ func init() {
 				logrus.Warnln("ERROR: cannot get ctrl mamager")
 			}
 			ag := chat.AgentOf(ctx.Event.SelfID, c.Service)
+			persona, _ := cfg.Persona(ctx.Event.SelfID, gid)
+			character := goba.Config{Nickname: strings.Join(zero.BotConfig.NickName, "/"), Chars: persona.Character, Sex: persona.Sex}
 			logrus.Debugln("[aichat] got agent")
 			if cfg.ImageAPI != "" && !ag.CanViewImage() {
 				mod, err := cfg.ImageType.ProtocolForAPI(cfg.ImageAPI, cfg.ImageModelName, temperature, topp, maxn, cfg.ReasoningEffort, cfg.Separator)
@@ -184,7 +186,7 @@ func init() {
 						return chat.ErrAgentReloaded
 					}
 					return run.Check()
-				})
+				}, character)
 				if errors.Is(e, errAgentResponseLimit) {
 					e = goba.ErrActionOutputLimit
 				}

@@ -1,5 +1,7 @@
 # Local Agent history patch
 
+GetActionChecked 增加可选的 Config 值参数，单次构造系统提示时使用调用方的任务人物快照，不修改共享 Agent.cfg；旧调用仍使用原配置。宿主复用同一快照完成多轮任务，权限表和历史存储保持原规则。
+
 search_memory 提示新增可选 from/until，以当前版本修订时间（含编辑、启停及恢复）筛选，具体来源或有效时间可省略关键词；继续保留 UTC 回执。原编号排序、任务共享额度和角色权限保持，完整权限表及系统提示回归同步。
 
 search_history 提示新增 eventType=message/notice/request，省略或空串不限；具体类型可省略关键词，按保存事件顶层 post_type 匹配，工具动作请求不算事件请求。继续须保留实际类型回执，原动作权限保持，系统提示和完整权限表回归同步。

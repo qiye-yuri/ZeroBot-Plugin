@@ -5,7 +5,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'windows-service-identity.ps1')
+$repoRoot = Resolve-LocalServicePath (Split-Path -Parent $PSScriptRoot)
 $runName = 'run-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
 $runDirectory = Join-Path $repoRoot (Join-Path '.local/agent-validation' $runName)
 New-Item -ItemType Directory -Force -Path $runDirectory | Out-Null
@@ -45,10 +46,10 @@ try {
     Invoke-AgentCheck 'chat' (Join-Path $repoRoot 'third_party/zbputils') 'go' @('test', './chat', '-count=1', '-timeout=180s')
     Invoke-AgentCheck 'backend' $repoRoot 'go' @('test', './internal/localadmin', './plugin/aichat', './plugin/llm', './internal/modelrequest', './internal/modelstats', './internal/replystats', '-count=1', '-timeout=180s')
     Invoke-AgentCheck 'smoke-tests' $repoRoot 'go' @('test', 'scripts/smoke-local-admin.go', 'scripts/smoke-local-admin_test.go', '-count=1', '-timeout=120s')
-    foreach ($asset in @('agent-archive', 'agent-memory', 'agent-tasks')) {
+    foreach ($asset in @('agent-archive', 'agent-memory', 'agent-tasks', 'ai')) {
         Invoke-AgentCheck ('syntax-' + $asset) $repoRoot 'node' @('--check', "internal/localadmin/assets/$asset.js")
     }
-    Invoke-AgentCheck 'browser' $repoRoot 'node' @('--test', 'scripts/test-agent-archive-ui.mjs', 'scripts/test-agent-memory-ui.mjs', 'scripts/test-agent-tasks-ui.mjs')
+    Invoke-AgentCheck 'browser' $repoRoot 'node' @('--test', 'scripts/test-agent-archive-ui.mjs', 'scripts/test-agent-memory-ui.mjs', 'scripts/test-agent-tasks-ui.mjs', 'scripts/test-ai-draft-ui.mjs')
     New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot '.local/bin') | Out-Null
     Invoke-AgentCheck 'build' $repoRoot 'go' @('build', '-trimpath', '-o', $report.binary, '.')
     $report.binarySHA256 = (Get-FileHash -LiteralPath (Join-Path $repoRoot $report.binary) -Algorithm SHA256).Hash

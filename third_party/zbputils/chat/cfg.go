@@ -85,6 +85,7 @@ type AgentConfig struct {
 	Key, ImageKey, AgentKey                   ModelKey
 	Separator, ReasoningEffort                string
 	NoSystemP                                 ModelBool
+	Personas                                  map[string]AgentPersona `json:",omitempty"`
 }
 
 func newconfig() AgentConfig {
@@ -168,6 +169,21 @@ func (r *ConfigRepository) Read() (AgentConfig, string, error) {
 // validateField validates only changed fields so unrelated legacy values are
 // preserved; new URLs must place authentication in the separate key field.
 func validateField(name string, value json.RawMessage) error {
+	if name == "Personas" {
+		var personas map[string]AgentPersona
+		if json.Unmarshal(value, &personas) != nil || personas == nil {
+			return errors.New("会话人物设置格式无效")
+		}
+		for key, persona := range personas {
+			if !validPersonaKey(key) {
+				return errors.New("会话人物范围无效")
+			}
+			if err := persona.Validate(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	typ, ok := reflect.TypeFor[AgentConfig]().FieldByName(name)
 	if !ok {
 		return errors.New("未知 AI 设置")
@@ -272,7 +288,8 @@ func (r *ConfigRepository) Update(revision string, fields map[string]json.RawMes
 		changed = !bytes.Equal(raw, result)
 		return result, err
 	})
-	if err == nil && changed {
+	_, personaOnly := fields["Personas"]
+	if err == nil && changed && !(personaOnly && len(fields) == 1) {
 		ReloadAgents()
 	}
 	return saved, err

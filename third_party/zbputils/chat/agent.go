@@ -176,8 +176,8 @@ func NextAgentActions(ag *goba.Agent, issudo bool, iter int, api deepinfra.API, 
 }
 
 // NextAgentActionsChecked binds preparation checks to this call, not a shared Agent.
-func NextAgentActionsChecked(ag *goba.Agent, issudo bool, iter int, api deepinfra.API, p model.Protocol, grp int64, role goba.PermRole, check func() error) ([]zero.APIRequest, bool, error) {
-	reqs, err := ag.GetActionChecked(api, p, grp, role, iter, false, check)
+func NextAgentActionsChecked(ag *goba.Agent, issudo bool, iter int, api deepinfra.API, p model.Protocol, grp int64, role goba.PermRole, check func() error, characters ...goba.Config) ([]zero.APIRequest, bool, error) {
+	reqs, err := ag.GetActionChecked(api, p, grp, role, iter, false, check, characters...)
 	// A failed HTTP/protocol read may also unwrap to EOF. It must not become
 	// an end_action or admit ordinary-chat fallback.
 	ended := errors.Is(err, io.EOF) && !errors.Is(err, goba.ErrModelRequestFailed)

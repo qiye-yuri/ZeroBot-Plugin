@@ -36,6 +36,36 @@ async function harness(t){
 }
 const dirty=page=>page.evaluate(()=>aiDrafts());
 const waitIdle=page=>page.waitForFunction(()=>!aiBusy);
+
+const personaFixture={botId:'12345678',type:'group',id:'10',revision:'c'.repeat(64),mode:'inherit',character:'全局人物',sex:'女'};
+test('conversation persona custom save restore and drafts keep loaded bot scope',async t=>{
+  const page=await harness(t);
+  await page.locator('#ai-persona-bot').fill('12345678');await page.locator('#ai-persona-id').fill('10');
+  await page.evaluate(value=>replies.push(value),personaFixture);await page.locator('#ai-persona-scope button').click();await waitIdle(page);
+  assert.equal(await page.locator('#ai-field-persona-character').getAttribute('readonly'),'');
+  await page.selectOption('#ai-field-persona-mode','custom');await page.locator('#ai-field-persona-character').fill('会话人物');
+  assert.deepEqual(await dirty(page),['persona']);assert.match(await page.locator('#ai-draft-status').textContent(),/会话人物/);
+  await page.locator('#ai-persona-bot').fill('87654321');await page.selectOption('#ai-persona-type','private');await page.locator('#ai-persona-id').fill('20');
+  await page.evaluate(value=>replies.push(value),{...personaFixture,mode:'custom',character:'会话人物',revision:'d'.repeat(64)});
+  await page.locator('#ai-persona-form button[type=submit]').click();await waitIdle(page);
+  assert.deepEqual(await page.evaluate(()=>requests.at(-1).body),{botId:'12345678',type:'group',id:'10',revision:'c'.repeat(64),mode:'custom',character:'会话人物',sex:'女'});
+  assert.deepEqual(await dirty(page),[]);
+  await page.selectOption('#ai-field-persona-mode','inherit');await page.evaluate(value=>replies.push(value),personaFixture);await page.locator('#ai-persona-form button[type=submit]').click();await waitIdle(page);
+  assert.equal(Object.hasOwn(await page.evaluate(()=>requests.at(-1).body),'character'),false);
+  await page.selectOption('#ai-field-persona-mode','custom');await dialogAction(page,true,()=>page.locator('#ai-persona-form [data-ai-discard]').click());
+  assert.equal(await page.locator('#ai-field-persona-mode').inputValue(),'inherit');assert.equal(await page.locator('#ai-field-persona-character').getAttribute('readonly'),'');
+  await page.selectOption('#ai-field-persona-mode','custom');await page.evaluate(value=>replies.push(value),fixture());await dialogAction(page,true,()=>page.locator('#reload-ai').click());await waitIdle(page);assert.deepEqual(await dirty(page),[]);assert.equal(await page.locator('#ai-persona-form').isHidden(),true);
+});
+
+test('conversation persona errors preserve draft and logout discards late response',async t=>{
+  const page=await harness(t);await page.evaluate(value=>renderAIPersona(value),personaFixture);
+  await page.selectOption('#ai-field-persona-mode','custom');await page.locator('#ai-field-persona-character').fill('新人物');
+  await page.evaluate(()=>replies.push({error:'配置已变化',status:409}));await page.locator('#ai-persona-form button[type=submit]').click();await waitIdle(page);
+  assert.deepEqual(await dirty(page),['persona']);assert.match(await page.locator('#ai-error').textContent(),/变化/);
+  await page.locator('#ai-persona-form button[type=submit]').click();await page.waitForFunction(()=>pending.length===1);
+  await page.evaluate(()=>{authenticated=false;showAuth();});await page.evaluate(value=>pending[0]({ok:true,status:200,json:async()=>value}),personaFixture);await page.waitForTimeout(20);
+  assert.equal(await page.locator('#ai-persona-form').isHidden(),true);assert.deepEqual(await dirty(page),[]);
+});
 async function dialogAction(page,accept,action){
   const dialog=page.waitForEvent('dialog');const result=action();
   const d=await dialog;assert.equal(d.type(),'confirm');if(accept)await d.accept();else await d.dismiss();await result;

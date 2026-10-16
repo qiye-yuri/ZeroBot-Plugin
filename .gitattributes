@@ -1,1 +1,2 @@
 *.pb linguist-language=go
+third_party/go-onebot-agent/README.md text eol=lf

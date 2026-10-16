@@ -179,6 +179,10 @@ func run() error {
 			if len(messages) > 0 {
 				system, _ := messages[0].(map[string]any)
 				prompt, _ := system["content"].(string)
+				if !strings.Contains(prompt, "SMOKE_CONVERSATION_PERSONA") {
+					http.Error(w, "conversation persona missing from model prompt", 500)
+					return
+				}
 				if strings.Contains(prompt, "|群组踢人|set_group_kick|") {
 					kind = "admin"
 				}
@@ -667,6 +671,7 @@ func run() error {
 	result["gptQuoteBoundaryPassed"] = true
 	result["aiRoleCommandsPassed"] = true
 	result["aiAgentRolePromptsPassed"] = true
+	result["aiConversationPersonaModelAndHTTPPassed"] = true
 	result["agentArchiveReadSearchIsolationPassed"] = true
 	result["agentArchiveTimeRangeSearchPassed"] = true
 	result["agentArchiveSourceContextHTTPPassed"] = true
@@ -4473,6 +4478,19 @@ func verifyAIRolePermissions(do func(string, string, any, string) (int, map[stri
 	if err := switchAgent("enabled"); err != nil {
 		return err
 	}
+	personaPath := "/api/ai-persona?botId=87654321&type=group&id=303"
+	status, persona, err := do("GET", personaPath, nil, "")
+	if err != nil || status != 200 || persona["mode"] != "inherit" {
+		return fmt.Errorf("persona baseline unavailable: %v", err)
+	}
+	status, _, err = do("POST", "/api/ai-persona", map[string]any{"botId": "87654321", "type": "group", "id": "303", "revision": persona["revision"], "mode": "custom", "character": "SMOKE_CONVERSATION_PERSONA", "sex": "女"}, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("persona override save failed: %v", err)
+	}
+	status, persona, err = do("GET", "/api/ai-persona?botId=87654321&type=private&id=303", nil, "")
+	if err != nil || status != 200 || persona["mode"] != "inherit" || persona["character"] == "SMOKE_CONVERSATION_PERSONA" {
+		return fmt.Errorf("persona crossed conversation type")
+	}
 	for _, c := range []struct {
 		uid             int64
 		role, cmd, want string
@@ -4489,6 +4507,14 @@ func verifyAIRolePermissions(do func(string, string, any, string) (int, map[stri
 		}
 		// Allow the message hook to record the API response before updating roles.
 		time.Sleep(100 * time.Millisecond)
+	}
+	status, persona, err = do("GET", personaPath, nil, "")
+	if err != nil || status != 200 {
+		return fmt.Errorf("persona latest state unavailable")
+	}
+	status, _, err = do("POST", "/api/ai-persona", map[string]any{"botId": "87654321", "type": "group", "id": "303", "revision": persona["revision"], "mode": "inherit"}, csrf)
+	if err != nil || status != 200 {
+		return fmt.Errorf("persona inherit save failed")
 	}
 	if err := verifyAgentTaskRuntime(do, send, csrf, inFlight); err != nil {
 		return err
