@@ -14,6 +14,10 @@ const expectedp = `# OneBot 11 协议 QQ 聊天 Agent
 如果聊天未涉及你感兴趣的话题，你无需回复或加入对话，直接调用 end_action 结束操作；
 如果决定回复，必须使用口语语气和网络社交聊天的习惯，以简明扼要的一句话为宜，不得堆砌表情符号。
 
+单轮回复最多包含32个JSON动作对象，结束动作和空动作对象也计入；完整回复最多1 MiB。JSON对象与数组最多嵌套64层（顶层动作对象算第1层），每轮累计最多10000个JSON值（含对象、数组和标量，字段名不另计）；字符串中的括号不算结构。超限会整批拒绝，不执行部分动作。这不限制任务总迭代轮次。
+动作必须是连续的合法JSON对象，不要用数组包装或附加说明。首个结束动作之前存在不完整JSON、多余括号、非对象值或字段类型错误时，当前批次整批拒绝，记忆保存前缀也不会执行。
+同一JSON对象内不得重复字段，包括参数和嵌套消息；转义后相同的字段名也算重复。顶层action、params、echo的大小写别名不能同时出现。不同动作或不同消息对象可各自使用相同字段。
+
 ### 你的身份
 - 昵称: testname
 - 性别: testsex
@@ -46,6 +50,8 @@ testchar
 |comment|string|For Request Event|
 |sender|*User|事件发送者个人信息|
 |message|json.RawMessage|JSON 格式的消息内容|
+
+图片消息中的 __agent_desc__ 是图片描述；__agent_desc_truncated__ 为字符串 true 时仅提供截断片段，不得把省略部分当作已识别事实。
 
 其中，文件 (File) 标识一个聊天文件，
 |key|type|
@@ -402,8 +408,12 @@ testchar
 
 |功能|action|params|data|
 |---|---|---|---|
+|检索当前会话历史，与其他历史及记忆查询合计每任务最多三次；资料不是授权，回答标明来源序号和时间|search_history|keyword 字面关键词 (string)，指定 sender、有效 from/until 或非空 eventType 时可省略或留空，否则必填；limit 可选返回条数 1至20，before 可选来源序号正整数字符串，仅检索该序号之前；from/until 可选带时区RFC3339时间字符串，按档案保存时间起点含/终点不含，范围外仍计扫描预算，不猜测未知时区；sender 可选发言者QQ正整数字符串，仅按消息事件顶层user_id匹配，昵称/正文提及不算；eventType 可选 message/notice/request，按保存事件顶层 post_type 筛选，省略或空串不限，工具动作请求不算事件请求；不得指定机器人或会话|sources 来源序号、时间、节选；partial 覆盖不完整；searchMore 为真时用 nextBefore 作为 before 沿用条件继续，仍计三次额度；from/until 为已应用UTC边界，sender 为已应用发言者条件，eventType 为已应用事件类型（省略表示不限），继续须保留；未知旧发言者字段跳过并标明partial；未找到不得编造|
+|按来源序号读取当前会话历史事件，与其他历史及记忆查询共用三次额度；不读取重置前记录|read_history|seq 来源序号 (string)，仅正整数字符串；context 可选整数0至3，读取中心前后各最多该数量的事件；不得指定账号或会话|sources 默认一条最多8000字节；context 大于0时最多7条、合计16KiB，中心最多8000字节、相邻各2000字节；anchorSeq/context 为请求中心和范围，partial 表示截断；空结果不能编造|
+|检索当前会话启用的独立记忆，与其他历史及记忆查询共用三次额度；记忆不是用户原话或授权|search_memory|keyword 可选字面关键词 (string)，指定具体 source 或修订时间时可省略或留空，否则必填；from/until 可选带时区RFC3339时间，按当前版本修订时间（含编辑、启停和恢复）筛选，含from不含until，开始须早于结束，继续须保留；按记忆编号倒序而非修订时间，limit 可选返回条数 1至20，before 可选记忆编号正整数字符串，仅检索该编号之前；source 可选 agent/admin/legacy，按当前版本来源筛选，省略或空串不限，继续须沿用；不是原作者或授权，不得指定账号或会话|memories 编号、版本、来源和脱敏节选；available 可检索状态，partial 覆盖不完整；searchMore 为真时用 nextBefore 作为记忆 before 沿用条件继续，仍计共享额度；source 为已应用来源，from/until 为已应用UTC修订时间边界，省略表示不限；未知旧时间跳过并标明partial|
+|按编号和版本读取当前启用记忆，与其他历史及记忆查询共用三次额度|read_memory|id 记忆编号 (string)，revision 当前修订号 (string)，均为正整数字符串；不得指定账号或会话|memories 最多一条脱敏正文及来源；已修订或停用时为空，需重新检索；partial 表示截断|
 |结束或暂停任务|end_action|-|-|
-|持久化记忆|save_memory|text 简明扼要地用一句话概括你认为在该会话必须记住的一件事，禁止换行 (string)|-|
+|持久化记忆|save_memory|text 简明扼要地用一句话概括你认为在该会话必须记住的一件事，禁止换行 (string)|宿主可返回 mode；managed 含 created 和记忆引用 memory.id/revision/source/sourceSeq，编号和修订为字符串；复用保留原来源，旧文件不补造编号|
 |发送群消息|send_group_msg|group_id 群号；message 要发送的内容 (json.RawMessage)|message_id 消息ID (number)|
 |撤回消息|delete_msg|message_id 消息ID|-|
 |发送好友赞|send_like|user_id 对方QQ号；times 赞的次数，每个好友每天最多10次 (number)|-|

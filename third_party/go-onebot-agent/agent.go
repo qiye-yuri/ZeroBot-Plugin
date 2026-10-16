@@ -2,11 +2,9 @@
 package goba
 
 import (
-	"bytes"
-	"encoding/base64"
+	"context"
 	"encoding/json"
 	"fmt"
-	"image"
 	"io"
 	"math"
 	"net/http"
@@ -30,11 +28,17 @@ const (
 	EOA = "end_action"
 	// SVM is a dummy action that is used to indicate that a memory has been saved
 	SVM = "save_memory"
+	// SearchHistory is handled by the host as a scoped local read, never OneBot.
+	SearchHistory = "search_history"
+	ReadHistory   = "read_history"
+	SearchMemory  = "search_memory"
+	ReadMemory    = "read_memory"
 )
 
 var (
 	// ErrPermissionDenied LLM 调用了不该调用的 action
-	ErrPermissionDenied = errors.New("permission denied")
+	ErrPermissionDenied       = errors.New("permission denied")
+	ErrCheckedHistoryRequired = errors.New("checked Agent preparation requires a history store")
 )
 
 // Agent is a OneBot event context, it is recommended to create one agent
@@ -43,9 +47,10 @@ type Agent struct {
 	log          chat.Log[fmt.Stringer]
 	history      HistoryStore
 	historyPre   func(*fmt.Stringer)
+	visionPre    func(*fmt.Stringer, func() error) error
 	cfg          *Config
 	perm         *Perm
-	imgpcache    *ttl.Cache[uint64, string]
+	imgpcache    *ttl.Cache[uint64, imageDescription]
 	mem          MemoryStorage
 	manualaddreq bool
 	manualaddmem bool
@@ -66,7 +71,7 @@ func NewAgent(
 	ag = Agent{
 		log:          chat.NewLog[fmt.Stringer](batchcap, itemscap, "\n", defaultprompt),
 		cfg:          cfg,
-		imgpcache:    ttl.NewCache[uint64, string](imgpcachettl),
+		imgpcache:    ttl.NewCache[uint64, imageDescription](imgpcachettl),
 		mem:          mem,
 		manualaddreq: manualaddreq, manualaddmem: manualaddmem,
 	}
@@ -99,6 +104,9 @@ func (ag *Agent) AddMemory(grp int64, text string) error {
 	return ag.mem.Save(grp, strings.TrimSpace(text))
 }
 
+// SetMemoryStorage is configured before publishing an Agent to callers.
+func (ag *Agent) SetMemoryStorage(mem MemoryStorage) { ag.mem = mem }
+
 // CanViewImage will be true if SetViewImageAPI is called
 func (ag *Agent) CanViewImage() bool {
 	return ag.hasimageapi
@@ -106,7 +114,13 @@ func (ag *Agent) CanViewImage() bool {
 
 // SetViewImageAPI 为 agent 增加识图功能, 需要模型支持视觉
 func (ag *Agent) SetViewImageAPI(api deepinfra.API, p model.Protocol) {
-	pre := func(s *fmt.Stringer) {
+	checkedPre := func(s *fmt.Stringer, check func() error) error {
+		gate := func() error {
+			if check != nil {
+				return check()
+			}
+			return nil
+		}
 		o := *s
 		if ev, ok := o.(*Event); ok {
 			hasset := false
@@ -115,42 +129,34 @@ func (ag *Agent) SetViewImageAPI(api deepinfra.API, p model.Protocol) {
 				if msg.Type != "image" {
 					continue
 				}
-				if _, ok := msg.Data["__agent_desc__"]; ok {
-					continue
+				if err := gate(); err != nil {
+					return err
+				}
+				if text, ok := msg.Data["__agent_desc__"]; ok {
+					desc, valid := normalizeImageDescription(text)
+					if valid {
+						desc.Truncated = desc.Truncated || msg.Data["__agent_desc_truncated__"] == "true"
+						desc.apply(msgs[i].Data)
+						hasset = true
+						continue
+					}
+					delete(msgs[i].Data, "__agent_desc__")
+					delete(msgs[i].Data, "__agent_desc_truncated__")
+					hasset = true
 				}
 				u := msg.Data["url"]
 				if u == "" {
 					u = msg.Data["file"]
 				}
-				var (
-					data []byte
-					err  error
-				)
-				switch {
-				case strings.HasPrefix(u, "http"):
-					resp, err := http.Get(u)
-					if err != nil {
-						logrus.Debugln("[goba] SetViewImageAPI get http err:", err)
-						continue
-					}
-					data, err = io.ReadAll(resp.Body)
-					_ = resp.Body.Close()
-					if err != nil {
-						logrus.Debugln("[goba] SetViewImageAPI read body err:", err)
-						continue
-					}
-				case strings.HasPrefix(u, "base64://"):
-					data, err = base64.StdEncoding.DecodeString(u[9:])
-					if err != nil {
-						logrus.Debugln("[goba] SetViewImageAPI decode base64 err:", err)
-						continue
-					}
-				default:
-					// we can support local files but skip due to security concerns.
+				data, err := loadAgentImage(context.Background(), http.DefaultClient, u)
+				if stopped := gate(); stopped != nil {
+					return stopped
+				}
+				if err != nil {
+					logrus.Debugln("[goba] SetViewImageAPI image input skipped:", err)
 					continue
 				}
-
-				img, _, err := image.Decode(bytes.NewReader(data))
+				img, err := decodeAgentImage(data)
 				if err != nil {
 					logrus.Debugln("[goba] SetViewImageAPI decode img err:", err)
 					continue
@@ -161,8 +167,8 @@ func (ag *Agent) SetViewImageAPI(api deepinfra.API, p model.Protocol) {
 					continue
 				}
 				d := math.MaxInt
-				desc := ""
-				_ = ag.imgpcache.Range(func(u uint64, s string) error {
+				desc := imageDescription{}
+				_ = ag.imgpcache.Range(func(u uint64, s imageDescription) error {
 					ds, err := goimagehash.NewImageHash(u, goimagehash.PHash).Distance(hsh)
 					if err != nil {
 						logrus.Debugln("[goba] SetViewImageAPI calc phash distance err:", err)
@@ -176,7 +182,7 @@ func (ag *Agent) SetViewImageAPI(api deepinfra.API, p model.Protocol) {
 				})
 				logrus.Debugln("[goba] SetViewImageAPI calculated min d:", d)
 				if d < 8 { // very similar (>87.5%)
-					msgs[i].Data["__agent_desc__"] = desc
+					desc.apply(msgs[i].Data)
 					hasset = true
 					logrus.Debugln("[goba] SetViewImageAPI hit cache.")
 					continue
@@ -193,17 +199,29 @@ func (ag *Agent) SetViewImageAPI(api deepinfra.API, p model.Protocol) {
 					logrus.Debugln("[goba] SetViewImageAPI conv b64 err:", err)
 					continue
 				}
-				p = p.Clone() // clear protocol content
-				m := p.User(
+				if err := gate(); err != nil {
+					return err
+				}
+				visionProtocol := p.Clone() // Request-local protocol, never mutate the shared template.
+				m := visionProtocol.User(
 					model.NewContentImageURL(imgs),
 					model.NewContentText("使用简洁清晰明确的一段中文纯文本描述图片"),
 				)
-				desc, err = api.Request(m)
+				text, err := api.Request(&agentResponseModel{Model: m})
+				if stopped := gate(); stopped != nil {
+					return stopped
+				}
 				if err != nil {
-					logrus.Debugln("[goba] SetViewImageAPI request API err:", err)
+					logrus.Debugln("[goba] SetViewImageAPI vision request failed")
 					continue
 				}
-				msgs[i].Data["__agent_desc__"] = desc
+				var valid bool
+				desc, valid = normalizeImageDescription(text)
+				if !valid {
+					logrus.Debugln("[goba] SetViewImageAPI empty or invalid description skipped")
+					continue
+				}
+				desc.apply(msgs[i].Data)
 				ag.imgpcache.Set(hsh.GetHash(), desc)
 				hasset = true
 			}
@@ -214,9 +232,12 @@ func (ag *Agent) SetViewImageAPI(api deepinfra.API, p model.Protocol) {
 				}
 			}
 		}
+		return nil
 	}
+	pre := func(s *fmt.Stringer) { _ = checkedPre(s, nil) }
 	ag.log.SetPreModelize(pre)
 	ag.historyPre = pre
+	ag.visionPre = checkedPre
 	ag.hasimageapi = true
 }
 
@@ -224,6 +245,7 @@ func (ag *Agent) SetViewImageAPI(api deepinfra.API, p model.Protocol) {
 func (ag *Agent) ClearViewImageAPI() {
 	ag.log.SetPreModelize(nil)
 	ag.historyPre = nil
+	ag.visionPre = nil
 	ag.hasimageapi = false
 }
 
@@ -231,6 +253,10 @@ func (ag *Agent) ClearViewImageAPI() {
 //
 // Note:
 //
+//   - Model API errors return ErrModelRequestFailed with safe default text and
+//     an unwrap-able cause for errors.Is/As; task checks still take precedence.
+//   - Invalid JSON object streams return ErrActionOutputInvalid with no requests
+//     and no automatic writes from that batch. Size/count limits behave likewise.
 //   - If LLM returns an invalid action, ErrPermissionDenied will be returned
 //     with complete reqs before invalid call, caller may decide whether to use
 //     these reqs by themselves. Whatever, invalid req will not be added into
@@ -238,31 +264,88 @@ func (ag *Agent) ClearViewImageAPI() {
 func (ag *Agent) GetAction(api deepinfra.API, p model.Protocol, grp int64, role PermRole, iter int, isusersystem bool) (
 	reqs []zero.APIRequest, err error,
 ) {
+	return ag.GetActionChecked(api, p, grp, role, iter, isusersystem, nil)
+}
+
+// GetActionChecked checks host task state between preparation operations and
+// before/after the Agent request. It does not interrupt an admitted HTTP call.
+// A non-nil check requires a HistoryStore; the legacy log has a shared callback.
+func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64, role PermRole, iter int, isusersystem bool, check func() error) (
+	reqs []zero.APIRequest, err error,
+) {
+	var preparationErr error
+	gate := func() error {
+		if preparationErr == nil && check != nil {
+			preparationErr = check()
+		}
+		return preparationErr
+	}
+	if err = gate(); err != nil {
+		return
+	}
+	if check != nil && ag.history == nil {
+		return nil, ErrCheckedHistoryRequired
+	}
+	p = p.Clone() // Do not retain a prior response when callers reuse a protocol.
 	sysp, err := ag.system(role, iter, grp)
 	if err != nil {
 		logrus.Debugln("[goba] GetAction get sysp err:", err)
 		return
 	}
+	if err = gate(); err != nil {
+		return
+	}
 
 	var m deepinfra.Model
 	if ag.history != nil {
-		m, err = ag.history.Modelize(p, grp, sysp, isusersystem, ag.historyPre)
+		pre := ag.historyPre
+		if check != nil {
+			pre = func(s *fmt.Stringer) {
+				if gate() != nil {
+					return
+				}
+				if ag.visionPre != nil {
+					preparationErr = ag.visionPre(s, gate)
+				} else if ag.historyPre != nil {
+					ag.historyPre(s)
+				}
+			}
+		}
+		m, err = ag.history.Modelize(p, grp, sysp, isusersystem, pre)
+		if preparationErr != nil {
+			return nil, preparationErr
+		}
 		if err != nil {
 			return
 		}
 	} else {
 		m = ag.log.Modelize(p, grp, sysp, isusersystem)
 	}
-
-	resp, err := api.Request(m)
-	if err != nil {
-		logrus.Debugln("[goba] GetAction request api err:", err)
+	if err = gate(); err != nil {
 		return
+	}
+
+	resp, err := api.Request(&agentResponseModel{Model: m})
+	if stopped := gate(); stopped != nil {
+		return nil, stopped
+	}
+	if err != nil {
+		logrus.Debugln("[goba] GetAction model request failed")
+		if errors.Is(err, ErrActionOutputLimit) {
+			return nil, ErrActionOutputLimit
+		}
+		return nil, &modelRequestError{cause: err}
+	}
+	if len(resp) > agentActionOutputBytes {
+		return nil, ErrActionOutputLimit
 	}
 	if strings.HasPrefix(resp, "```") { // AI returns codeblock
 		_, resp, _ = strings.Cut(resp, "\n")
 		resp = strings.Trim(resp, "`")
 		resp = strings.TrimSpace(resp)
+	}
+	if err = checkActionObjects(resp); err != nil {
+		return nil, err
 	}
 	reqs = make([]zero.APIRequest, 0, 2)
 	dec := json.NewDecoder(strings.NewReader(resp))

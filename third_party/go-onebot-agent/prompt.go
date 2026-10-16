@@ -27,7 +27,10 @@ func (ag *Agent) system(role PermRole, iter int, grp int64) (string, error) {
 	if grp < 0 {
 		typ = "私聊"
 	}
-	memory := ag.memoryof(grp)
+	memory, err := ag.memoryof(grp)
+	if err != nil {
+		return "", err
+	}
 	if len(memory) > 32768 {
 		start := len(memory) - 32768
 		for start < len(memory) && !utf8.ValidString(memory[start:]) {

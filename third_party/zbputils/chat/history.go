@@ -33,6 +33,7 @@ type agentHistory struct {
 	budget int
 	config func() (AgentConfig, error)
 	failed map[int64]bool
+	tasks  *TaskStore
 }
 
 func openAgentHistory(root string, selfID int64, budget int, config func() (AgentConfig, error)) (*agentHistory, error) {
@@ -81,6 +82,18 @@ func openAgentHistory(root string, selfID int64, budget int, config func() (Agen
 			return nil, errAgentHistory
 		}
 	}
+	for _, query := range memorySchema {
+		if _, err = db.Exec(query); err != nil {
+			db.Close()
+			return nil, errAgentHistory
+		}
+	}
+	s.tasks, err = newTaskStore(db, taskInstance)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	s.tasks.bot = selfID
 	return s, nil
 }
 
@@ -93,16 +106,23 @@ func OpenAgentHistory(root string, selfID int64, config func() (AgentConfig, err
 func (s *agentHistory) Close() error { return s.db.Close() }
 
 func (s *agentHistory) Append(grp int64, kind string, item fmt.Stringer) error {
+	_, err := s.appendWithSequence(grp, kind, item)
+	return err
+}
+
+// appendWithSequence returns this insert's exact sequence, not a later event's
+// sequence or a guess based on repeated provider message IDs.
+func (s *agentHistory) appendWithSequence(grp int64, kind string, item fmt.Stringer) (int64, error) {
 	if grp == 0 {
-		return errAgentHistory
+		return 0, errAgentHistory
 	}
 	if kind != "event" && kind != "request" && kind != "response" && kind != "end" {
-		return errAgentHistory
+		return 0, errAgentHistory
 	}
 	cfg, err := s.config()
 	if err != nil {
 		s.markFailed(grp)
-		return errAgentHistory
+		return 0, errAgentHistory
 	}
 	var raw []byte
 	if kind == "end" {
@@ -112,14 +132,14 @@ func (s *agentHistory) Append(grp int64, kind string, item fmt.Stringer) error {
 	}
 	if err != nil {
 		s.markFailed(grp)
-		return errAgentHistory
+		return 0, errAgentHistory
 	}
 	var value any
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	if decoder.Decode(&value) != nil {
 		s.markFailed(grp)
-		return errAgentHistory
+		return 0, errAgentHistory
 	}
 	value = redactHistoryValue(value, cfg)
 	// A newly submitted key may not yet be in the saved configuration.
@@ -131,17 +151,23 @@ func (s *agentHistory) Append(grp int64, kind string, item fmt.Stringer) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		s.markFailed(grp)
-		return errAgentHistory
+		return 0, errAgentHistory
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, err = s.db.Exec("INSERT INTO history(conversation,kind,payload,created_at) VALUES(?,?,?,?)", grp, kind, string(encoded), time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+	result, err := s.db.Exec("INSERT INTO history(conversation,kind,payload,created_at) VALUES(?,?,?,?)", grp, kind, string(encoded), time.Now().UTC().Format(time.RFC3339Nano))
+	if err != nil {
 		s.failed[grp] = true
-		return errAgentHistory
+		return 0, errAgentHistory
+	}
+	seq, err := result.LastInsertId()
+	if err != nil || seq <= 0 {
+		s.failed[grp] = true
+		return 0, errAgentHistory
 	}
 	// A prior missing record remains visible as a failure until explicit reset
 	// or reload. Do not silently claim a complete history after a failed write.
-	return nil
+	return seq, nil
 }
 
 func (s *agentHistory) markFailed(grp int64) { s.mu.Lock(); s.failed[grp] = true; s.mu.Unlock() }
@@ -270,6 +296,31 @@ func (s *agentHistory) Modelize(p model.Protocol, grp int64, system string, user
 	items, clipped, err := s.recent(grp)
 	if err != nil {
 		return nil, err
+	}
+	s.mu.Lock()
+	usage := ContextUsage{Records: len(items), BudgetBytes: s.budget, Clipped: clipped, Available: true}
+	s.mu.Unlock()
+	memorySources := 0
+	for _, item := range items {
+		usage.HistoryBytes += len(item.payload)
+		if item.kind == "response" {
+			var response struct {
+				Data struct {
+					Sources  []json.RawMessage `json:"sources"`
+					Memories []json.RawMessage `json:"memories"`
+				} `json:"data"`
+			}
+			if json.Unmarshal([]byte(item.payload), &response) == nil {
+				usage.SearchSources += len(response.Data.Sources)
+				memorySources += len(response.Data.Memories)
+			}
+		}
+	}
+	usage.MemorySources = &memorySources
+	if s.tasks != nil {
+		if err := s.tasks.capture(grp, usage); err != nil {
+			return nil, err
+		}
 	}
 	if clipped {
 		system += "\n历史记录完整保存在本机。本次请求只装载适合上下文容量的近期记录；更早内容不可凭空回忆，必要时询问用户。"

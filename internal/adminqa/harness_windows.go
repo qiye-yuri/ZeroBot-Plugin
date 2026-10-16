@@ -347,11 +347,26 @@ func (h *Harness) Start(ctx context.Context, label string) (*Bot, error) {
 }
 
 func (h *Harness) Send(uid int64, text string) (string, time.Duration, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	reply, elapsed, err := h.SendWithContext(ctx, uid, text)
+	if err == context.DeadlineExceeded {
+		err = nil // Existing smoke callers also send commands that have no reply.
+	}
+	return reply, elapsed, err
+}
+
+// SendWithContext sends only to this harness's synthetic OneBot connection.
+// Real model checks can wait longer than the deterministic smoke timeout.
+func (h *Harness) SendWithContext(ctx context.Context, uid int64, text string, segments ...map[string]any) (string, time.Duration, error) {
 	h.messageID++
 	start := time.Now()
+	if len(segments) == 0 {
+		segments = []map[string]any{{"type": "text", "data": map[string]string{"text": text}}}
+	}
 	p := h.current
 	p.mu.Lock()
-	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "message", "message_type": "private", "sub_type": "friend", "message_id": h.messageID, "user_id": uid, "raw_message": text, "message": []map[string]any{{"type": "text", "data": map[string]string{"text": text}}}, "sender": map[string]any{"user_id": uid, "nickname": "Synthetic acceptance user", "role": "member"}})
+	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "message", "message_type": "private", "sub_type": "friend", "message_id": h.messageID, "user_id": uid, "raw_message": text, "message": segments, "sender": map[string]any{"user_id": uid, "nickname": "Synthetic acceptance user", "role": "member"}})
 	p.mu.Unlock()
 	if err != nil {
 		return "", time.Since(start), err
@@ -359,8 +374,8 @@ func (h *Harness) Send(uid int64, text string) (string, time.Duration, error) {
 	select {
 	case reply := <-h.replies:
 		return reply, time.Since(start), nil
-	case <-time.After(3 * time.Second):
-		return "", time.Since(start), nil
+	case <-ctx.Done():
+		return "", time.Since(start), ctx.Err()
 	}
 }
 

@@ -1,0 +1,151 @@
+# AI 与 Agent 隔离整机自测
+
+本文使用假模型核对确定性功能；需要连接已配置提供商时，另用[真实模型测试](real-model-test.md)，两类结果分别记录。
+
+任务最近结果用例：实际模型、平台动作及兜底等待时，以 running + 无错误类别 + 当前阶段 + outcome 组合读取，核对同一任务和版本，其中动作等待为 in_flight、模型及兜底为未记录结果。既有 16 个输出限制/格式/模型故障及恢复任务按全部/未记录/成功等八类条件核对精确集合，同号私聊为空，最终程序提供筛选控件。完整通过新增 agentTaskOutcomeFilterHTTPPassed=true，不增加模型调用。240 条候选的结果/时间组合分页、未知旧值、累计结果不能代替最近结果、内存写失败覆盖由 Go 验证；页面条件保留、停止重置、失败及迟到清理和窄屏由 Chrome 模拟接口验证。
+
+历史两次修订对比用例：最终服务提供比较表单生成脚本和入口文字，完整通过新增 agentMemoryHistoryComparisonAssetsPassed=true；原有实际 v1、停用 v4、当前 v5 精确历史读取、各字段核对、范围隔离和读取后当前版本不变继续验证，无新增模型调用。两次读取及差异呈现交互由 Chrome 模拟接口验证，覆盖大整数、非当前历史、基准/目标启停、Unicode/纯文本、相同正文/同一修订、缺失/回执不符/第二次读取失败、原分页保留、离开后不继续读取及迟到清理、320px 双主题。
+
+档案序号定位用例：从实际角色档案搜索结果取得来源序号，分别使用 archived=false/true 的既有单条接口核对精确序号、类型、时间及较长正文；同号私聊和不存在序号返回空。最终服务提供定位表单和脚本，完整通过新增 agentArchiveExactLookupHTTPPassed=true，不增加模型调用。Chrome 模拟接口验证 >2^53 序号及 Enter 提交、已加载范围/重置模式绑定、搜索草稿和继续位置保留、读取失败保留分页、纯文本和截断、未找到/不可用/故障区分、重新读取及迟到清理、320px 双主题。
+
+任务开始时间用例：对既有输出限制、格式/模型故障及正常恢复的每个实际任务，用其开始时刻及相邻 1ns 窗口验证下限包含、上限排除，与状态/类别/阶段组合，带 +08:00 下限核对 UTC 回执，并确认任务编号及版本不变；最终程序提供两个时间输入。完整通过新增 agentTaskStartRangeHTTPPassed=true，不增加模拟模型调用。240 条候选的跨页、旧时间缺失、时区/纳秒、取消及内存故障覆盖由 Go 验证；页面已应用条件、草稿隔离、独立单条核对、停止重置、失败/迟到清理及 320px 双主题由 Chrome 模拟接口测试覆盖。
+
+任务统计展开用例：隔离整机检查实际返回的任务脚本含统计标题、样式含 details 区域规则，完整通过新增 agentTaskStatisticsDisclosureAssetsPassed=true；原实际任务摘要、单条读取、停止和累计计数继续验证，不增加模型调用。Chrome 使用模拟 HTTP 验证列表默认收起、逐条独立及键盘展开不发请求，单条核对默认展开，错误及未知结果仍可见，翻页/离开清理，以及 320px 明暗主题的展开/收起布局。
+
+历史修订定位用例：实际记忆生命周期完成到启用 v5 后，独立读取 v1、停用 v4 和当前 v5，对照先前历史页核对编号、修订、正文、来源、来源序号、启停及保存时间；不存在 v6 和同号私聊返回空，当前 v5 再核对不变，模型 stale 读取继续拒绝旧版。完整通过时新增 agentMemoryExactRevisionHTTPPassed=true，模拟模型调用数保持。Go 覆盖精确大整数、只读、模式和故障；Chrome 覆盖定位/返回最新、对比与原版本恢复提交、范围草稿、非法输入和迟到清理。
+
+前后事件范围用例：整机对真实搜索结果中心依次读取 context=1/2/3，检查回执半径、中心存在、纯事件与精确序号倒序、每侧条数、单条及合计 16 KiB 正文预算；原范围隔离及非法参数用例保持。服务资源检查新增选择控件及动态 context 请求，完整通过新增 agentArchiveContextRadiusHTTPPassed=true，不增加模拟模型请求。Chrome 覆盖默认与切换、选择后不自动读取、草稿目标隔离、2/3 半径回执检查、请求禁用、重新搜索重置、迟到清理和 320px 双主题。
+
+任务快捷核对用例：整机脚本检查最终服务实际返回的 agent-tasks.js 包含“核对最新状态”，完整通过时新增 agentTaskLatestEntryAssetsPassed=true，原单条任务实际接口、会话隔离、终态及观察时间继续验证。Chrome 使用模拟 HTTP 检查所点条目/已加载范围绑定、大整数版本、列表和筛选分页保留、单条只读、失败/迟到清理及 320px 双主题；停止用例改为按按钮用途定位，确认新增只读入口不触发取消。无需额外模型调用。
+
+记忆修订时间用例：既有知识记忆模型的两次 search_memory 增加带时区的 from/until，核对 UTC 纳秒回执和后续请求保留边界，精确读取仍不带时间。后台用实际保存时间的 1ns 窗口核对开始包含、结束排除，均省略关键词与来源。完整通过时新增 agentMemoryRevisionTimeModelAndHTTPPassed=true，仍为 53 次模拟模型 HTTP。5,000 条空窗口继续、未知时间、状态/来源组合及修改后移出范围由 Go 覆盖，页面条件保留与清理由 Chrome 覆盖。
+
+任务阶段用例：在实际图片下载及识图准备任务的 model_wait 阶段，通过状态 + 无错误类别 + 阶段组合查询核对同一任务/版本，action_wait 应为空；既有模型故障集合增加 finished 条件核对精确集合。完整通过时新增 agentTaskPhaseFilterHTTPPassed=true，不增加模拟模型请求。跨页、大整数、内存故障覆盖由 Go 验证；页面已应用条件、单条独立读取、停止重置、失败/迟到清理和窄屏主题由 Chrome 验证。
+
+记忆最新修订用例：原生命周期保留旧接口 v1→v5 升序验证，再以 order=desc 核对 v5→v1，以 after=3 核对仅 v2/v1；同号私聊返回空，读取后当前版本仍为启用 v5。完整通过时新增 agentMemoryNewestVersionsHTTPPassed=true，不增加模拟模型请求。超过 50 条和途中新增修订、旧升序兼容及大整数由 Go 覆盖，页面分页、比较恢复、范围保留和故障清理由 Chrome 覆盖。
+
+历史事件类型用例：既有知识历史模型在两次 search_history 中传 eventType=message，核对实际事件正文、条件回执和继续请求，再独立读取来源上下文；后台只按 message/notice/request 查询，核对本轮模拟档案中的消息及另外两类空结果，工具记录不能冒充请求。完整通过时新增 agentHistoryEventTypeModelRoundTripPassed=true、agentArchiveEventTypeSearchHTTPPassed=true；仍为 53 次模拟模型 HTTP。三类混合正例、旧元数据、重置/范围、空窗口及 5,000 条预算由 Go 覆盖，页面条件保留和清理由 Chrome 覆盖。
+
+任务耗时快照用例：实际角色任务列表、模型/动作/兜底在途列表与单条核对、首次和重复停止回执以及停止后的列表/单条终态均须具有根部 observedAt；其 UTC 时刻不早于任务已登记时间，原阶段、首次停止和版本语义保持。完整通过时新增 agentTaskObservationSnapshotsPassed=true，不增加模拟模型请求。浏览器分别核对列表、单条与停止回执的耗时，旧字段、时间倒序、中断、未保存、手动更新和窄屏由 Chrome 覆盖。
+
+后台记忆状态搜索用例：实际目标修订、停用并恢复旧正文到 v4 后，搜索 disabled/all/active 核对编号、当前版本和启停集合；再只带 admin 来源、disabled 状态与编号边界查询，恢复到启用 v5 后从停用结果消失。原精确正文读取仍拒绝停用/旧版本，完整通过时新增 agentMemoryDisabledSearchAndRestoreHTTPPassed=true，不增加模拟模型请求。页面状态继续、当前版本定位恢复、列表独立及迟到清理由 Chrome 覆盖。
+
+仅按来源记忆用例：既有记忆模型首轮只带 source=admin 与 limit，核对实际无 keyword 请求、来源回执及最新条目，然后加关键词沿实际边界查更早目标并读取精确正文。后台分别验证无 keyword 的 admin/legacy 查询及实际迁移条目。完整通过时新增 agentMemorySourceOnlyModelAndHTTPPassed=true；仍为 53 次模拟模型 HTTP，不增加模型轮数或真实发送。空关键词的连续翻页及快捷查之前条件保留由 Chrome 覆盖。
+
+记忆定位用例：最终程序须提供编号输入与定位脚本。创建超过默认一页的记忆后，确认目标不在首页，再经 current 接口直接核对完整当前条目；同号私聊及另一群不返回目标。既有修订/停用/旧正文恢复流程中，再核对停用 v4 和恢复启用 v5；原模型 read_memory 仍无法读取停用或旧版本。完整通过时新增 agentMemoryCurrentReadAndLifecycleHTTPPassed=true，不增加模型请求或真实发送。页面定位、旧搜索片段跳转、分页保留、编辑版本、冲突和迟到清理由 Chrome 覆盖。
+
+时间回顾用例：既有角色任务的 search_history 改为只带 from 与 limit，不带关键词或发言者，仍须得到成功非空查询及准确任务摘要；后台只带时间/序号条件查询，核对纳秒边界与目标来源。完整通过时新增 agentHistoryTimeOnlyQueryPassed=true、agentArchiveTimeOnlySearchHTTPPassed=true，仍为 53 次模拟模型 HTTP。实际第二轮模型依据无关键词时间查询取得的来源继续结束，由 Go 任务全流程用例核对；页面继续/快捷查询由 Chrome 覆盖。
+
+记忆来源用例：既有记忆模型使用 source=admin 搜索，核对实际响应来源条件、条目来源及下一次继续请求，再按精确版本读正文。后台在混合条目中分别按 admin/agent/legacy 搜索，并核对实际迁移后的 legacy 条目。完整通过时新增 agentMemorySourceSearchModelRoundTripPassed=true、agentMemorySourceSearchHTTPPassed=true；仍为 53 次模拟模型 HTTP，不增加模型轮次或真实发送。
+
+无关键词发言者用例：历史流程先做带关键词的发言者搜索，再依据实际 nextBefore 改为只按 sender 与时间/序号继续，核对后续请求未保留 keyword，结果顶层作者符合请求，最后读取实际来源的前后事件。后台对存在与不存在的发言者分别执行有/无关键词两类搜索。完整通过时新增 agentHistorySenderOnlyModelRoundTripPassed=true、agentArchiveSenderOnlySearchHTTPPassed=true；仍为 53 次模拟模型 HTTP，不增加模型轮数或真实发送。
+
+动作结构用例：增加合法 JSON 但嵌套 65 层、跨两个动作累计超过 10,000 个值的两个任务，均含有效保存/发送前缀；实际任务必须为 model_output_limit，零动作/查询/兜底且不保存前缀。随后正常任务含恰好 64 层的附加结构，并正常完成两段模型文本与消息恢复。完整通过时输出 agentActionStructureLimitsAndRecoveryPassed=true。整机当前为 53 次模拟模型 HTTP（Agent 41），50 次完成、3 次原有预期 HTTP 故障；HTTP 完成与结构失败分开统计。
+
+大量值回复实际经 HTTP 分块传输，既核对输出超限任务，也核对 HTTP 已完整结算。不得通过容许 incomplete 或把模拟服务强制改为已知长度跳过该检查；未知长度响应的容量、关闭错误和 EOF 等待超时由插件回归补充。
+
+发言者用例：知识历史流程从实际档案中选取具有两条可检索消息的发言者，与时间/来源边界组合 search_history，按实际继续回执重查并读取来源上下文；模拟模型同时核对消息顶层 user_id、已应用 sender 和继续请求的条件。完整通过时输出 agentHistorySenderModelRoundTripPassed=true。后台以实际中心发言者和不存在账号分别搜索，核对消息类型、作者和空结果，输出 agentArchiveSenderSearchHTTPPassed=true。仍为 53 次模拟模型 HTTP，不新增真实发送；未知旧字段、扫描预算、精度和网页交互由模块与 Chrome 补充。
+
+任务错误类别用例：复用输出限制、格式错误、模型请求故障和正常恢复的实际任务编号，经最终程序 HTTP 按状态与 reason 组合筛选，核对完整编号集合、类别及空组合；同号私聊不能返回群任务。程序实际提供筛选控件和脚本。完整通过时输出 agentTaskReasonFilterHTTPPassed=true，不增加模型请求或真实平台发送。多页大整数、旧类别、状态写失败覆盖由存储测试，已加载条件/草稿、停止清理、迟到及窄屏由 Chrome 回归补充。
+
+后台语境用例：从实际档案搜索中选取事件来源，经最终程序 GET history(context=1) 读取，核对中心、相邻事件、顺序及各条容量；同号私聊或缺失中心不返回邻居，归档/重复/越界参数拒绝。程序实际提供新按钮脚本。完整通过时输出 agentArchiveSourceContextHTTPPassed=true，不增加模拟模型或平台调用。页面点击、回执不符、收起及迟到保护由 Chrome 回归验证。
+
+来源上下文用例：知识历史模型在继续搜索后对实际返回的来源调用 read_history(context=1)。下一轮必须核对 anchorSeq/context 与原请求、搜索结果一致，至少有一个邻居，来源均为事件且序号倒序，单条/合计容量均合格，再完成任务。完整通过时输出 agentHistorySourceContextModelRoundTripPassed=true；仍为三次查询、53 次模拟模型 HTTP。中心缺失/重置/跨范围及最大半径由存储回归补充。
+
+记忆继续用例：现有四轮记忆模型流程从实际回执取得 nextBefore，而非从最后匹配项推算，继续搜索较早记忆后按准确版本读取；整机同时核对最终程序的后台按钮与脚本资源，完整通过时输出 agentMemoryContinuationModelRoundTripPassed=true。查询额度、正文取用和 53 次模型请求统计仍按原值核对；后台点击及状态清理由 Chrome 用例验证。
+
+后台继续搜索入口：整机确认最终程序实际提供继续按钮及绑定已应用范围的脚本资源，完整通过时输出 agentArchiveSearchContinuationAssetsPassed=true。空结果点击、草稿/范围分离、非法或不前进的位置、失败/迟到响应、退出清理及窄屏布局由隔离 Chrome 行为测试覆盖；整机原有实际模型继续检索流程照常验证。
+
+历史继续检索用例：知识历史任务分四次模型调用，先按时间/来源搜索，再用实际 nextBefore 和原条件继续，核对较早来源并 read_history；两次搜索和一次读取正好使用三次共享额度，实际任务摘要也须一致。完整通过时输出 agentHistoryContinuationModelRoundTripPassed=true。模拟模型总请求增为 53 次（Agent 41），保留原 3 次预期 HTTP 故障。
+
+模型时间检索用例：既有 smoke-knowledge-history 任务从隔离后台实际档案取来源边界及时间，再由 fake 模型发起带 from/until/before 的 search_history。模型核对返回来源的实际保存时刻与回执 UTC 条件后，继续 read_history 核对正文；使用原查询额度和模型调用数。完整通过时输出 agentHistoryTimeRangeModelRoundTripPassed=true，不把仅返回正常文字当作检索通过。
+
+档案时间范围用例：从真实隔离进程搜索结果取保存时间和来源序号，用偏移时区及纳秒时间窗核对起点包含、终点排除，再组合 before 验证来源边界；全程只读，不增加模型或平台调用。完整通过时输出 agentArchiveTimeRangeSearchPassed=true。更早日期仍受扫描预算约束、未知时间与重置隔离由存储回归补充。
+
+识图多段文本用例：smoke-vision-model 与 smoke-description-vision 实际返回两个协议 text 片段，整机继续核对中文截断标记、上下文中的准确描述及恢复缓存。完整通过时输出 agentVisionTextPartsPassed=true；异常类型与响应转换 panic 的不缓存/恢复行为由 SDK HTTP 回归覆盖。
+
+开发者可在 Windows 仓库根目录运行 `scripts/smoke-local-admin.go`，使用最终构建验证后台、Agent 插件、数据库、本地查询动作和回环模拟模型之间的实际连接。需要 Go、构建依赖和仓库现有资源，以及写入 `.local`、临时目录和 Go 缓存、启动子进程与监听回环端口的权限。无需后台日常服务密码或 QQ 登录。
+
+脚本每次创建独立 `.local/smoke-admin/run-*` 目录，使用合成账号、独立配置和数据库，启动所选程序副本；所有模型与 OneBot 请求均由本机假服务接收。运行不会部署或重启日常服务，也不迁移真实旧记忆。结束后关闭隔离进程与监听，保留本次产物便于排查。它仍会检查原有后台认证、配置、插件、统计、语音和反向连接流程，因此通常需要数分钟。
+
+## 统一复验
+
+M1～M3 的完整复验入口为仓库根目录的 PowerShell 脚本，要求 PowerShell 7、Go、Node、现有 Playwright/Chrome 及项目依赖/资源可用。浏览器模块目录沿用测试中的 `LOCALADMIN_NODE_MODULES` 配置及默认位置。新检出的源码应先按[Windows 构建说明](windows-setup.md#修改后编译与测试)完成依赖和资源准备；若尚未执行标准构建脚本，先运行 `go generate main.go` 生成被 Git 忽略的注册文件，否则构建会报告缺少 `ref/custom/register.go`。先使用仓库实际路径，运行：
+
+```powershell
+# 新检出且尚未执行标准构建时运行；已有生成文件可省略
+go generate main.go
+pwsh -NoProfile -File scripts/test-agent.ps1
+```
+
+可用 `-OutputName zerobot-agent-check.exe` 指定 `.local/bin` 下的构建文件名，不接受目录路径。脚本按自身位置定位仓库，从其他当前目录调用也可运行；不执行源码生成或部署操作。
+
+顺序检查包括 Agent SDK 全量、chat 全量、后台/AI 插件/模型和回复统计、整机判定脚本回归、三个 Agent 脚本语法、全部 Agent 浏览器用例、CGO_ENABLED=0 最终构建，以及使用该构建的完整隔离整机验证。任一步非零立即停止，不以之前的成功结果代替失败项；结束后恢复调用前的 CGO_ENABLED。
+
+每次产生独立 `.local/agent-validation/run-*`，保存各步骤日志及 result.json；汇总包含各步退出码和耗时、最终构建 SHA-256，以及本次整机 result.json 路径。仅全部步骤退出 0，且整机结果 passed=true、isolated=true、realQQMessagesSent=false，汇总才为 passed=true。失败也保留已执行步骤与错误说明，未执行部分不宣称通过。终端输出 `AGENT_VALIDATION_RESULT=...` 指向本次汇总。
+
+测试使用合成资料和回环假模型/OneBot，不部署或重启日常服务，不迁移真实记忆，不发送真实 QQ 消息。日志、截图和运行证据留在本机 `.local`，不随源码公开；真实模型效果与 QQ 客户端体验不由此证明。开发设计的范围与完成核对见[阶段说明](ai-agent-development.md#本阶段完成范围与复验)，最终结果见[自测摘要](self-test.md#ai-与-agent-本阶段统一终验)。
+
+## 单独运行整机脚本
+
+先进入仓库的实际路径。Windows 若通过目录联接访问仓库，改用联接目标的实际路径，避免配置备份对路径重定向的保护使隔离用例失败。
+
+```powershell
+Set-Location '<仓库实际路径>'
+New-Item -ItemType Directory -Force .local/bin | Out-Null
+$env:CGO_ENABLED = '0'
+go build -trimpath -o .local/bin/zerobot-agent-integration.exe .
+go test scripts/smoke-local-admin.go scripts/smoke-local-admin_test.go -count=1 -timeout=120s
+go run scripts/smoke-local-admin.go -binary-name zerobot-agent-integration.exe
+```
+
+依次确认各命令退出码为 0，任一步失败时先检查输出再继续。`binary-name` 只接受 `.local/bin` 下的 `.exe` 文件名，不能提供任意路径；更新程序代码后先重新构建。两个脚本文件带 `ignore` 构建标记，自测判定逻辑需通过上述显式文件列表测试，不会由普通 `go test ./...` 自动执行。
+
+## 新增验证范围
+
+| 流程 | 验证内容 |
+| --- | --- |
+| Agent 保存去重 | 三个任务保存相同启用正文，数据库只保留一条，来源仍为 Agent |
+| 保存回执驱动读取 | 三轮模型流程先连续保存同文，回执依次为新建和复用同一编号/版本；模型从实际回执取引用继续 read_memory，下一轮读取身份、来源和正文一致后才回复，保存本身不消耗查询额度 |
+| 记忆准确触发来源 | 角色事件刻意使用重复平台消息编号；复用的记忆仍对应首次保存任务的准确来源序号，按该序号读取触发事件，不能用另一条角色消息替代 |
+| 后台录入及分页 | 创建后台来源记忆，同文复用且不改编号、版本或时间；107 条启用记忆跨页无重复遗漏，同号私聊及其他群不可读取 |
+| 后台记忆搜索边界 | POST 使用较新条目的实际编号，只返回更早目标；目标停用后，在该边界内不可搜索，无边界仍可找到其他较新条目 |
+| 记忆搜索与读取 | 较早目标不在默认装载的 100 条内；第一轮检索较新匹配，第二轮从实际响应取编号作为 before 向前查，第三轮按旧目标的编号/版本读取，第四轮收到片段之外的正文后才回复；边界排他且合计只用三次查询 |
+| 历史边界与读取 | 从档案事件取得 `before`，搜索只返回更早事件；下一轮从实际响应取序号读取，第三轮核对正文 |
+| 记忆版本与启停 | 编辑后旧版本不返回正文，重复旧版本编辑冲突；停用后不可搜索，恢复历史正文保留停用状态，显式启用后可读新版本；修订记录完整 |
+| Agent 旧版本请求 | 恢复启用后请求旧修订仍返回空结果，模拟模型将读取失败与空结果区分 |
+| 任务摘要及筛选 | 核对每轮模型准备、本地动作、平台动作、记忆装载上限及实际历史/记忆查询片段计数；摘要不保存记忆正文，完成/取消/运行状态筛选返回对应任务 |
+| 任务累计动作结果 | 已完成角色及查询任务的成功回执与实际本地/平台登记对应；模型/兜底在途取消不补造动作，平台动作取消后保留一次回执，重复取消不重复计数，列表与单条结果一致 |
+| 阶段及停止时间 | 实际模型、平台动作及兜底在途时，单条读取保留当前阶段开始时间；停止不重置在途阶段，重复停止保留首次时间，终态阶段时间等于结束时间且列表与单条一致 |
+| Agent 识图输入与缓存 | 同一事件带可读合成 PNG、超限 HTTP 图片、无效 base64 和本机路径；只有 PNG 进入识图请求，描述实际传入 Agent 后才回复。再次触发沿用相似缓存，不重复调用识图模型，两个任务的动作与查询摘要核对一致 |
+| 描述及响应上限 | 合成模型返回超长中文描述，Agent 实际输入与缓存均保留完整字符片段及截断标记。另一独立群依次取得空白、超限、正常描述，首轮不为失败图补造描述，正常结果恢复后下一任务复用缓存；超限请求明确计为预期失败 |
+| Agent 单轮输出限制 | 连续触发动作批次、回复正文及 HTTP 容量超限，失败任务零动作/查询且记忆保存前缀未落库；随后正常新消息成功执行，列表与单条失败原因一致。HTTP 超限计失败，正文/对象拒绝与任务失败分开统计 |
+| Agent 动作格式预检 | 在有效保存/发送前缀后分别附多余闭括号、不完整 JSON 和 null；三项任务均为 model_output_invalid，零动作/查询/兜底，记忆未落库，列表与单条一致；正常新任务恢复，格式拒绝不冒充 HTTP 读取失败 |
+| 重复 JSON 字段 | 在有效前缀后分别提供重复 action 大小写别名、转义后重复的目标编号，均整批拒绝且记忆前缀未落库；随后两个独立消息段各自使用相同字段正常发送，验证兄弟对象不被误判 |
+| 模型请求故障 | 实际 Agent 分别收到 HTTP 503、HTTP 200 的非法协议体及空协议体，均保存为 model_request_failed，零动作/查询/兜底且无重试；空响应的 EOF 不误作 end_action；列表与单条一致，不暴露提供商错误正文，之后正常新任务恢复；HTTP 统计分别为失败与完成 |
+| 模型文本片段及异常输出 | 有效 HTTP JSON 但缺失输出、有效保存前缀后含未知内容类型，两项均整轮失败且无动作/兜底；随后正常回复真的拆成两段模型 text 内容，拼回后发送原有两段 QQ 文本并完成，不能只用普通单字符串模拟兼容 |
+| 准备期间停止 | 在两个独立合成群中分别等待图片下载和识图 HTTP 确实在途后登记停止，当前请求返回后不请求下一张图或 Agent 模型；终态零动作/查询、首次停止时间及重复停止均核对 |
+| 任务查询摘要 | 角色任务实际消耗一次历史查询，其他角色请求和取消流程不虚构查询；四轮记忆流程统计两次检索和一次读取，历史流程统计检索及读取，旧修订读取返回空结果，覆盖不完整明确计数 |
+| 按编号读取任务 | 在实际模型、动作及兜底请求在途时读取当前任务，停止后核对版本和终态；读取已结束的较早任务保留摘要，同号私聊与其他群请求该编号均返回不存在 |
+| 任务触发来源 | 五个实际角色任务均有事件来源，按同会话序号读取角色触发事件；四轮记忆任务的来源正文必须包含实际触发消息，不能用较早的其他事件替代 |
+| 本地派发边界 | 四种查询和 `save_memory` 都不得转发成 OneBot API；新增流程计入模型统计，结束后无遗留活跃请求 |
+
+在途取消用例同时等待任务阶段和假服务确认请求已到达，再提交停止请求；模型准备次数与实际 HTTP 请求数分别核对，避免只看到 model_wait 就在请求发出前取消而误算调用数。仍验证模型、平台动作及普通聊天兜底的在途停止，无后续派发。
+
+模拟模型按真实传入的序列化响应生成后续动作；查询缺失、最新响应失败、编号失真、边界越界或正文缺失都会使流程失败，不只检查最终回复标记。显式 Go 单元测试覆盖这些判定的反向用例和大整数字符串。
+
+## 结果与限制
+
+整机命令成功后输出本次产物位置，其 `result.json` 包含 `passed`、`isolated`、`realQQMessagesSent` 与各流程标记。新增标记为 `agentManualMemoryDedupAndVersionLifecyclePassed`、`agentMemorySearchReadModelRoundTripPassed`、`agentMemoryBeforeModelRoundTripPassed`、`agentMemoryBeforeAdminAPIPassed`、`agentHistoryBeforeReadModelRoundTripPassed`、`agentStaleMemoryReadRejectedPassed`、`agentTaskRetrievalAndActivitySummaryPassed`、`agentTaskExactReadScopeAndTerminalPassed`、`agentTaskTriggerSourceArchivePassed`、`agentMemoryExactTriggerSourcePassed`、`agentTaskSettledResultSummaryPassed`、`agentTaskQueryUsageAndCoveragePassed`、`agentTaskPhaseAndStopTimesPassed`、`agentVisionBoundedInputAndCachePassed`、`agentPreparationStopBeforeNextRequestPassed`、`agentVisionDescriptionAndResponseLimitsPassed`、`agentActionOutputBatchAndResponseLimitsPassed`、`agentMemorySaveReferenceRoundTripPassed`、`agentMemoryAndTaskFilteredPaginationPassed`。任务状态筛选在本流程中的任务数不足 50，任务跨页边界由独立存储测试覆盖；记忆在整机流程中实际跨页。
+
+动作格式预检的通过标记为 `agentMalformedActionBatchRejectedPassed`，需同时确认原有输出限额标记通过；两者分别核对格式失败和容量失败。
+
+重复字段与多段消息恢复的通过标记为 `agentDuplicateJSONFieldsRejectedPassed`；此类失败仍归入格式错误，不新增 HTTP 失败类别。
+
+模型请求失败及正常恢复的通过标记为 `agentModelRequestFailureAndRecoveryPassed`，同时检查日志、任务摘要和聚合统计不包含合成提供商错误正文；该标记不代表真实模型服务的故障诊断或恢复。
+
+模型多段文本及缺失/未知内容保护的通过标记为 `agentModelTextPartsAndInvalidOutputPassed`，协议转换异常、协议复用和精确容量由 SDK 模块测试补充。
+
+成功结果仅在所有步骤结束后写入。失败退出或没有本次 `result.json` 不算通过，不能用另一轮的旧文件替代；通过范围与最近运行结果见[自测摘要](self-test.md)。本机日志和数据库留在被忽略的 `.local`，不作为公开交付文件。
+
+本流程使用确定性假模型，不证明真实模型召回率、理解能力或提供商兼容性；不证明真实 QQ 接收、客户端体验、持续负载或日常服务部署。页面交互另行使用 `scripts/test-agent-*-ui.mjs`，重启恢复、存储故障、并发冲突及完整任务分页由对应模块测试补充。记忆和任务的用户操作分别见[记忆管理](agent-memory.md)与[任务控制](agent-tasks.md)。

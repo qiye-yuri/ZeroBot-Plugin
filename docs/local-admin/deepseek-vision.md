@@ -1,5 +1,7 @@
 # DeepSeek 识图配置与使用
 
+新构建的 Agent 图片输入增加每张下载时间、字节及解码尺寸上限，超限图片跳过；通用配置/使用入口及失败核对见[Agent 识图输入](agent-vision.md)。以下配置记录不代替当前服务商模型能力检查。
+
 识图配置为`ImageType=OpenAI`、`ImageAPI=https://api.deepseek.com/chat/completions`、`ImageModelName=deepseek-flash`，使用已经保存的同一DeepSeek密钥。密钥只在本机内部复制到独立识图字段，不输出到聊天或记录；以后修改聊天密钥不会自动同步识图密钥。保存前备份，其他全局AI字段、人物设定、群/私聊参数、插件及权限保持。
 
 ## 使用

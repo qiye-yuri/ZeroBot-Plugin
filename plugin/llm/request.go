@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/FloatTech/ZeroBot-Plugin/internal/modelrequest"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelstats"
 	"github.com/FloatTech/zbputils/chat"
 	"github.com/fumiama/deepinfra"
@@ -117,7 +118,7 @@ func requestLLMWithClient(cfg chat.AgentConfig, prompt string, temp float32, cli
 	}
 	api := deepinfra.NewAPI(cfg.API, string(cfg.Key))
 	api.SetHTTPClient(modelstats.Default.Client(client, modelstats.GPT))
-	data, err := api.Request(protocol.User(model.NewContentText(prompt)))
+	data, err := modelrequest.Request(api, protocol.User(model.NewContentText(prompt)))
 	if err != nil {
 		return "", errors.New("模型请求失败，请检查接口、密钥及网络。")
 	}

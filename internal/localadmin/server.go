@@ -3,6 +3,7 @@ package localadmin
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelstats"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/processidentity"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/replystats"
+	"github.com/FloatTech/zbputils/chat"
 	"io"
 	"net"
 	"net/http"
@@ -21,7 +23,7 @@ import (
 	"unicode/utf8"
 )
 
-//go:embed assets/index.html assets/app.js assets/connections-add.js assets/connections-delete.js assets/overview.js assets/reply-metrics.js assets/model-observation.js assets/ai.js assets/logs.js assets/backups.js assets/security.js assets/theme.js assets/style.css assets/appearance.css
+//go:embed assets/index.html assets/app.js assets/connections-add.js assets/connections-delete.js assets/overview.js assets/reply-metrics.js assets/model-observation.js assets/ai.js assets/logs.js assets/backups.js assets/security.js assets/theme.js assets/style.css assets/appearance.css assets/agent-archive.js assets/agent-memory.js assets/agent-tasks.js
 var assets embed.FS
 
 type Overview struct {
@@ -60,6 +62,9 @@ type Config struct {
 	ModelRequests   func() modelstats.Snapshot
 	ReplyTasks      func() replystats.Snapshot
 	ProcessIdentity *processidentity.Identity
+	AgentArchive    func(context.Context, int64, chat.ArchiveQuery) (chat.ArchivePage, error)
+	AgentMemory     func(int64) (AgentMemoryStore, error)
+	AgentTasks      func(int64) (AgentTaskStore, error)
 }
 
 type Server struct {
@@ -72,6 +77,9 @@ type Server struct {
 	failures          []time.Time
 	now               func() time.Time
 	replaceCredential func(string, string) error
+	archiveKey        [32]byte
+	archiveActive     int
+	archiveLastSearch time.Time
 }
 
 func New(cfg Config) (*Server, error) {
@@ -89,6 +97,9 @@ func New(cfg Config) (*Server, error) {
 	}
 	cfg.Plugins = append([]Plugin{}, cfg.Plugins...)
 	s := &Server{cfg: cfg, sessions: make(map[string]session), now: time.Now, replaceCredential: replaceConfigFile}
+	if _, err := rand.Read(s.archiveKey[:]); err != nil {
+		return nil, err
+	}
 	if err := s.loadAuth(); err != nil {
 		return nil, err
 	}
@@ -141,6 +152,26 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/plugins", s.authorize(s.getPlugins, false))
 	mux.HandleFunc("POST /api/plugin-switch", s.authorize(s.setPluginSwitch, true))
 	mux.HandleFunc("GET /api/ai", s.authorize(s.getAI, false))
+	mux.HandleFunc("GET /api/agent/conversations", s.authorize(s.archive, false))
+	mux.HandleFunc("GET /api/agent/tasks", s.authorize(s.agentTasks, false))
+	mux.HandleFunc("GET /api/agent/tasks/read", s.authorize(s.agentTasks, false))
+	mux.HandleFunc("POST /api/agent/tasks/cancel", s.authorize(s.agentTasks, true))
+	mux.HandleFunc("GET /api/agent/memories", s.authorize(s.memory, false))
+	mux.HandleFunc("POST /api/agent/memories/search", s.authorize(s.memory, true))
+	mux.HandleFunc("POST /api/agent/memories/create", s.authorize(s.memory, true))
+	mux.HandleFunc("GET /api/agent/memories/read", s.authorize(s.memory, false))
+	mux.HandleFunc("GET /api/agent/memories/current", s.authorize(s.memory, false))
+	mux.HandleFunc("GET /api/agent/memories/revision", s.authorize(s.memory, false))
+	mux.HandleFunc("POST /api/agent/memories/update", s.authorize(s.memory, true))
+	mux.HandleFunc("POST /api/agent/memories/migration-preview", s.authorize(s.memory, true))
+	mux.HandleFunc("POST /api/agent/memories/migrate", s.authorize(s.memory, true))
+	mux.HandleFunc("GET /api/agent/history", s.authorize(s.archive, false))
+	mux.HandleFunc("POST /api/agent/history/search", s.authorize(s.archive, true))
+	mux.HandleFunc("GET /agent-archive.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		b, _ := assets.ReadFile("assets/agent-archive.js")
+		_, _ = w.Write(b)
+	})
 	mux.HandleFunc("POST /api/ai", s.authorize(s.saveAI, true))
 	mux.HandleFunc("POST /api/ai-group", s.authorize(s.saveAIGroup, true))
 	mux.HandleFunc("GET /api/logs", s.authorize(s.getLogs, false))
@@ -151,7 +182,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/backups/restore", s.authorize(s.restoreBackup, true))
 	mux.HandleFunc("POST /api/backups/cleanup-preview", s.authorize(s.previewBackupCleanup, true))
 	mux.HandleFunc("POST /api/backups/cleanup", s.authorize(s.cleanupBackups, true))
-	for route, asset := range map[string]string{"/": "index.html", "/app.js": "app.js", "/connections-add.js": "connections-add.js", "/connections-delete.js": "connections-delete.js", "/overview.js": "overview.js", "/reply-metrics.js": "reply-metrics.js", "/model-observation.js": "model-observation.js", "/ai.js": "ai.js", "/logs.js": "logs.js", "/backups.js": "backups.js", "/security.js": "security.js", "/theme.js": "theme.js", "/style.css": "style.css", "/appearance.css": "appearance.css"} {
+	for route, asset := range map[string]string{"/": "index.html", "/app.js": "app.js", "/connections-add.js": "connections-add.js", "/connections-delete.js": "connections-delete.js", "/overview.js": "overview.js", "/reply-metrics.js": "reply-metrics.js", "/model-observation.js": "model-observation.js", "/ai.js": "ai.js", "/agent-memory.js": "agent-memory.js", "/agent-tasks.js": "agent-tasks.js", "/logs.js": "logs.js", "/backups.js": "backups.js", "/security.js": "security.js", "/theme.js": "theme.js", "/style.css": "style.css", "/appearance.css": "appearance.css"} {
 		pattern := "GET " + route
 		if route == "/" {
 			pattern = "GET /{$}"
