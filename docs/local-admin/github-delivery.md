@@ -1,5 +1,7 @@
 # 第一版 GitHub 交付规则
 
+2026-10-16 23:42 +08:00：补充当前日常服务的真实QQ主人私聊复验：主动提示发送及回读、2条真实入站与GPT/Agent准确回复通过，Agent任务完成且无普通聊天兜底，来源事件和平台发送回执已关联。测试期间程序及进程保持，未改配置；本轮实际程序摘要与先前部署记录分别记载。仅同步3份公开验收/操作说明，真实身份、原始消息、任务资料和临时工具留本机，其他并行开发改动不纳入本次交付。见[本轮结果](self-test.md#r1-r4-日常服务真实-qq-收发复验)及[复验步骤](real-agent-acceptance.md#主人私聊基础收发复验)。以下历史“未发送真实QQ”仅表示各次原有验收范围。
+
 2026-10-16：R1～R4已按使用者要求合并至用户仓库master并部署。第一批[PR #5](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/5)锁定7ea1ce97，合并为[befedb61](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/befedb616dc88ae59506bea90133d17c16afa901)；第二批[PR #6](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/6)转master后锁定30b42f84，合并为[8b8eec36](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/8b8eec368fb082d0bb7ccceaf4b5f6b90670d5b3)。无待处理审查意见；GitHub未返回CI检查项，本机主分支统一14步、144项Chrome和148项隔离整机，以及部署后真实接口/日常后台验证通过。214份停机备份、原配置及219张控制表保持，OneBot保留登录；未新增标签或向上游推送，未发送真实QQ。此前PR #8中的R1～R4实测说明随本次主分支文档同步，R5～R7规划PR #7保持独立。当前状态见[部署验证](self-test.md#r1-r4-合并与日常部署验证)；以下旧记录的“待合并/未部署/已恢复旧程序”仅表示当次状态。
 
 2026-10-16，R1～R4本轮真实接口和日常后台实测完成，文档分支 `codex/r1-r4-real-validation` 基于规划分支 `codex/next-batch-model-plan`，同步9份公开使用、维护和测试说明。R1合计18组业务用例通过，R2快捷入口、R3实际按钮与结果、R4帮助及窄屏已核对。临时切换经过明确授权，结束已恢复原程序和全部测试配置，219张控制表与测试前一致，未正式部署或发送真实QQ。产品源码未改，原始证据、含密钥副本、临时工具、备份和运行数据保留本机。验收结果提交 `3b614fd8` 已推送，已创建[中文 PR #8](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/8)，仅包含本轮文档差异。范围见[本轮实测](self-test.md#r1-r4-实机测试进度)。
