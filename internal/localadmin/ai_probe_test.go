@@ -15,6 +15,7 @@ import (
 
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelstats"
 	"github.com/FloatTech/zbputils/chat"
+	"github.com/FloatTech/zbputils/modelconfig"
 )
 
 func TestModelProbeSavedProtocolsReadOnlyAndNoBusinessStats(t *testing.T) {
@@ -25,6 +26,35 @@ func TestModelProbeSavedProtocolsReadOnlyAndNoBusinessStats(t *testing.T) {
 				provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					calls.Add(1)
 					body, _ := io.ReadAll(r.Body)
+					var payload map[string]any
+					if err := json.Unmarshal(body, &payload); err != nil {
+						t.Error(err)
+					}
+					maxField, topField := "max_tokens", "top_p"
+					if kind == 2 {
+						payload = payload["generationConfig"].(map[string]any)
+						maxField, topField = "maxOutputTokens", "topP"
+					}
+					wantTop := .9
+					if named {
+						if calls.Load() == 1 {
+							wantTop = .31
+						} else {
+							wantTop = .62
+						}
+					}
+					if payload[maxField] != float64(128) || payload[topField] != wantTop {
+						t.Error("diagnostic parameters", payload)
+					}
+					if kind == 0 && named {
+						wantReasoning := any(nil)
+						if calls.Load() == 2 {
+							wantReasoning = "low"
+						}
+						if payload["reasoning_effort"] != wantReasoning {
+							t.Error("diagnostic reasoning", payload)
+						}
+					}
 					if !strings.Contains(string(body)+r.URL.String(), "selected-model") || !bytes.Contains(body, []byte(modelProbePrompt)) || bytes.Contains(body, []byte("PRIVATE_SYSTEM")) {
 						t.Error("unexpected probe payload")
 					}
@@ -37,8 +67,10 @@ func TestModelProbeSavedProtocolsReadOnlyAndNoBusinessStats(t *testing.T) {
 				s.cfg.AI = store
 				cfg := chat.AgentConfig{API: provider.URL, ModelName: "selected-model", Key: "SYNTHETIC_SECRET", Type: kind, AgentAPI: provider.URL, AgentModelName: "selected-model", AgentKey: "SYNTHETIC_SECRET", AgentType: kind, SystemP: "PRIVATE_SYSTEM"}
 				if named {
-					cfg.ModelProfiles = []chat.ModelProfile{{ID: "chosen", Model: "selected-model", API: provider.URL, Type: kind, Key: "SYNTHETIC_SECRET"}}
-					cfg.ModelRoutes = &chat.ModelRoutes{Chat: "chosen", Agent: "chosen"}
+					max, chatTop, agentTop, empty, low := uint(900), float32(.31), float32(.62), "", "low"
+					cfg.ReasoningEffort = "high"
+					cfg.ModelProfiles = []chat.ModelProfile{{ID: "chosen", Model: "selected-model", API: provider.URL, Type: kind, Key: "SYNTHETIC_SECRET", Parameters: &modelconfig.Parameters{MaxN: &max, TopP: &chatTop, ReasoningEffort: &empty}}, {ID: "agent", Model: "selected-model", API: provider.URL, Type: kind, Key: "SYNTHETIC_SECRET", Parameters: &modelconfig.Parameters{MaxN: &max, TopP: &agentTop, ReasoningEffort: &low}}}
+					cfg.ModelRoutes = &chat.ModelRoutes{Chat: "chosen", Agent: "agent"}
 					cfg.API = "http://127.0.0.1:1"
 					cfg.ModelName = "wrong-legacy"
 				}

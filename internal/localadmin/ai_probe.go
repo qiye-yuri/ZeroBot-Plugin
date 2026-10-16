@@ -93,7 +93,12 @@ func (s *Server) testAIModel(w http.ResponseWriter, r *http.Request) {
 func runModelProbe(cfg chat.AgentConfig, entry, revision string, kind chat.ModelType, name, address string, key chat.ModelKey, client *http.Client) modelProbeResult {
 	start := time.Now()
 	result := modelProbeResult{Entry: entry, Model: cfg.Redact(name), Revision: revision, CheckedAt: start.UTC().Format(time.RFC3339Nano), Category: "invalid_response", Message: "模型响应无法解析或没有有效文字"}
-	protocol, err := kind.ProtocolForAPI(address, name, .2, .9, 128, cfg.ReasoningEffort, "")
+	role := ""
+	if entry == "agent" {
+		role = "Agent"
+	}
+	params := cfg.RequestParams(role)
+	protocol, err := kind.ProtocolForAPI(address, name, .2, params.TopP, 128, params.ReasoningEffort, "")
 	if err != nil {
 		result.Category = "configuration_error"
 		result.Message = "模型协议配置不支持本次测试"

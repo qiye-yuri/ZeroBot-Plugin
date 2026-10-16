@@ -4,11 +4,12 @@ package modelconfig
 import "errors"
 
 type Profile struct {
-	ID    string `json:"id"`
-	Type  int    `json:"type"`
-	Model string `json:"model"`
-	API   string `json:"api"`
-	Key   string `json:"key"`
+	ID         string      `json:"id"`
+	Type       int         `json:"type"`
+	Model      string      `json:"model"`
+	API        string      `json:"api"`
+	Key        string      `json:"key"`
+	Parameters *Parameters `json:"parameters,omitempty"`
 }
 
 type Routes struct {
@@ -22,6 +23,9 @@ type Routes struct {
 func Select(profiles []Profile, routes Routes) (map[string]Profile, error) {
 	byID := map[string]Profile{}
 	for _, p := range profiles {
+		if err := p.Parameters.Validate(); err != nil {
+			return nil, err
+		}
 		if _, ok := byID[p.ID]; ok {
 			return nil, errors.New("模型配置编号重复")
 		}

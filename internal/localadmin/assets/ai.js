@@ -312,6 +312,23 @@ function lockLegacyModelFields(named) {
   const note=document.createElement("p");note.dataset.modelNotice="";note.className="field-help";note.textContent="已启用命名模型。类型、模型、地址和密钥请在命名模型表单修改；本表单继续管理提示词、人物和采样参数。";$("ai-global-inputs").prepend(note);
 }
 
+function modelParameterInputs(row, profile, defaults) {
+  const details=document.createElement("details"),summary=document.createElement("summary"),controls={};
+  summary.textContent="请求参数";details.append(summary);
+  for(const [name,title,kind,min,max] of [["maxN","最大输出长度","number",1,131072],["topP","TopP","number",0,1],["reasoningEffort","推理设置（自定义留空使用模型默认）","text"]]) {
+    const label=document.createElement("label"),mode=document.createElement("select"),status=document.createElement("p");
+    mode.id="ai-model-"+profile.id+"-"+name+"-mode";label.htmlFor=mode.id;label.textContent=title+"来源";
+    for(const [value,text] of [["inherit","继承全局"],["custom","自定义"]]){const option=document.createElement("option");option.value=value;option.textContent=text;mode.append(option);}
+    const saved=profile.parameters?.[name];mode.value=saved==null?"inherit":"custom";details.append(label,mode);
+    const input=aiInput(details,"model-"+profile.id+"-"+name,title,kind,saved??defaults[name],min,max);
+    if(name==="topP"){input.min="0";input.step="any";}
+    status.className="field-help";details.append(status);
+    const update=()=>{input.disabled=mode.value!=="custom";const effective=mode.value==="custom"?input.value:defaults[name];status.textContent="当前"+(mode.value==="custom"?"自定义":"继承全局")+"："+(effective===""?"模型默认":effective);input.setCustomValidity(name==="topP"&&mode.value==="custom"&&Number(input.value)<=0?"TopP 须大于 0 且不超过 1":"");};
+    mode.addEventListener("change",update);input.addEventListener("input",update);update();controls[name]={mode,input};
+  }
+  row.append(details);return controls;
+}
+
 function renderAIModels(value) {
   const form=$("ai-models-form");form.replaceChildren();form.hidden=false;
   const fields=document.createElement("fieldset"),heading=document.createElement("h2"),note=document.createElement("p"),list=document.createElement("div"),rows=new Map(),routes={};
@@ -338,7 +355,9 @@ function renderAIModels(value) {
     action.addEventListener("change",()=>{key.disabled=action.value!=="replace";key.required=action.value==="replace";if(action.value!=="replace")key.value="";clear.hidden=action.value!=="clear";confirm.checked=false;});
     const remove=document.createElement("button");remove.type="button";remove.className="secondary";remove.textContent="删除配置";
     remove.addEventListener("click",()=>{if(Object.values(routes).some(select=>select.value===p.id)){showError("ai-error",new Error("请先更改引用此配置的入口，再删除配置。"));return;}rows.delete(p.id);row.remove();updateRoutes();renderAIDrafts();});
-    row.append(label,action,status,key,clear,remove);list.append(row);rows.set(p.id,{name,type,model,address,action,key,confirm});name.addEventListener("input",updateRoutes);updateRoutes();
+    row.append(label,action,status,key,clear);
+    const parameters=modelParameterInputs(row,p,value.parameterDefaults);
+    row.append(remove);list.append(row);rows.set(p.id,{name,type,model,address,action,key,confirm,parameters});name.addEventListener("input",updateRoutes);updateRoutes();
   }
   for(const p of value.profiles)addRow(p);
   for(const [key,select] of Object.entries(routes))select.value=value.routes[key];
@@ -348,7 +367,7 @@ function renderAIModels(value) {
   form.onsubmit=async event=>{
     event.preventDefault();if(aiBusy||!authenticated)return;
     const body={revision:value.revision,profiles:[],routes:Object.fromEntries(Object.entries(routes).map(([k,s])=>[k,s.value]))};
-    for(const [id,row] of rows){const key={action:row.action.value};if(key.action==="replace")key.value=row.key.value;if(key.action==="clear"){if(!row.confirm.checked){showError("ai-error",new Error("请确认清除密钥。"));return;}key.confirm=true;}body.profiles.push({id,name:row.name.value,type:Number(row.type.value),model:row.model.value,api:row.address.value,key});}
+    for(const [id,row] of rows){const key={action:row.action.value};if(key.action==="replace")key.value=row.key.value;if(key.action==="clear"){if(!row.confirm.checked){showError("ai-error",new Error("请确认清除密钥。"));return;}key.confirm=true;}const parameters={};for(const [name,{mode,input}] of Object.entries(row.parameters)){if(mode.value==="custom")parameters[name]=name==="reasoningEffort"?input.value:Number(input.value);}body.profiles.push({id,name:row.name.value,type:Number(row.type.value),model:row.model.value,api:row.address.value,key,parameters});}
     const generation=aiGeneration;aiBusyState(true);$("ai-error").hidden=true;
     try{const saved=await api("/api/ai-models",body);if(generation!==aiGeneration||!authenticated)return;renderAIModels(saved);if(saved.global&&aiState){if(!aiDrafts().includes("global")){aiState.global=saved.global;renderAIGlobal(aiState);}else{lockLegacyModelFields(true);}}$("ai-status").textContent="命名模型已保存。重新加载全局设置可核对各入口的生效字段；其他表单草稿保留，保存时需核对共享修订。";}
     catch(error){if(generation===aiGeneration&&authenticated)showError("ai-error",error);}

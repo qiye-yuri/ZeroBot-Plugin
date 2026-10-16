@@ -5,25 +5,29 @@ import (
 	"net/http"
 
 	"github.com/FloatTech/zbputils/chat"
+	"github.com/FloatTech/zbputils/modelconfig"
 )
 
 type modelProfileView struct {
-	ID              string         `json:"id"`
-	Name            string         `json:"name"`
-	Type            chat.ModelType `json:"type"`
-	Model           string         `json:"model"`
-	API             string         `json:"api"`
-	KeyConfigured   bool           `json:"keyConfigured"`
-	AddressRedacted bool           `json:"addressRedacted"`
+	ID                  string                        `json:"id"`
+	Name                string                        `json:"name"`
+	Type                chat.ModelType                `json:"type"`
+	Model               string                        `json:"model"`
+	API                 string                        `json:"api"`
+	KeyConfigured       bool                          `json:"keyConfigured"`
+	AddressRedacted     bool                          `json:"addressRedacted"`
+	Parameters          *modelconfig.Parameters       `json:"parameters,omitempty"`
+	EffectiveParameters modelconfig.RequestParameters `json:"effectiveParameters"`
 }
 
 type modelProfileUpdate struct {
-	ID    string         `json:"id"`
-	Name  string         `json:"name"`
-	Type  chat.ModelType `json:"type"`
-	Model string         `json:"model"`
-	API   string         `json:"api"`
-	Key   AIKeyChange    `json:"key"`
+	ID         string                  `json:"id"`
+	Name       string                  `json:"name"`
+	Type       chat.ModelType          `json:"type"`
+	Model      string                  `json:"model"`
+	API        string                  `json:"api"`
+	Key        AIKeyChange             `json:"key"`
+	Parameters *modelconfig.Parameters `json:"parameters,omitempty"`
 }
 
 type modelsUpdate struct {
@@ -48,7 +52,7 @@ func (s *AIStore) SaveModels(update modelsUpdate) error {
 	profiles := make([]chat.ModelProfile, 0, len(update.Profiles))
 	for _, item := range update.Profiles {
 		previous, exists := byID[item.ID]
-		p := chat.ModelProfile{ID: item.ID, Name: item.Name, Type: item.Type, Model: item.Model, API: item.API}
+		p := chat.ModelProfile{ID: item.ID, Name: item.Name, Type: item.Type, Model: item.Model, API: item.API, Parameters: item.Parameters}
 		if display, redacted := chat.DisplayAPI(previous.API); exists && redacted && item.API == display {
 			p.API = previous.API
 		}
@@ -111,9 +115,9 @@ func (s *Server) aiModels(w http.ResponseWriter, r *http.Request) {
 	views := make([]modelProfileView, 0, len(profiles))
 	for _, p := range profiles {
 		api, redacted := chat.DisplayAPI(p.API)
-		views = append(views, modelProfileView{ID: p.ID, Name: c.Redact(p.Name), Type: p.Type, Model: c.Redact(p.Model), API: c.Redact(api), KeyConfigured: p.Key != "", AddressRedacted: redacted})
+		views = append(views, modelProfileView{ID: p.ID, Name: c.Redact(p.Name), Type: p.Type, Model: c.Redact(p.Model), API: c.Redact(api), KeyConfigured: p.Key != "", AddressRedacted: redacted, Parameters: p.Parameters, EffectiveParameters: p.Parameters.Resolve(c.GlobalParameters())})
 	}
-	value := map[string]any{"named": c.ModelRoutes != nil, "revision": revision, "profiles": views, "routes": routes}
+	value := map[string]any{"named": c.ModelRoutes != nil, "revision": revision, "profiles": views, "routes": routes, "parameterDefaults": c.GlobalParameters()}
 	if view, err := s.cfg.AI.Get(0); err == nil {
 		value["global"] = view.Global
 	}
