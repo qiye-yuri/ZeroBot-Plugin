@@ -20,7 +20,7 @@ function aiDrafts() {
 function renderAIDrafts() {
   const drafts=aiDrafts();
   renderAIDraftFields(drafts);
-  $("ai-draft-status").textContent=drafts.length ? "未保存更改："+drafts.map(name=>({global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name])).join("、")+"。请分别保存；切换后台页面会保留草稿。" : aiState ? "当前 AI 表单没有未保存的更改。" : "读取设置后可编辑；草稿仅保留在当前页面。";
+  $("ai-draft-status").textContent=drafts.length ? "未保存更改："+drafts.map(name=>({persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name])).join("、")+"。请分别保存；切换后台页面会保留草稿。" : aiState ? "当前 AI 表单没有未保存的更改。" : "读取设置后可编辑；草稿仅保留在当前页面。";
   for (const button of document.querySelectorAll("[data-ai-discard]")) button.disabled = !authenticated || aiBusy || !drafts.includes(button.dataset.aiDiscard);
 }
 function discardAIForm(name) {
@@ -49,6 +49,8 @@ function aiChangedFieldNames(name,entry) {
   if (name==="global") {
     for (const [field,label] of aiFields) take(["ai-field-"+field],label);
     for (const [key,label] of aiKeys) take(["ai-action-"+key,"ai-key-"+key,"ai-clear-"+key],label);
+  } else if (name==="persona") {
+    take(["ai-field-persona-mode"],"人物继承模式"); take(["ai-field-persona-character"],"人物设定"); take(["ai-field-persona-sex"],"性别");
   } else if (name==="aichatcfg" || name==="llm") {
     for (const [field,label] of [["temperature","温度百分比"],...(name==="aichatcfg" ? [["rate","非 @ 消息触发概率"],["agent","Agent 模式"],["voice","QQ AI 语音输出"],["at","响应 @ 消息"]] : [])]) take(["ai-field-"+field+"-"+name],label);
   }
@@ -58,6 +60,7 @@ function aiChangedFieldNames(name,entry) {
 }
 function aiDraftFieldScope(name,entry) {
   if (name==="global") return "全局";
+  if (name==="persona") return "机器人 "+entry.scope.botId+" · "+(entry.scope.type==="private" ? "私聊 QQ " : "群 ")+entry.scope.id;
   const scope=entry.scope,valid=id=>typeof id==="string" && /^[1-9][0-9]{0,18}$/.test(id);
   if (valid(scope?.privateId) && (!scope.groupId || scope.groupId==="0")) return "私聊 QQ "+scope.privateId;
   if (!scope?.privateId && valid(scope?.groupId)) return "群 "+scope.groupId;
@@ -72,8 +75,8 @@ function renderAIDraftFields(drafts) {
   for (const name of drafts) {
     const entry=aiBaselines.get(name),labels=aiChangedFieldNames(name,entry);
     const item=document.createElement("article"),heading=document.createElement("h3"),count=document.createElement("p"),fields=document.createElement("ul");
-    const scope=aiDraftFieldScope(name,entry),title=name==="llm" && scope.startsWith("私聊 QQ ") ? "GPT 温度" : ({global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name] || "其他表单");
-    item.dataset.aiDraftForm=["global","aichatcfg","llm"].includes(name) ? name : "other";heading.textContent=title+" · "+scope;
+    const scope=aiDraftFieldScope(name,entry),title=name==="llm" && scope.startsWith("私聊 QQ ") ? "GPT 温度" : ({persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name] || "其他表单");
+    item.dataset.aiDraftForm=["global","aichatcfg","llm","persona"].includes(name) ? name : "other";heading.textContent=title+" · "+scope;
     count.className="field-help";count.textContent="未保存字段："+labels.length+" 项（密钥操作、输入与确认合并计数）。";
     for (const label of labels) {const field=document.createElement("li");field.textContent=label;fields.append(field);}
     item.append(heading,count,fields);list.append(item);
@@ -89,7 +92,7 @@ function confirmAIDiscard(action) {
 
 function resetAI() {
   aiGeneration++; aiState = null; aiGroup = "0"; aiPrivate = "";
-  aiBaselines.clear(); aiBusy=false;
+  aiBaselines.clear(); aiBusy=false; $("ai-persona-form").replaceChildren(); $("ai-persona-form").hidden=true; $("ai-persona-bot").value=""; $("ai-persona-id").value="";
   renderAIConfigChecks(null);
   $("ai-global-inputs").replaceChildren(); $("ai-group-forms").replaceChildren(); $("ai-group").value = "";
   $("ai-scope-kind").value = "group"; renderAIScopeLabel();
@@ -98,7 +101,7 @@ function resetAI() {
 function aiBusyState(busy) {
   aiBusy = busy; $("reload-ai").disabled = busy; $("apply-ai-group").disabled = busy;
   $("ai-global-fields").disabled = busy || !aiState?.available;
-  for (const fields of $("ai-group-forms").querySelectorAll("fieldset")) fields.disabled = busy;
+  for (const fields of document.querySelectorAll("#ai-group-forms fieldset,#ai-persona-form fieldset,#ai-persona-scope input,#ai-persona-scope select,#ai-persona-scope button")) fields.disabled = busy;
   renderAIDrafts();
 }
 function aiInput(container, name, labelText, kind, value, min, max) {
@@ -199,7 +202,7 @@ async function loadAI(group=aiGroup,privateId=aiPrivate) {
   if (aiBusy || !authenticated) return;
   if (!confirmAIDiscard(group===aiGroup && privateId===aiPrivate ? "重新加载设置" : "切换会话参数")) return;
   const generation=++aiGeneration; aiBusyState(true); $("ai-error").hidden=true;
-  try { const value=await api("/api/ai?"+(privateId ? "private="+encodeURIComponent(privateId) : "group="+encodeURIComponent(group))); if (generation!==aiGeneration || !authenticated) return; aiGroup=group; aiPrivate=privateId; aiState=value; $("ai-scope-kind").value=privateId ? "private" : "group"; if (privateId || group!=="0") $("ai-group").value=privateId || group; renderAIScopeLabel(); renderAIGlobal(value); renderAIGroups(value.groups); }
+  try { const value=await api("/api/ai?"+(privateId ? "private="+encodeURIComponent(privateId) : "group="+encodeURIComponent(group))); if (generation!==aiGeneration || !authenticated) return; aiGroup=group; aiPrivate=privateId; aiState=value; aiBaselines.delete("persona"); $("ai-persona-form").replaceChildren(); $("ai-persona-form").hidden=true; $("ai-scope-kind").value=privateId ? "private" : "group"; if (privateId || group!=="0") $("ai-group").value=privateId || group; renderAIScopeLabel(); renderAIGlobal(value); renderAIGroups(value.groups); }
   catch(error) { if (generation===aiGeneration && authenticated) { $("ai-status").textContent="读取失败，请重新加载。"; showError("ai-error",error); } }
   finally { if (generation===aiGeneration) {aiBusyState(false); renderAIDrafts();} }
 }
@@ -229,9 +232,42 @@ $("ai-global-form").addEventListener("submit",async(event)=>{
   catch(error) { if (generation===aiGeneration && authenticated) showError("ai-error",error); }
   finally { if (generation===aiGeneration) {aiBusyState(false); renderAIDrafts();} }
 });
-for (const id of ["ai-global-form","ai-group-forms"]) {
+for (const id of ["ai-global-form","ai-group-forms","ai-persona-form"]) {
   $(id).addEventListener("input",renderAIDrafts); $(id).addEventListener("change",renderAIDrafts);
 }
 window.addEventListener("beforeunload",event=>{
   if (authenticated && (aiBusy || aiDrafts().length)) {event.preventDefault();event.returnValue="";}
+});
+
+function renderAIPersona(value) {
+  const form=$("ai-persona-form"); form.replaceChildren(); form.hidden=false;
+  const fields=document.createElement("fieldset"), heading=document.createElement("h2"), note=document.createElement("p");
+  heading.textContent="Agent 会话人物 · 机器人 "+value.botId+" · "+(value.type==="private" ? "私聊 QQ " : "群 ")+value.id;
+  note.className="field-help"; note.textContent="当前来源："+(value.mode==="custom" ? "会话自定义" : "继承全局")+"。仅影响此会话的新 Agent 任务；人物更改不清理档案或记忆，普通聊天与 GPT 提示词仍独立。";
+  fields.append(heading,note);
+  const label=document.createElement("label"), mode=document.createElement("select"); mode.id="ai-field-persona-mode";label.htmlFor=mode.id;label.textContent="人物模式";
+  for (const [id,text] of [["inherit","继承全局"],["custom","自定义"]]) {const option=document.createElement("option");option.value=id;option.textContent=text;mode.append(option);} mode.value=value.mode;fields.append(label,mode);
+  const character=aiInput(fields,"persona-character","人物设定（继承时显示已读取的全局值）","textarea",value.character),sex=aiInput(fields,"persona-sex","性别","text",value.sex);
+  const update=()=>{character.readOnly=sex.readOnly=mode.value==="inherit";character.required=mode.value==="custom";};mode.addEventListener("change",update);update();
+  const save=document.createElement("button"),discard=document.createElement("button");save.type="submit";save.className="primary";save.textContent="备份并保存会话人物";discard.type="button";discard.className="secondary";discard.dataset.aiDiscard="persona";discard.textContent="放弃此表单更改";discard.addEventListener("click",()=>{discardAIForm("persona");update();});fields.append(save,discard);form.append(fields);
+  rememberAIForm("persona",form,{botId:value.botId,type:value.type,id:value.id});
+  form.onsubmit=async event=>{
+    event.preventDefault();if(aiBusy||!authenticated)return;
+    const generation=aiGeneration,body={botId:value.botId,type:value.type,id:value.id,revision:value.revision,mode:mode.value};
+    if(mode.value==="custom"){body.character=character.value;body.sex=sex.value;}
+    aiBusyState(true);$("ai-error").hidden=true;
+    try {const saved=await api("/api/ai-persona",body);if(generation!==aiGeneration||!authenticated)return;renderAIPersona(saved);$("ai-status").textContent="会话人物已保存；下一个任务使用新设定。全局表单若提示版本变化，请重新读取。";}
+    catch(error){if(generation===aiGeneration&&authenticated)showError("ai-error",error);}
+    finally{if(generation===aiGeneration)aiBusyState(false);}
+  };
+}
+$("ai-persona-scope").addEventListener("submit",async event=>{
+  event.preventDefault();if(aiBusy||!authenticated)return;
+  if(aiDrafts().includes("persona")&&!window.confirm("切换会话人物将放弃该表单未保存的更改，是否继续？"))return;
+  const scope={botId:$("ai-persona-bot").value.trim(),type:$("ai-persona-type").value,id:$("ai-persona-id").value.trim()};
+  if(!/^[1-9][0-9]{0,18}$/.test(scope.botId)||!/^[1-9][0-9]{0,18}$/.test(scope.id)){showError("ai-error",new Error("机器人及会话 QQ 须为正整数。"));return;}
+  const generation=aiGeneration;aiBusyState(true);$("ai-error").hidden=true;
+  try{const value=await api("/api/ai-persona?"+new URLSearchParams(scope));if(generation!==aiGeneration||!authenticated)return;renderAIPersona(value);}
+  catch(error){if(generation===aiGeneration&&authenticated)showError("ai-error",error);}
+  finally{if(generation===aiGeneration)aiBusyState(false);}
 });

@@ -83,6 +83,7 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 	for name := range keys {
 		delete(fields, name)
 	}
+	delete(fields, "Personas")
 	redacted := map[string]bool{}
 	for _, name := range []string{"API", "ImageAPI", "AgentAPI"} {
 		fields[name], redacted[name] = chat.DisplayAPI(fields[name].(string))
@@ -143,6 +144,9 @@ func (s *AIStore) Save(update AIUpdate) error {
 	}
 	fields := map[string]json.RawMessage{}
 	for name, value := range update.Fields {
+		if name == "Personas" {
+			return invalidAI("会话人物须通过会话人物表单设置")
+		}
 		if name == "Key" || name == "ImageKey" || name == "AgentKey" {
 			return invalidAI("密钥须通过保留、替换或清除操作设置")
 		}

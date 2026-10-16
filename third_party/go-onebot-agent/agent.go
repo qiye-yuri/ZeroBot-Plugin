@@ -270,7 +270,7 @@ func (ag *Agent) GetAction(api deepinfra.API, p model.Protocol, grp int64, role 
 // GetActionChecked checks host task state between preparation operations and
 // before/after the Agent request. It does not interrupt an admitted HTTP call.
 // A non-nil check requires a HistoryStore; the legacy log has a shared callback.
-func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64, role PermRole, iter int, isusersystem bool, check func() error) (
+func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64, role PermRole, iter int, isusersystem bool, check func() error, characters ...Config) (
 	reqs []zero.APIRequest, err error,
 ) {
 	var preparationErr error
@@ -287,7 +287,7 @@ func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64
 		return nil, ErrCheckedHistoryRequired
 	}
 	p = p.Clone() // Do not retain a prior response when callers reuse a protocol.
-	sysp, err := ag.system(role, iter, grp)
+	sysp, err := ag.system(role, iter, grp, characters...)
 	if err != nil {
 		logrus.Debugln("[goba] GetAction get sysp err:", err)
 		return

@@ -1,6 +1,6 @@
 # 本地机器人管理后台：使用与开发文档
 
-后续开发见[开发设计与详细计划](next-development-plan.md)：首批规划会话人物覆盖与命名模型配置，列明实现位置、兼容策略、排期、测试和上传条件；这些功能尚未实现。
+后续开发见[开发设计与详细计划](next-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)已实现，支持按机器人及群/私聊自定义、恢复继承和任务人物快照；N2 命名模型配置随后开发。
 
 AI 与 Agent 本阶段已通过[PR #2](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/2) 合并到 master。新增行为、升级方式、验证范围和限制见[交付说明](release-ai-agent.md)，实际合并结果见[交付记录](github-delivery.md)。
 

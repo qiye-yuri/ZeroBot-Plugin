@@ -17,7 +17,11 @@ type Config struct {
 	Chars    string // Chars 个性
 }
 
-func (ag *Agent) system(role PermRole, iter int, grp int64) (string, error) {
+func (ag *Agent) system(role PermRole, iter int, grp int64, characters ...Config) (string, error) {
+	character := *ag.cfg
+	if len(characters) > 0 {
+		character = characters[0]
+	}
 	tab, err := ag.perm.mdtable(role)
 	if err != nil {
 		return "", err
@@ -39,8 +43,8 @@ func (ag *Agent) system(role PermRole, iter int, grp int64) (string, error) {
 		memory = "（更早记忆未装载到本次请求，原文件保留）\n" + memory[start:]
 	}
 	return fmt.Sprintf(
-		sysp, ag.cfg.Nickname, ag.cfg.Sex,
-		ag.cfg.Chars, tab, memory,
+		sysp, character.Nickname, character.Sex,
+		character.Chars, tab, memory,
 		t.Format(time.RFC3339), t.Unix(), typ, iter,
 	), nil
 }

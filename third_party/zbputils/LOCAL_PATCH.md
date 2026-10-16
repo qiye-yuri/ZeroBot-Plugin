@@ -1,5 +1,7 @@
 # 本地工具模块补丁
 
+AgentConfig.Personas 按机器人及有符号会话键保存可选人物覆盖，Persona 统一返回覆盖或全局值。UpdatePersona 使用原配置修订和写前备份，单独保存覆盖不增加 Agent 代次或清理历史。NextAgentActionsChecked 转发可选任务人物快照；原调用兼容。
+
 M1～M3 的任务分页统一进入 PageMatching/TaskPageFilter，组合状态、错误类别、阶段、最近动作结果及开始时间。PageInRange 和原分页方法保留兼容；使用真实时刻保留时区/纳秒，结果 none/other 区分空值与旧值，当前进程故障摘要先覆盖旧磁盘状态，再应用全部条件。沿用创建序号分页，无数据库迁移；后台使用及完整复验见根项目 docs/local-admin/agent-tasks.md、agent-integration-test.md。
 
 新增管理用 ViewRevision，复用 view 作用范围、存储模式及脱敏，按 conversation、memory_id 和 revision 精确读取已保存修订，允许旧版及当时停用状态。返回既有 MemoryView，最多一条，不修改当前记忆；旧列表/历史分页及模型 ReadEnabled 保持。无数据库迁移。
