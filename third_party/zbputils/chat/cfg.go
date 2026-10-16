@@ -89,6 +89,7 @@ type AgentConfig struct {
 	Personas                                  map[string]AgentPersona `json:",omitempty"`
 	ModelProfiles                             []ModelProfile          `json:",omitempty"`
 	ModelRoutes                               *ModelRoutes            `json:",omitempty"`
+	WebSearch                                 *WebSearchConfig        `json:",omitempty"`
 	resolvedParameters                        map[string]modelconfig.RequestParameters
 	resolvedModels                            map[string]modelconfig.Profile
 }
@@ -128,6 +129,9 @@ func DisplayAPI(raw string) (string, bool) {
 }
 func (c AgentConfig) Redact(text string) string {
 	keys := []ModelKey{c.Key, c.ImageKey, c.AgentKey}
+	if c.WebSearch != nil {
+		keys = append(keys, c.WebSearch.Key)
+	}
 	for _, profile := range c.ModelProfiles {
 		keys = append(keys, profile.Key)
 	}
@@ -178,6 +182,13 @@ func (r *ConfigRepository) Read() (AgentConfig, string, error) {
 // validateField validates only changed fields so unrelated legacy values are
 // preserved; new URLs must place authentication in the separate key field.
 func validateField(name string, value json.RawMessage) error {
+	if name == "WebSearch" {
+		var config WebSearchConfig
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) || json.Unmarshal(value, &config) != nil {
+			return errors.New("搜索配置格式无效")
+		}
+		return config.Validate()
+	}
 	if name == "ModelProfiles" {
 		var profiles []ModelProfile
 		if json.Unmarshal(value, &profiles) != nil || profiles == nil {

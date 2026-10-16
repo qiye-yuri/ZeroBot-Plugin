@@ -20,7 +20,7 @@ function aiDrafts() {
 function renderAIDrafts() {
   const drafts=aiDrafts();
   renderAIDraftFields(drafts);
-  $("ai-draft-status").textContent=drafts.length ? "未保存更改："+drafts.map(name=>({models:"命名模型配置",persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name])).join("、")+"。请分别保存；切换后台页面会保留草稿。" : aiState ? "当前 AI 表单没有未保存的更改。" : "读取设置后可编辑；草稿仅保留在当前页面。";
+  $("ai-draft-status").textContent=drafts.length ? "未保存更改："+drafts.map(name=>({search:"联网搜索设置",models:"命名模型配置",persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name])).join("、")+"。请分别保存；切换后台页面会保留草稿。" : aiState ? "当前 AI 表单没有未保存的更改。" : "读取设置后可编辑；草稿仅保留在当前页面。";
   for (const button of document.querySelectorAll("[data-ai-discard]")) button.disabled = !authenticated || aiBusy || !drafts.includes(button.dataset.aiDiscard);
 }
 function discardAIForm(name) {
@@ -29,6 +29,7 @@ function discardAIForm(name) {
   const title = entry.form.querySelector("h2")?.textContent || "此表单";
   if (!window.confirm("放弃“" + title + "”的未保存更改？其他表单的编辑和已保存配置保持不变。")) return;
   if (!authenticated || aiBusy || generation !== aiGeneration || aiBaselines.get(name) !== entry || !entry.form.isConnected) return;
+  if (name === "search") { renderAISearch(entry.search); $("ai-status").textContent="已放弃搜索设置的未保存更改。"; return; }
   const values = new Map(JSON.parse(entry.value));
   if (name === "models") { renderAIModels(entry.models); $("ai-status").textContent="已放弃命名模型表单的未保存更改。"; return; }
   for (const input of entry.form.querySelectorAll("input,select,textarea")) {
@@ -43,6 +44,7 @@ function discardAIForm(name) {
   renderAIDrafts();
 }
 function aiChangedFieldNames(name,entry) {
+  if (name==="search") return ["搜索开关、密钥与会话角色"];
   if (name==="models") return ["模型列表与入口选择"];
   const baseline=new Map(JSON.parse(entry.value)),current=new Map(JSON.parse(aiFormSnapshot(entry.form)));
   const changed=new Set([...new Set([...baseline.keys(),...current.keys()])].filter(id=>baseline.get(id)!==current.get(id)));
@@ -62,7 +64,7 @@ function aiChangedFieldNames(name,entry) {
 }
 function aiDraftFieldScope(name,entry) {
   if (name==="global" || name==="models") return "全局";
-  if (name==="persona") return "机器人 "+entry.scope.botId+" · "+(entry.scope.type==="private" ? "私聊 QQ " : "群 ")+entry.scope.id;
+  if (name==="persona" || name==="search") return "机器人 "+entry.scope.botId+" · "+(entry.scope.type==="private" ? "私聊 QQ " : "群 ")+entry.scope.id;
   const scope=entry.scope,valid=id=>typeof id==="string" && /^[1-9][0-9]{0,18}$/.test(id);
   if (valid(scope?.privateId) && (!scope.groupId || scope.groupId==="0")) return "私聊 QQ "+scope.privateId;
   if (!scope?.privateId && valid(scope?.groupId)) return "群 "+scope.groupId;
@@ -77,8 +79,8 @@ function renderAIDraftFields(drafts) {
   for (const name of drafts) {
     const entry=aiBaselines.get(name),labels=aiChangedFieldNames(name,entry);
     const item=document.createElement("article"),heading=document.createElement("h3"),count=document.createElement("p"),fields=document.createElement("ul");
-    const scope=aiDraftFieldScope(name,entry),title=name==="llm" && scope.startsWith("私聊 QQ ") ? "GPT 温度" : ({models:"命名模型配置",persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name] || "其他表单");
-    item.dataset.aiDraftForm=["global","aichatcfg","llm","persona","models"].includes(name) ? name : "other";heading.textContent=title+" · "+scope;
+    const scope=aiDraftFieldScope(name,entry),title=name==="llm" && scope.startsWith("私聊 QQ ") ? "GPT 温度" : ({search:"联网搜索设置",models:"命名模型配置",persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name] || "其他表单");
+    item.dataset.aiDraftForm=["global","aichatcfg","llm","persona","models","search"].includes(name) ? name : "other";heading.textContent=title+" · "+scope;
     count.className="field-help";count.textContent="未保存字段："+labels.length+" 项（密钥操作、输入与确认合并计数）。";
     for (const label of labels) {const field=document.createElement("li");field.textContent=label;fields.append(field);}
     item.append(heading,count,fields);list.append(item);
@@ -94,6 +96,7 @@ function confirmAIDiscard(action) {
 
 function resetAI() {
   if(typeof resetAIProbe==="function")resetAIProbe();
+  if(typeof resetAISearch==="function")resetAISearch();
   aiGeneration++; aiState = null; aiGroup = "0"; aiPrivate = "";
   aiBaselines.clear(); aiBusy=false; $("ai-models-form").replaceChildren(); $("ai-models-form").hidden=true; $("ai-persona-form").replaceChildren(); $("ai-persona-form").hidden=true; $("ai-persona-bot").value=""; $("ai-persona-id").value="";
   renderAIConfigChecks(null);
@@ -104,7 +107,7 @@ function resetAI() {
 function aiBusyState(busy) {
   aiBusy = busy; $("ai-models-load").disabled=busy; $("reload-ai").disabled = busy; $("apply-ai-group").disabled = busy;
   $("ai-global-fields").disabled = busy || !aiState?.available;
-  for (const fields of document.querySelectorAll("#ai-models-form fieldset,#ai-group-forms fieldset,#ai-persona-form fieldset,#ai-persona-scope input,#ai-persona-scope select,#ai-persona-scope button")) fields.disabled = busy;
+  for (const fields of document.querySelectorAll("#ai-search-form fieldset,#ai-search-scope input,#ai-search-scope select,#ai-search-scope button,#ai-models-form fieldset,#ai-group-forms fieldset,#ai-persona-form fieldset,#ai-persona-scope input,#ai-persona-scope select,#ai-persona-scope button")) fields.disabled = busy;
   renderAIDrafts();
   if(typeof renderAIProbeControls==="function")renderAIProbeControls();
 }
@@ -208,7 +211,7 @@ async function loadAI(group=aiGroup,privateId=aiPrivate,{confirmed=false}={}) {
   if (aiBusy || !authenticated) return;
   if (!confirmed && !confirmAIDiscard(group===aiGroup && privateId===aiPrivate ? "重新加载设置" : "切换会话参数")) return;
   const generation=++aiGeneration; aiBusyState(true); $("ai-error").hidden=true;
-  try { const value=await api("/api/ai?"+(privateId ? "private="+encodeURIComponent(privateId) : "group="+encodeURIComponent(group))); if (generation!==aiGeneration || !authenticated) return; aiGroup=group; aiPrivate=privateId; aiState=value; aiBaselines.delete("models"); $("ai-models-form").replaceChildren(); $("ai-models-form").hidden=true; aiBaselines.delete("persona"); $("ai-persona-form").replaceChildren(); $("ai-persona-form").hidden=true; $("ai-scope-kind").value=privateId ? "private" : "group"; if (privateId || group!=="0") $("ai-group").value=privateId || group; renderAIScopeLabel(); renderAIGlobal(value); renderAIGroups(value.groups); }
+  try { const value=await api("/api/ai?"+(privateId ? "private="+encodeURIComponent(privateId) : "group="+encodeURIComponent(group))); if (generation!==aiGeneration || !authenticated) return; aiGroup=group; aiPrivate=privateId; aiState=value; if(typeof resetAISearch==="function")resetAISearch(); aiBaselines.delete("models"); $("ai-models-form").replaceChildren(); $("ai-models-form").hidden=true; aiBaselines.delete("persona"); $("ai-persona-form").replaceChildren(); $("ai-persona-form").hidden=true; $("ai-scope-kind").value=privateId ? "private" : "group"; if (privateId || group!=="0") $("ai-group").value=privateId || group; renderAIScopeLabel(); renderAIGlobal(value); renderAIGroups(value.groups); }
   catch(error) { if (generation===aiGeneration && authenticated) { $("ai-status").textContent="读取失败，请重新加载。"; showError("ai-error",error); } }
   finally { if (generation===aiGeneration) {aiBusyState(false); renderAIDrafts();} }
 }
@@ -238,7 +241,7 @@ $("ai-global-form").addEventListener("submit",async(event)=>{
   catch(error) { if (generation===aiGeneration && authenticated) showError("ai-error",error); }
   finally { if (generation===aiGeneration) {aiBusyState(false); renderAIDrafts();} }
 });
-for (const id of ["ai-global-form","ai-group-forms","ai-persona-form","ai-models-form"]) {
+for (const id of ["ai-global-form","ai-group-forms","ai-persona-form","ai-models-form","ai-search-form"]) {
   $(id).addEventListener("input",renderAIDrafts); $(id).addEventListener("change",renderAIDrafts);
 }
 window.addEventListener("beforeunload",event=>{

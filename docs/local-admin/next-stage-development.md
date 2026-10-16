@@ -1,10 +1,10 @@
 # N1/N2 之后的开发优先级与执行计划
 
-本阶段R1～R4已全部实现、验收、合并master并部署，原配置保持，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)。下文保留设计和验收契约；R5已按[独立参数说明](r5-model-parameters.md)在本分支实现，R6已按[独立入口说明](r6-model-routes.md)在本分支实现；R7仍仅在[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)中规划；N3继续暂缓。
+本阶段R1～R4已全部实现、验收、合并master并部署，原配置保持，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)。下文保留设计和验收契约；R5已按[独立参数说明](r5-model-parameters.md)在本分支实现，R6已按[独立入口说明](r6-model-routes.md)在本分支实现；R7仍仅在[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)中规划；N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
 
 部署前的[真实接口和日常后台实测](self-test.md#r1-r4-实机测试进度)已通过，当次临时测试结束按要求恢复了原程序与配置；随后正式合并部署的状态以[部署验证](self-test.md#r1-r4-合并与日常部署验证)为准。
 
-日期：2026-10-16。原规划核对基线：master `b55a23cb`。第一批 R1/R2 已实现，验证结果见[自测](self-test.md#r1r2-第一批验收)，本文设计章节保留工作包契约；R3/R4 已实现，验证结果见[第二批验收](self-test.md#r3r4-第二批验收)。N3 联网搜索继续暂缓，原设计移至[暂缓方案](deferred-web-search-design.md)，不纳入本阶段排期。
+日期：2026-10-16。原规划核对基线：master `b55a23cb`。第一批 R1/R2 已实现，验证结果见[自测](self-test.md#r1r2-第一批验收)，本文设计章节保留工作包契约；R3/R4 已实现，验证结果见[第二批验收](self-test.md#r3r4-第二批验收)。N3已按新要求恢复为 DeepSeek Search，独立交付；使用见[联网搜索说明](web-search.md)，原候选方案已更新为[实施计划](deferred-web-search-design.md)。
 
 ## 1. 现状与选择依据
 
@@ -163,6 +163,6 @@ R1 的新脚本测试及新增页面用例须接入统一入口，不能用旧�
 | R2 会话设置快捷入口 | P1，已合并部署；从已加载档案进入人物或共享会话参数，读取和保存沿用现有流程 |
 | R3 后台手动模型测试 | P2，已合并部署；显式诊断已保存模型，不执行动作或计入业务统计 |
 | R4 使用导航整理 | P2，已合并部署；任务式指南与页面短帮助，保留旧章节锚点 |
-| N3 联网搜索 | 暂缓，不纳入排期；原设计仅供参考 |
+| N3 联网搜索 | 已恢复为 DeepSeek 独立 Search 首版，见[实施计划](deferred-web-search-design.md) |
 
 明确缺陷按实际影响插入修复；无证据的问题不升级为长期项目。范围或优先级调整同步本表、待办与验收条件。

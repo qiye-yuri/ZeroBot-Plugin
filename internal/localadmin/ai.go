@@ -91,6 +91,7 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 	delete(fields, "Personas")
 	delete(fields, "ModelProfiles")
 	delete(fields, "ModelRoutes")
+	delete(fields, "WebSearch")
 	redacted := map[string]bool{}
 	for _, name := range []string{"API", "ImageAPI", "AgentAPI"} {
 		fields[name], redacted[name] = chat.DisplayAPI(fields[name].(string))
@@ -152,7 +153,7 @@ func (s *AIStore) Save(update AIUpdate) error {
 	}
 	fields := map[string]json.RawMessage{}
 	for name, value := range update.Fields {
-		if name == "Personas" || name == "ModelProfiles" || name == "ModelRoutes" {
+		if name == "Personas" || name == "ModelProfiles" || name == "ModelRoutes" || name == "WebSearch" {
 			return invalidAI("会话人物和命名模型须通过各自的专用表单设置")
 		}
 		if name == "Key" || name == "ImageKey" || name == "AgentKey" {

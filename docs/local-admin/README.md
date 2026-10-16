@@ -1,8 +1,10 @@
 # 本地机器人管理后台：使用与开发文档
 
-R6已在独立分支实现[GPT、群总结独立模型入口](r6-model-routes.md)，基于R5选择模型及独立参数；使用见[命名模型配置](named-models.md)。本批尚未合并部署，日常服务及原配置保持；R7仍待后续开发，N3继续暂缓。
+N3已恢复开发：新增[DeepSeek 联网搜索](web-search.md)，默认关闭，按机器人及群/私聊开启，Agent每次请求5条并附来源。当前交付分支 `codex/deepseek-web-search` 基于R6，上传不代表部署；验证结果见[自测](self-test.md#n3-deepseek-联网搜索验收)。
 
-R5 开发分支增加[模型独立请求参数](r5-model-parameters.md)：每个命名模型分别覆盖或继承最大输出长度、TopP和推理设置，使用入口见[命名模型配置](named-models.md)。本批上传不代表部署，日常服务保持；R6已在本分支继续实现，R7尚未开发，N3继续暂缓。
+R6已在独立分支实现[GPT、群总结独立模型入口](r6-model-routes.md)，基于R5选择模型及独立参数；使用见[命名模型配置](named-models.md)。本批尚未合并部署，日常服务及原配置保持；R7仍待后续开发，N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
+
+R5 开发分支增加[模型独立请求参数](r5-model-parameters.md)：每个命名模型分别覆盖或继承最大输出长度、TopP和推理设置，使用入口见[命名模型配置](named-models.md)。本批上传不代表部署，日常服务保持；R6已在本分支继续实现，R7尚未开发，N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
 
 R1～R4已合并到master并部署日常服务，见[部署后验证](self-test.md#r1-r4-合并与日常部署验证)。原模型模式、人物、会话参数、后台密码和OneBot登录保持；重新登录后台即可使用会话快捷入口、手动模型测试和页面帮助。统一14步、144项Chrome、148项隔离整机及部署后真实接口/后台检查通过，未发送真实QQ消息。
 
@@ -105,6 +107,7 @@ Agent 更新：模型历史检索的时间范围、UTC 回执和额度说明见[
 | [需求](requirements.md) | 范围、验收标准与设计 |
 | [开发进度](progress.md) | 第一版实现及已验证范围 |
 | [AI 与 Agent 开发设计与完成范围](ai-agent-development.md) | M1～M3 已实现范围、阶段基线及统一终验 |
+| [联网搜索](web-search.md) | DeepSeek Search、会话角色、5条结果与来源、费用及额度 |
 | [Agent 会话档案](agent-archive.md) | 只读时间线、限定序号搜索、结果展开原文与数据限制 |
 | [Agent 检索与记忆管理](agent-memory.md) | 保存回执与后续读取、准确来源、后台新增记忆、编号边界检索、版本、筛选、去重、恢复、启停及迁移 |
 | [Agent 任务控制](agent-tasks.md) | 模型文本片段和异常输出、请求故障、动作格式与重复字段检查、单轮输出限制、停止、查询额度、累计结果、来源、筛选与分页 |

@@ -67,6 +67,7 @@ function taskSummaryRow(item,scope,listEntry=true,observedAt=item.observedAt){
     const source=document.createElement("p"),hasSource=typeof item.sourceSeq==="string"&&/^[1-9]\d{0,18}$/.test(item.sourceSeq)&&BigInt(item.sourceSeq)<=9223372036854775807n;
     source.textContent=hasSource?"触发消息档案 #"+item.sourceSeq+"。只保存来源序号，正文需另行核对。":"触发来源未知（旧任务或未捕获档案序号），不补造消息。";
     const statistics=document.createElement("details"),statisticsTitle=document.createElement("summary");statistics.className="task-statistics";statistics.open=!listEntry;statisticsTitle.textContent="上下文、记忆与执行统计";statistics.append(statisticsTitle,usage,memory,activity,results,queries);
+    if(item.webSearch?.available){const search=document.createElement("p"),w=item.webSearch;search.textContent=!item.persisted?"联网搜索记录未可靠保存。":"本任务联网搜索：已尝试 "+w.used+"/"+w.limit+" 次，成功 "+w.successful+" 次（其中空结果 "+w.empty+"），失败 "+w.errors+" 次，参数或超额拒绝 "+w.denied+" 次。仅为本地使用记录，不是精确账单。";statistics.append(search);}
     row.append(title,identity,detail,time,timing,duration,note,statistics,source);
     if(listEntry){const latest=document.createElement("button");latest.type="button";latest.className="secondary";latest.textContent="核对最新状态";latest.onclick=()=>readAgentTask(item.taskId,{...scope});row.append(latest);}
     if(hasSource){const readSource=document.createElement("button");readSource.type="button";readSource.className="secondary";readSource.textContent="查看触发消息";readSource.onclick=()=>readTaskSource(item,{...scope});row.append(readSource);}

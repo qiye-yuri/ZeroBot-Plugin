@@ -33,6 +33,7 @@ const (
 	ReadHistory   = "read_history"
 	SearchMemory  = "search_memory"
 	ReadMemory    = "read_memory"
+	SearchWeb     = "search_web"
 )
 
 var (
@@ -292,6 +293,10 @@ func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64
 		logrus.Debugln("[goba] GetAction get sysp err:", err)
 		return
 	}
+	searchEnabled := ag.cfg.WebSearch
+	if len(characters) > 0 {
+		searchEnabled = characters[0].WebSearch
+	}
 	if err = gate(); err != nil {
 		return
 	}
@@ -367,7 +372,7 @@ func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64
 			}
 			err = io.EOF
 			return
-		case !ag.perm.allow(role, r.Action):
+		case r.Action == SearchWeb && !searchEnabled || r.Action != SearchWeb && !ag.perm.allow(role, r.Action):
 			err = errors.Wrap(ErrPermissionDenied, r.Action)
 			return
 		default:

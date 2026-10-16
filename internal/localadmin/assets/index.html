@@ -12,6 +12,7 @@
   <script src="/reply-metrics.js" defer></script>
   <script src="/model-observation.js" defer></script>
   <script src="/ai.js" defer></script>
+  <script src="/ai-search.js" defer></script>
   <script src="/ai-probe.js" defer></script><script src="/agent-archive.js" defer></script><script src="/agent-memory.js" defer></script><script src="/agent-tasks.js" defer></script>
   <script src="/logs.js" defer></script>
   <script src="/backups.js" defer></script><script src="/security.js" defer></script>
@@ -120,6 +121,9 @@
           <p class="panel-note">聊天会向配置的模型接口发送本次消息、聊天上下文及系统提示词。群聊总结会发送所选近期消息的昵称和文字（最多 1000 条）；GPT 回复消息会附带被回复的文字。</p>
           <div class="panel"><h2>命名模型配置</h2><p>为聊天 / GPT / 群总结、Agent、识图固定选择模型配置。读取旧配置只生成迁移预览；保存会先备份，模型不会自动切换或重试。</p><button id="ai-models-load" class="secondary" type="button">读取命名模型配置</button></div><form id="ai-models-form" class="panel ai-form" hidden></form>
           <form id="ai-global-form" class="panel ai-form"><fieldset id="ai-global-fields" disabled><h2>全局模型配置</h2><div id="ai-global-inputs"></div><button id="save-ai" class="primary" type="submit">备份并保存全局配置</button><button id="discard-ai-global" type="button" class="secondary ai-discard" data-ai-discard="global" disabled>放弃此表单更改</button></fieldset></form>
+          <section class="panel" id="ai-search-panel"><h2>联网搜索</h2><p>仅供 Agent 使用，默认关闭。DeepSeek Search 每次请求 5 条结果，附来源，不抓取网页全文。每个任务最多搜索 2 次；按官方当前标价每千次成功非空请求 5 元，模型费用另计。只提交搜索词，不自动附加 QQ 身份和历史；搜索词由模型生成。</p></section>
+          <form id="ai-search-scope" class="panel plugin-scope"><div><label for="ai-search-bot">搜索策略的机器人 QQ</label><input id="ai-search-bot" inputmode="numeric" maxlength="19" required></div><div><label for="ai-search-type">会话类型</label><select id="ai-search-type"><option value="group">群</option><option value="private">私聊</option></select></div><div><label for="ai-search-id">群号 / 私聊用户 QQ</label><input id="ai-search-id" inputmode="numeric" maxlength="19" required></div><button type="submit" class="secondary">读取搜索设置</button></form>
+          <form id="ai-search-form" class="panel ai-form" hidden></form>
           <form id="ai-persona-scope" class="panel plugin-scope"><div><label for="ai-persona-bot">人物覆盖的机器人 QQ</label><input id="ai-persona-bot" inputmode="numeric" maxlength="19" required></div><div><label for="ai-persona-type">会话类型</label><select id="ai-persona-type"><option value="group">群</option><option value="private">私聊</option></select></div><div><label for="ai-persona-id">群号 / 私聊用户 QQ</label><input id="ai-persona-id" inputmode="numeric" maxlength="19" required></div><button type="submit" class="secondary">读取会话人物</button></form>
           <form id="ai-persona-form" class="panel ai-form" hidden></form>
           <form id="ai-scope-form" class="panel plugin-scope"><div><label for="ai-scope-kind">会话范围</label><select id="ai-scope-kind"><option value="group">指定群</option><option value="private">指定私聊</option></select></div><div><label id="ai-conversation-label" for="ai-group">群号</label><input id="ai-group" type="text" inputmode="numeric" maxlength="19" required placeholder="填写要管理的群号"></div><button id="apply-ai-group" type="submit" class="secondary">查看会话参数</button></form>
