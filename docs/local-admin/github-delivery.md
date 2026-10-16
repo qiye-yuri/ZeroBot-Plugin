@@ -1,5 +1,7 @@
 # 第一版 GitHub 交付规则
 
+2026-10-16，R5～R7 后续规划在文档分支 `codex/next-batch-model-plan` 交付，基于已上传 R3/R4 分支 `codex/model-probe-and-usage-navigation`，仅提交规划、索引和进度/检查记录。规划提交 `99507dc5` 已推送，已创建[中文 PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，仅展示本次文档差异。新功能尚未实现，未运行机器人功能测试、未合并、部署或改动日常配置；本次不重开已暂缓联网搜索。8份公开文档的435个本地文件引用、8处新增链接锚点、编码、代码围栏、13个工作包及差异检查通过。实际范围见[新计划](next-batch-development.md)与[规划检查](self-test.md#r5-r7-规划文档检查)。
+
 2026-10-16，第二批 R3 后台手动模型测试与 R4 使用导航整理完成，交付分支为 `codex/model-probe-and-usage-navigation`，基于第一批 `codex/model-tests-and-session-shortcuts`（PR #5）单独审阅。本批统一14步、144项Chrome、最终构建及148项完整隔离整机检查通过，具体范围见[第二批验收](self-test.md#r3r4-第二批验收)。仅上传本批源码、测试和公开使用/开发说明；模型调用均为模拟，未真实QQ验收、未合并或部署。data 子模块、其他原有改动和原始证据保留本机。功能提交 `0a494391` 已上传并核对远端一致，已创建[中文 PR #6](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/6)，基于第一批分支单独审阅；两批均未合并或部署。14份交付文档的599个本地引用、编码、代码围栏与差异检查通过，原指南9个章节锚点及6个任务导航锚点已核对。
 
 2026-10-16，第一批 R1 命名模型真实测试适配、R2 会话设置快捷入口已完成统一验收，使用与开发文档同步。交付分支为 `codex/model-tests-and-session-shortcuts`，目标为用户仓库 master，上传不自动合并或部署。13 步、138 项 Chrome、最终构建、R1 四类业务专项及完整隔离整机 147 项检查通过，范围见[自测](self-test.md#r1r2-第一批验收)。仅显式提交本批源码、测试、纯解析依赖补丁与文档；本机证据、初次失败资料、data 子模块运行变化和其他已有改动保留本机。功能提交 `5f605e32` 已推送并核对远端一致，已创建[中文 PR #5](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/5)，基于 master，尚未合并或部署。14 份交付 Markdown 的 579 个本地文件引用、编码、代码围栏和新增锚点及差异检查通过。
