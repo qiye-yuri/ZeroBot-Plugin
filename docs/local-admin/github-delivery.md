@@ -2,6 +2,8 @@
 
 2026-10-17：R6在 `codex/gpt-summary-model-routes` 基于R5验收提交 `74a89c81` 开发，依赖[PR #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)，按独立差异交付。GPT、群总结新增独立命名引用，缺省继承聊天并使用对应R5参数，原温度、权限、额度和统计类别保持；同步五入口基础状态、四类诊断和显式summary脚本用例。范围和结果见[R6说明](r6-model-routes.md)及[自测](self-test.md#r6-gpt群总结独立入口验收)。本批只上传实现、测试及公开文档，日常服务未切换，不上传真实身份、配置、原始会话、证据或其他并行开发改动；R7及联网搜索未纳入。
 
+功能提交 `5db28c9e` 已上传并创建[中文 PR #10](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/10)，目标为R5分支 `codex/model-request-parameters`，仅包含R6的40个文件差异；两批均尚未合并或部署。最终14步、152项Chrome、五入口专项及148项隔离整机通过，18份文档引用、编码与隐私检查通过；交付记录随后在同一分支同步。
+
 2026-10-17：R5命名模型独立请求参数在 `codex/model-request-parameters` 完成，基于主分支 `70ab8e72` 独立交付。最大输出长度、TopP和推理设置逐项继承或覆盖，兼容旧配置；后台折叠表单、业务请求、诊断与R1脚本已同步。统一14步、146项Chrome、R1参数专项与148项隔离整机检查通过，见[验收记录](self-test.md#r5-模型独立参数验收)。本批只上传实现、测试及公开说明，日常服务未切换、原配置未改；没有真实提供商或QQ调用，也未开发R6/R7或联网搜索。原始证据、密钥、临时工具、运行数据和其他并行开发改动保留本机。
 
 功能提交 `8dc3cb5a` 已推送并创建[中文 PR #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)，目标为用户仓库master，尚未合并或部署；本段交付记录随后在同一分支同步，不新增标签或向上游推送。
