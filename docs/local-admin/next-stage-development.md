@@ -1,6 +1,6 @@
 # N1/N2 之后的开发优先级与执行计划
 
-本阶段R1～R4已全部实现、验收、合并master并部署，原配置保持，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)。下文保留设计和验收契约；R5～R7仅在[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)中规划，尚未实现；N3继续暂缓。
+本阶段R1～R4已全部实现、验收、合并master并部署，原配置保持，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)。下文保留设计和验收契约；R5已按[独立参数说明](r5-model-parameters.md)在本分支实现，R6/R7仍仅在[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)中规划；N3继续暂缓。
 
 部署前的[真实接口和日常后台实测](self-test.md#r1-r4-实机测试进度)已通过，当次临时测试结束按要求恢复了原程序与配置；随后正式合并部署的状态以[部署验证](self-test.md#r1-r4-合并与日常部署验证)为准。
 

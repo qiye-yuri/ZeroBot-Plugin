@@ -10,12 +10,13 @@ import (
 )
 
 type ModelProfile struct {
-	ID    string    `json:"id"`
-	Name  string    `json:"name"`
-	Type  ModelType `json:"type"`
-	Model string    `json:"model"`
-	API   string    `json:"api"`
-	Key   ModelKey  `json:"key"`
+	ID         string                  `json:"id"`
+	Name       string                  `json:"name"`
+	Type       ModelType               `json:"type"`
+	Model      string                  `json:"model"`
+	API        string                  `json:"api"`
+	Key        ModelKey                `json:"key"`
+	Parameters *modelconfig.Parameters `json:"parameters,omitempty"`
 }
 
 type ModelRoutes = modelconfig.Routes
@@ -37,7 +38,7 @@ func (p ModelProfile) Validate() error {
 			return err
 		}
 	}
-	return nil
+	return p.Parameters.Validate()
 }
 
 func (c AgentConfig) validateModelRoutes() error {
@@ -54,7 +55,7 @@ func (c AgentConfig) validateModelRoutes() error {
 func (c AgentConfig) selectModels() (map[string]modelconfig.Profile, error) {
 	profiles := make([]modelconfig.Profile, 0, len(c.ModelProfiles))
 	for _, p := range c.ModelProfiles {
-		profiles = append(profiles, modelconfig.Profile{ID: p.ID, Type: int(p.Type), API: p.API, Model: p.Model, Key: string(p.Key)})
+		profiles = append(profiles, modelconfig.Profile{ID: p.ID, Type: int(p.Type), API: p.API, Model: p.Model, Key: string(p.Key), Parameters: p.Parameters})
 	}
 	return modelconfig.Select(profiles, *c.ModelRoutes)
 }
@@ -63,6 +64,7 @@ func (c AgentConfig) selectModels() (map[string]modelconfig.Profile, error) {
 // Empty optional routes disable that entrance, never fall back to another model.
 func (c AgentConfig) ResolveModels() (AgentConfig, error) {
 	if c.ModelRoutes == nil {
+		c.resolvedParameters = nil
 		if err := c.validateModelRoutes(); err != nil {
 			return AgentConfig{}, err
 		}
@@ -72,6 +74,10 @@ func (c AgentConfig) ResolveModels() (AgentConfig, error) {
 	if err != nil {
 		return AgentConfig{}, err
 	}
+	c.resolvedParameters = make(map[string]modelconfig.RequestParameters, len(profiles))
+	for role, profile := range profiles {
+		c.resolvedParameters[role] = profile.Parameters.Resolve(c.GlobalParameters())
+	}
 	p := profiles[""]
 	c.Type, c.ModelName, c.API, c.Key = ModelType(p.Type), p.Model, p.API, ModelKey(p.Key)
 	p = profiles["Agent"]
@@ -79,6 +85,18 @@ func (c AgentConfig) ResolveModels() (AgentConfig, error) {
 	p = profiles["Image"]
 	c.ImageType, c.ImageModelName, c.ImageAPI, c.ImageKey = ModelType(p.Type), p.Model, p.API, ModelKey(p.Key)
 	return c, nil
+}
+
+func (c AgentConfig) GlobalParameters() modelconfig.RequestParameters {
+	return modelconfig.Defaults(c.MaxN, c.TopP, c.ReasoningEffort)
+}
+
+// RequestParams reads values fixed when ResolveModels created this snapshot.
+func (c AgentConfig) RequestParams(role string) modelconfig.RequestParameters {
+	if p, ok := c.resolvedParameters[role]; ok {
+		return p
+	}
+	return c.GlobalParameters()
 }
 
 // ModelCatalog returns an in-memory migration preview; reading never writes.

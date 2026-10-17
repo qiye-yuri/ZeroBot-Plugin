@@ -2,9 +2,11 @@
 
 耳机和鼠标已支持[低电量私聊提醒](battery-hub.md)：低于10%及5%或以下两个档位，仅通知唯一主人。
 
+R5 开发分支增加[模型独立请求参数](r5-model-parameters.md)：每个命名模型分别覆盖或继承最大输出长度、TopP和推理设置，使用入口见[命名模型配置](named-models.md)。本批上传不代表部署，日常服务保持；R6/R7尚未开发，N3继续暂缓。
+
 R1～R4已合并到master并部署日常服务，见[部署后验证](self-test.md#r1-r4-合并与日常部署验证)。原模型模式、人物、会话参数、后台密码和OneBot登录保持；重新登录后台即可使用会话快捷入口、手动模型测试和页面帮助。统一14步、144项Chrome、148项隔离整机及部署后真实接口/后台检查通过，未发送真实QQ消息。
 
-R1～R4的设计与完成范围见[阶段计划](next-stage-development.md)。使用见[真实模型测试](real-model-test.md)、[会话快捷入口](agent-archive.md#快捷进入会话设置)、[后台手动模型测试](model-probe.md)和[使用指南](user-guide.md)。R5～R7仍为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，未实现；N3联网搜索继续暂缓。
+R1～R4的设计与完成范围见[阶段计划](next-stage-development.md)。使用见[真实模型测试](real-model-test.md)、[会话快捷入口](agent-archive.md#快捷进入会话设置)、[后台手动模型测试](model-probe.md)和[使用指南](user-guide.md)。R5按[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)独立实现，R6/R7保持后续计划。
 
 2026-10-16 16:32 +08:00：N1/N2 主人私聊实机复验通过。日常后台实际保存人物覆盖和三个独立编号的命名配置，真实 QQ 验证人物暗号、严格 GPT、Agent 发送及图片颜色识别；任务、平台回执和模型 HTTP 均已核对。测试后恢复原人物及旧模型配置模式，按恢复提示仅重启 ZeroBot，原程序、凭据、其他控制设置和 OneBot 登录保持。见[实机结果](self-test.md#n1n2-主人私聊实机验证)与[复验步骤](real-agent-acceptance.md#n1n2-的主人私聊实机复验)。
 

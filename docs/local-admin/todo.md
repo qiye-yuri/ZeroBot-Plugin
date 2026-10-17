@@ -1,6 +1,6 @@
 # 第一版待办与后续范围
 
-R1～R4已全部开发、测试、合并master并部署日常服务，原配置保持，统一及部署后检查通过，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)与[交付记录](github-delivery.md)。[阶段计划](next-stage-development.md)不再有待开发项；R5～R7仅为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，尚未实现，不作为本次部署门槛。N3联网搜索保持暂缓。
+R1～R4已全部开发、测试、合并master并部署日常服务，原配置保持，统一及部署后检查通过，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)与[交付记录](github-delivery.md)。[阶段计划](next-stage-development.md)不再有待开发项；R5已在本分支实现，见[独立参数说明](r5-model-parameters.md)，尚未部署；R6/R7仍为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，尚未实现。N3联网搜索保持暂缓。
 
 ## 后续开发计划
 

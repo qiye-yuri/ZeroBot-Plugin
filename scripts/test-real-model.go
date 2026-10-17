@@ -35,6 +35,7 @@ var caseNames = flag.String("cases", "gpt,chat,agent,memory-save,history,memory,
 type provider struct {
 	API, ModelName, Key string
 	Type                int
+	Parameters          modelconfig.RequestParameters
 }
 
 func (p provider) ready() bool {
@@ -87,8 +88,11 @@ func readProviders(root string) (providerSnapshot, error) {
 		return providerSnapshot{}, errors.New("AI configuration missing")
 	}
 	var cfg struct {
-		ModelRoutes   *modelconfig.Routes
-		ModelProfiles []modelconfig.Profile
+		ModelRoutes     *modelconfig.Routes
+		ModelProfiles   []modelconfig.Profile
+		MaxN            uint
+		TopP            float32
+		ReasoningEffort string
 	}
 	if json.Unmarshal(found, &cfg) != nil {
 		return providerSnapshot{}, errors.New("invalid provider configuration")
@@ -98,13 +102,14 @@ func readProviders(root string) (providerSnapshot, error) {
 		mode = "named"
 	}
 	result := map[string]provider{}
+	defaults := modelconfig.Defaults(cfg.MaxN, cfg.TopP, cfg.ReasoningEffort)
 	if cfg.ModelRoutes != nil {
 		selected, err := modelconfig.Select(cfg.ModelProfiles, *cfg.ModelRoutes)
 		if err != nil {
 			return providerSnapshot{}, errors.New("invalid model routes; check saved AI settings")
 		}
 		for role, p := range selected {
-			result[role] = provider{API: p.API, ModelName: p.Model, Key: p.Key, Type: p.Type}
+			result[role] = provider{API: p.API, ModelName: p.Model, Key: p.Key, Type: p.Type, Parameters: p.Parameters.Resolve(defaults)}
 		}
 	} else {
 		if cfg.ModelProfiles != nil {
@@ -114,6 +119,7 @@ func readProviders(root string) (providerSnapshot, error) {
 		_ = json.Unmarshal(found, &fields)
 		for _, role := range []string{"", "Agent", "Image"} {
 			var p provider
+			p.Parameters = defaults
 			for field, target := range map[string]any{"API": &p.API, "ModelName": &p.ModelName, "Key": &p.Key, "Type": &p.Type} {
 				if raw := fields[role+field]; raw != nil && json.Unmarshal(raw, target) != nil {
 					return providerSnapshot{}, errors.New("invalid legacy provider configuration")
@@ -177,7 +183,7 @@ func main() {
 		if role == "" {
 			role = "Chat"
 		}
-		summary[role] = map[string]any{"model": p.ModelName, "type": p.Type, "enabled": p.API != "" || p.ModelName != "", "ready": p.ready()}
+		summary[role] = map[string]any{"model": p.ModelName, "type": p.Type, "enabled": p.API != "" || p.ModelName != "", "ready": p.ready(), "parameters": p.Parameters}
 	}
 	names, selectionErr := selectedCases(*caseNames, providers)
 	if !*execute {
@@ -203,7 +209,7 @@ func main() {
 	}
 	result := map[string]any{"passed": false, "startedAt": time.Now().Format(time.RFC3339), "realProvider": true, "syntheticOneBot": true, "realQQMessagesSent": false, "realChatDataRead": false, "dailyConfigurationWrites": 0, "providers": summary}
 	result["configurationMode"] = snapshot.Mode
-	result["configurationSnapshot"] = "resolved once before starting the isolated instance; projected into its legacy fields; named-route persistence is covered by N2 integration"
+	result["configurationSnapshot"] = "resolved once before starting the isolated instance; each entrance preserves its effective parameters in an isolated named profile"
 	fmt.Println("ARTIFACTS=" + out)
 	err = run(root, out, providers, names, result)
 	result["completedAt"] = time.Now().Format(time.RFC3339)
@@ -278,6 +284,30 @@ func run(root, out string, providers map[string]provider, names []string, result
 		return err
 	}
 	if _, err = c.Checked("POST", "/api/ai", map[string]any{"revision": value["global"].(map[string]any)["revision"], "fields": fields, "keys": keys}); err != nil {
+		return err
+	}
+	// Preserve each entrance's parameters instead of folding them into globals.
+	value, err = c.Checked("GET", "/api/ai-models", nil)
+	if err != nil {
+		return err
+	}
+	profiles := []map[string]any{}
+	routes := map[string]string{"chat": "", "agent": "", "image": ""}
+	for _, role := range []string{"", "Agent", "Image"} {
+		p := providers[role]
+		if !p.ready() {
+			continue
+		}
+		entry := map[string]string{"": "chat", "Agent": "agent", "Image": "image"}[role]
+		id := "check-" + entry
+		routes[entry] = id
+		key := map[string]any{"action": "keep"}
+		if p.Key != "" {
+			key = map[string]any{"action": "replace", "value": p.Key}
+		}
+		profiles = append(profiles, map[string]any{"id": id, "name": entry, "type": p.Type, "api": p.API, "model": p.ModelName, "key": key, "parameters": p.Parameters})
+	}
+	if _, err = c.Checked("POST", "/api/ai-models", map[string]any{"revision": value["revision"], "profiles": profiles, "routes": routes}); err != nil {
 		return err
 	}
 	defer func() {

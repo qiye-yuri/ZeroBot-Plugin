@@ -32,6 +32,9 @@ type savedProviders struct {
 	Type, AgentType, ImageType                int
 	ModelRoutes                               *modelconfig.Routes
 	ModelProfiles                             []modelconfig.Profile
+	MaxN                                      uint
+	TopP                                      float32
+	ReasoningEffort                           string
 }
 
 func providerFixture(t *testing.T, cfg savedProviders) string {
@@ -62,6 +65,16 @@ func namedFixture(address string) savedProviders {
 			{ID: "agent", API: address + "/agent", Model: "actual-agent", Key: "synthetic-agent"},
 			{ID: "image", API: address + "/image", Model: "actual-image", Key: "synthetic-image"},
 		}}
+}
+
+func parameterFixture(address string) savedProviders {
+	cfg := namedFixture(address)
+	cfg.MaxN, cfg.TopP, cfg.ReasoningEffort = 2048, .87, "high"
+	for i := range cfg.ModelProfiles {
+		max, top, reasoning := uint(512+i*256), float32(.21+float64(i)*.22), []string{"low", "high", ""}[i]
+		cfg.ModelProfiles[i].Parameters = &modelconfig.Parameters{MaxN: &max, TopP: &top, ReasoningEffort: &reasoning}
+	}
+	return cfg
 }
 
 func TestNamedProvidersReachActualHTTPAndStaySnapshot(t *testing.T) {
@@ -222,6 +235,18 @@ func TestRealModelIsolatedNamedRuntime(t *testing.T) {
 			http.Error(w, "invalid", 400)
 			return
 		}
+		index := map[string]int{"chat": 0, "agent": 1, "image": 2}[role]
+		wantTop := []float64{.21, .43, .65}[index]
+		if body["max_tokens"] != float64(512+index*256) || body["top_p"] != wantTop {
+			t.Error("isolated per-entry parameters lost", role, body["max_tokens"], body["top_p"])
+		}
+		wantReasoning := any(nil)
+		if index < 2 {
+			wantReasoning = []string{"low", "high"}[index]
+		}
+		if body["reasoning_effort"] != wantReasoning {
+			t.Error("isolated reasoning lost", role, body["reasoning_effort"])
+		}
 		mu.Lock()
 		calls[role]++
 		mu.Unlock()
@@ -257,7 +282,7 @@ func TestRealModelIsolatedNamedRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("ARTIFACTS=" + out)
-	snapshot, err := readProviders(providerFixture(t, namedFixture(server.URL)))
+	snapshot, err := readProviders(providerFixture(t, parameterFixture(server.URL)))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -120,7 +120,7 @@ func init() {
 		}
 		stor := ctx.State[zero.StateKeyPrefixKeep+"aichatcfg_stor__"].(chat.Storage)
 		temperature := stor.Temp()
-		topp, maxn := cfg.MParams()
+		params := cfg.RequestParams("")
 		mp := ctx.State[control.StateKeySyncxState].(*syncx.Map[string, any])
 
 		logrus.Debugln("[aichat] agent mode test: noagent", stor.NoAgent(), "hasapi", cfg.AgentAPI != "", "hasmodel", cfg.AgentModelName != "")
@@ -141,7 +141,8 @@ func init() {
 			logrus.Debugln("[aichat] enter agent mode")
 			x := deepinfra.NewAPI(cfg.AgentAPI, string(cfg.AgentKey))
 			x.SetHTTPClient(modelstats.Default.Client(boundedAgentClient(&http.Client{Timeout: 30 * time.Second}), modelstats.Agent))
-			mod, err := cfg.AgentType.ProtocolForAPI(cfg.AgentAPI, cfg.AgentModelName, temperature, topp, maxn, cfg.ReasoningEffort, cfg.Separator)
+			agentParams := cfg.RequestParams("Agent")
+			mod, err := cfg.AgentType.ProtocolForAPI(cfg.AgentAPI, cfg.AgentModelName, temperature, agentParams.TopP, agentParams.MaxN, agentParams.ReasoningEffort, cfg.Separator)
 			if err != nil {
 				task.Fail()
 				logrus.Warnln("ERROR: ", err)
@@ -157,7 +158,8 @@ func init() {
 			character := goba.Config{Nickname: strings.Join(zero.BotConfig.NickName, "/"), Chars: persona.Character, Sex: persona.Sex}
 			logrus.Debugln("[aichat] got agent")
 			if cfg.ImageAPI != "" && !ag.CanViewImage() {
-				mod, err := cfg.ImageType.ProtocolForAPI(cfg.ImageAPI, cfg.ImageModelName, temperature, topp, maxn, cfg.ReasoningEffort, cfg.Separator)
+				imageParams := cfg.RequestParams("Image")
+				mod, err := cfg.ImageType.ProtocolForAPI(cfg.ImageAPI, cfg.ImageModelName, temperature, imageParams.TopP, imageParams.MaxN, imageParams.ReasoningEffort, cfg.Separator)
 				if err != nil {
 					task.Fail()
 					logrus.Warnln("ERROR: ", err)
@@ -330,7 +332,7 @@ func init() {
 
 		x := deepinfra.NewAPI(cfg.API, string(cfg.Key))
 		x.SetHTTPClient(modelstats.Default.Client(&http.Client{Timeout: 30 * time.Second}, modelstats.Chat))
-		mod, err := cfg.Type.ProtocolForAPI(cfg.API, cfg.ModelName, temperature, topp, maxn, cfg.ReasoningEffort, cfg.Separator)
+		mod, err := cfg.Type.ProtocolForAPI(cfg.API, cfg.ModelName, temperature, params.TopP, params.MaxN, params.ReasoningEffort, cfg.Separator)
 		if err != nil {
 			task.Fail()
 			logrus.Warnln("ERROR: ", err)

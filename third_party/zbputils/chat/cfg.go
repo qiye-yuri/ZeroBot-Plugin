@@ -14,6 +14,7 @@ import (
 
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
+	"github.com/FloatTech/zbputils/modelconfig"
 	"github.com/fumiama/deepinfra"
 	"github.com/fumiama/deepinfra/model"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -88,6 +89,7 @@ type AgentConfig struct {
 	Personas                                  map[string]AgentPersona `json:",omitempty"`
 	ModelProfiles                             []ModelProfile          `json:",omitempty"`
 	ModelRoutes                               *ModelRoutes            `json:",omitempty"`
+	resolvedParameters                        map[string]modelconfig.RequestParameters
 }
 
 func newconfig() AgentConfig {

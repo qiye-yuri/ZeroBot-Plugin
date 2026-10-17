@@ -37,7 +37,36 @@ async function harness(t){
 const dirty=page=>page.evaluate(()=>aiDrafts());
 const waitIdle=page=>page.waitForFunction(()=>!aiBusy);
 
-const modelsFixture={named:false,revision:'e'.repeat(64),profiles:[{id:'first',name:'聊天模型',type:0,model:'chat',api:'https://chat.invalid',keyConfigured:true},{id:'second',name:'Agent 模型',type:1,model:'agent',api:'http://localhost:11434',keyConfigured:false}],routes:{chat:'first',agent:'second',image:''}};
+const modelsFixture={named:false,revision:'e'.repeat(64),parameterDefaults:{maxN:4096,topP:.9,reasoningEffort:'high'},profiles:[{id:'first',name:'聊天模型',type:0,model:'chat',api:'https://chat.invalid',keyConfigured:true},{id:'second',name:'Agent 模型',type:1,model:'agent',api:'http://localhost:11434',keyConfigured:false}],routes:{chat:'first',agent:'second',image:''}};
+
+test('model parameter overrides keep empty reasoning, inherit per field, and preserve conflict drafts',async t=>{
+  const page=await harness(t);await page.evaluate(value=>renderAIModels(value),modelsFixture);
+  const row=page.locator('[data-model-id=first]');await row.locator('summary').press('Enter');
+  assert.equal(await page.locator('#ai-field-model-first-maxN').isDisabled(),true);
+  assert.match(await row.textContent(),/继承全局：4096/);
+  for(const name of ['maxN','topP','reasoningEffort'])await page.selectOption('#ai-model-first-'+name+'-mode','custom');
+  await page.locator('#ai-field-model-first-maxN').fill('768');await page.locator('#ai-field-model-first-topP').fill('0.37');await page.locator('#ai-field-model-first-reasoningEffort').fill('');
+  assert.deepEqual(await dirty(page),['models']);
+  await page.evaluate(()=>replies.push({error:'配置已变化',status:409}));await page.locator('#ai-models-form button[type=submit]').click();await waitIdle(page);
+  assert.deepEqual(await page.evaluate(()=>requests.at(-1).body.profiles.map(p=>p.parameters)),[{maxN:768,topP:.37,reasoningEffort:''},{}]);
+  assert.equal(await page.locator('#ai-field-model-first-maxN').inputValue(),'768');assert.deepEqual(await dirty(page),['models']);
+  await page.selectOption('#ai-model-first-maxN-mode','inherit');await page.selectOption('#ai-model-first-topP-mode','inherit');
+  await page.evaluate(value=>replies.push(value),{...modelsFixture,named:true,profiles:modelsFixture.profiles.map((p,i)=>({...p,parameters:i===0?{reasoningEffort:''}:{}}))});
+  await page.locator('#ai-models-form button[type=submit]').click();await waitIdle(page);
+  assert.deepEqual(await page.evaluate(()=>requests.at(-1).body.profiles[0].parameters),{reasoningEffort:''});assert.deepEqual(await dirty(page),[]);
+  await page.locator('[data-model-id=first] summary').click();assert.match(await row.textContent(),/自定义：模型默认/);
+  await page.selectOption('#ai-model-first-reasoningEffort-mode','inherit');await dialogAction(page,true,()=>page.locator('#ai-models-form [data-ai-discard]').click());
+  assert.equal(await page.locator('#ai-model-first-reasoningEffort-mode').inputValue(),'custom');assert.equal(await page.locator('#ai-field-model-first-reasoningEffort').inputValue(),'');
+});
+
+test('model parameter numeric validation prevents invalid browser saves',async t=>{
+  const page=await harness(t);await page.evaluate(value=>renderAIModels(value),modelsFixture);await page.locator('[data-model-id=first] summary').click();
+  await page.selectOption('#ai-model-first-topP-mode','custom');await page.locator('#ai-field-model-first-topP').fill('0');
+  assert.equal(await page.locator('#ai-field-model-first-topP').evaluate(input=>input.checkValidity()),false);
+  await page.locator('#ai-models-form button[type=submit]').click();assert.equal(await page.evaluate(()=>requests.length),0);
+  await page.locator('#ai-field-model-first-topP').fill('0.42');await page.selectOption('#ai-model-first-maxN-mode','custom');await page.locator('#ai-field-model-first-maxN').fill('1.5');
+  assert.equal(await page.locator('#ai-field-model-first-maxN').evaluate(input=>input.checkValidity()),false);
+});
 test('named model preview edits stable references saves keys explicitly and retains global drafts',async t=>{
   const page=await harness(t);await page.evaluate(value=>replies.push(value),modelsFixture);await page.locator('#ai-models-load').click();await waitIdle(page);
   assert.equal(await page.evaluate(()=>requests.length),1);assert.equal(await page.locator('#ai-model-route-agent').inputValue(),'second');
@@ -66,6 +95,7 @@ test('named model loaded global disables obsolete fields and logout ignores late
 test('named model and conversation persona forms fit narrow light and dark layouts',async t=>{
   const page=await harness(t);await page.addStyleTag({content:await fs.readFile('internal/localadmin/assets/style.css','utf8')+'\n'+await fs.readFile('internal/localadmin/assets/appearance.css','utf8')});await page.setViewportSize({width:320,height:800});
   await page.evaluate(value=>renderAIModels(value),{...modelsFixture,profiles:modelsFixture.profiles.map(p=>({...p,id:p.id==='first'?'m'.repeat(64):p.id,name:'很长的模型配置名称'.repeat(8)})),routes:{...modelsFixture.routes,chat:'m'.repeat(64)}});await page.evaluate(value=>renderAIPersona(value),{botId:'9007199254740993',type:'private',id:'9007199254740995',mode:'custom',revision:'a'.repeat(64),character:'人物正文🙂'.repeat(50),sex:'女'});
+  await page.locator('.ai-model-row summary').first().press('Enter');
   await fs.mkdir('.local/named-model-layout',{recursive:true});for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.locator('#ai-models-form').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await page.screenshot({path:'.local/named-model-layout/'+theme+'.png'});}
 });
 

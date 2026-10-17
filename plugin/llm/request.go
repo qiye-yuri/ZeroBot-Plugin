@@ -105,8 +105,8 @@ func requestLLM(cfg chat.AgentConfig, prompt string, temp float32) (string, erro
 	return requestLLMWithClient(cfg, prompt, temp, &http.Client{Timeout: 30 * time.Second})
 }
 func requestLLMWithClient(cfg chat.AgentConfig, prompt string, temp float32, client *http.Client) (string, error) {
-	top, max := cfg.MParams()
-	protocol, err := cfg.Type.ProtocolForAPI(cfg.API, cfg.ModelName, temp, top, max, cfg.ReasoningEffort, cfg.Separator)
+	params := cfg.RequestParams("")
+	protocol, err := cfg.Type.ProtocolForAPI(cfg.API, cfg.ModelName, temp, params.TopP, params.MaxN, params.ReasoningEffort, cfg.Separator)
 	if err != nil {
 		return "", err
 	}
