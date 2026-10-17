@@ -1,4 +1,16 @@
-### R5R6N3 合并安装与部署验证
+## DeepSeek 搜索启用与真实 QQ 验收
+
+2026-10-17，日常后台显式配置独立DeepSeek搜索Key，开启全局搜索及原机器人与唯一主人的私聊，仅允许主人角色。没有迁移命名模型、修改人物、模型参数、插件响应或其他会话权限。
+
+真实QQ验收通过：主人实际发送请求，原机器人执行一次 `search_web`，返回5条实际结果，随后发送一条含5项编号和来源的私聊回复。任务为completed，搜索摘要为used=1、successful=1、empty=0、errors=0、denied=0；QQ平台 `get_friend_msg_history` 核对真实入站，`get_msg` 回读确认五个链接全部与搜索结果一致，使用者也确认收到。模型、Search和QQ均为真实服务，没有注入入站事件。首次两轮失败，独立诊断确认已保存搜索Key错误（HTTP 401），校正并核对保存值后第三轮通过，失败记录保留，不计为成功。
+
+该真实业务验收使用原已部署合并构建。随后仅将搜索密钥输入框的autocomplete从off改为new-password，提示浏览器不复用后台登录密码；搜索、模型和QQ的Go逻辑没有变化。修正构建通过8项离线Chrome页面测试、3组隔离搜索链路及完整148项隔离整机检查，报告 `.local/n3-qq/acceptance.json` 和 `.local/smoke-admin/run-3868450665/result.json`。没有为单个表单标记修改重跑真实QQ消息。
+
+21:38 +08:00仅重启ZeroBot部署修正，程序SHA256为 `72D7097B714E434C4514074AC2406A24EFE5EDF0A58598A94C7F9D7423BACBE4`。223份停机备份含原程序及当前配置/运行数据，位于 `.local/n3-qq/deployment-20261017-213753/backup/`。新进程身份、单实例、回环后台HTTP 200、原QQ及三个只读接口、电量助手/监控通过；OneBot保持同一进程。实际提供的搜索脚本与源码一致，包含新凭据标记。重启前后七份配置文件哈希全部一致。
+
+相对启用搜索前，全部219张控制表中仅 `__resp` 的AI配置新增WebSearch；其余218张表及同表其他字段/行保持一致，模型模式和后台凭据保持。正确搜索Key、全局开关及仅主人私聊权限在重启后仍保持。原始证据为 `.local/n3-qq/agent-observation.json`、`platform-readback.json`、`config-verification.json`、`deployment-result.json` 和 `served-asset.json`；真实身份、密钥、原文、截图及备份均不上传。
+
+## R5R6N3 合并安装与部署验证
 
 2026-10-17，master保留原日常电量提醒并依次合并R5、R6、N3。仅两个说明文档顶部冲突，保留电量使用/恢复说明和新版本内容；相对N3的Agent/模型实现没有额外功能差异。统一入口将电量测试纳入backend，同一构建覆盖全部批次。
 

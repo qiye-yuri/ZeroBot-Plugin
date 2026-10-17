@@ -2,7 +2,7 @@
 
 耳机和鼠标已支持[低电量私聊提醒](battery-hub.md)：低于10%及5%或以下两个档位，仅通知唯一主人。
 
-2026-10-17：R5、R6、N3已合并到master，并于20:54 +08:00部署启动，原日常电量提醒保留。现有模型模式、人物、会话参数、密钥及219张控制表保持，未自动迁移命名模型或启用搜索。原QQ通过已有缓存恢复，后台重启后需用原密码登录；功能操作见[R5参数](r5-model-parameters.md)、[R6入口](r6-model-routes.md)及[N3搜索](web-search.md)，本轮结果见[合并部署验证](self-test.md#r5r6n3-合并安装与部署验证)。
+2026-10-17：R5、R6、N3已合并master并部署，原日常电量提醒保留。日常实例现已显式配置DeepSeek搜索Key，仅原主人私聊开启搜索，真实QQ的5条结果及实际来源回读通过；其他模型模式、人物、会话和后台配置保持。功能操作见[R5参数](r5-model-parameters.md)、[R6入口](r6-model-routes.md)及[N3搜索](web-search.md)；测试范围见[合并部署验证](self-test.md#r5r6n3-合并安装与部署验证)与[搜索真实QQ验收](self-test.md#deepseek-搜索启用与真实-qq-验收)。下方开发分支状态保留对应历史批次范围。
 
 N3已恢复开发：新增[DeepSeek 联网搜索](web-search.md)，默认关闭，按机器人及群/私聊开启，Agent每次请求5条并附来源。当前交付分支 `codex/deepseek-web-search` 基于R6，上传不代表部署；验证结果见[自测](self-test.md#n3-deepseek-联网搜索验收)。
 

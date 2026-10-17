@@ -13,7 +13,7 @@ function renderAISearch(value) {
   const label=document.createElement("label"),action=document.createElement("select"),key=document.createElement("input"),clear=document.createElement("label"),confirm=document.createElement("input"),status=document.createElement("p");
   action.id="ai-search-key-action";label.htmlFor=action.id;label.textContent="DeepSeek 官方搜索密钥";
   for(const [value,text] of [["keep","保留当前密钥"],["replace","替换为新密钥"],["clear","清除密钥"]]){const option=document.createElement("option");option.value=value;option.textContent=text;action.append(option);}
-  key.type="password";key.id="ai-search-key";key.maxLength=4096;key.autocomplete="off";key.disabled=true;key.setAttribute("aria-label","搜索新密钥");
+  key.type="password";key.id="ai-search-key";key.maxLength=4096;key.autocomplete="new-password";key.disabled=true;key.setAttribute("aria-label","搜索新密钥");
   confirm.type="checkbox";confirm.id="ai-search-key-clear";clear.className="check-label";clear.hidden=true;clear.append(confirm,document.createTextNode("确认清除搜索密钥（需关闭全局搜索）"));
   status.className="field-help";status.textContent=value.keyConfigured?"搜索密钥已配置，当前值不显示。":"搜索密钥尚未配置，不自动借用模型密钥。";
   action.addEventListener("change",()=>{key.disabled=action.value!=="replace";key.required=action.value==="replace";if(action.value!=="replace")key.value="";clear.hidden=action.value!=="clear";confirm.checked=false;});
