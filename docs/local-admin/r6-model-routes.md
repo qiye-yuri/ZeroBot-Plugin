@@ -1,4 +1,6 @@
-# R6：GPT、群总结独立模型入口
+#当前状态（2026-10-17）：R5/R6/N3已合并master并于20:54 +08:00部署启动，原QQ已通过缓存恢复。下方“开发分支”“尚未合并部署”等描述保留对应开发批次记录，现状与验证范围以[合并安装结果](self-test.md#r5r6n3-合并安装与部署验证)为准。原模型配置保留，搜索仍默认关闭。
+
+ R6：GPT、群总结独立模型入口
 
 本批在已验收[R5独立参数](r5-model-parameters.md)基础上完成，R5对应[PR #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)，尚未合并。R6独立分支为 `codex/gpt-summary-model-routes`；上传不代表已部署。R7会话配置核对仍待后续开发，N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
 
