@@ -1,4 +1,10 @@
-# 第一版开发进度
+#2026-10-17：N3已按新要求恢复，在 `codex/deepseek-web-search` 基于R6实现 DeepSeek 独立 Search。每次请求5条并附实际来源，只接搜索，不取网页正文；搜索独立密钥、默认关闭、精确会话角色、每任务2次，复用原保存与停止机制。操作见[联网搜索](web-search.md)，实施与退出条件见[计划](deferred-web-search-design.md)，本轮验收见[自测](self-test.md#n3-deepseek-联网搜索验收)。本批不合并或部署，不改日常配置。下列暂缓描述保留对应历史批次范围。
+
+N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/11)，以 `codex/gpt-summary-model-routes` 为基础，仅包含N3的39个文件差异；R5 #9、R6 #10及本批均尚未合并或部署。本段上传结果随后在同一分支同步，不新增标签或向上游推送。
+
+N3统一16步、160项Chrome、五入口专项和148项隔离冒烟通过；补齐空角色返回后，最终构建的后台/聊天回归、3组搜索整机、真实Search和完整148项冒烟再次通过。两次真实Search均为公开查询、返回5条并附实际URL，模型与OneBot保持模拟，未发送真实QQ。最终摘要及原始证据留在本机，见[自测](self-test.md#n3-deepseek-联网搜索验收)。
+
+ 第一版开发进度
 
 2026-10-17：R6已在 `codex/gpt-summary-model-routes` 实现，基于R5验收分支。新增GPT、群总结可选引用，缺省继承聊天，原温度/额度/权限保持；同步五入口基础检查、四类手动诊断与显式summary隔离用例。使用和实现见[R6说明](r6-model-routes.md)，测试结果见[自测](self-test.md#r6-gpt群总结独立入口验收)。本批不合并或部署，不开发R7或联网搜索。
 

@@ -1,6 +1,6 @@
 # R5：命名模型独立请求参数
 
-本批基于已合并 R1～R4 的主分支开发，范围来自[下一批规划 PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)。本文记录R5批次；R6的GPT/群总结独立入口已在本分支后续实现，见[R6说明](r6-model-routes.md)，R7会话只读核对仍待后续开发，N3 联网搜索继续暂缓。当前分支提供此功能，上传不代表已经部署日常服务。
+本批基于已合并 R1～R4 的主分支开发，范围来自[下一批规划 PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)。本文记录R5批次；R6的GPT/群总结独立入口已在本分支后续实现，见[R6说明](r6-model-routes.md)，R7会话只读核对仍待后续开发，N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。当前分支提供此功能，上传不代表已经部署日常服务。
 
 ## 使用范围
 

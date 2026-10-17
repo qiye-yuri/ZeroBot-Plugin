@@ -1,10 +1,10 @@
 # 第一版待办与后续范围
 
-R1～R4已全部开发、测试、合并master并部署日常服务，原配置保持，统一及部署后检查通过，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)与[交付记录](github-delivery.md)。[阶段计划](next-stage-development.md)不再有待开发项；R5已在本分支实现，见[独立参数说明](r5-model-parameters.md)，尚未部署；R6已在本分支实现，见[独立入口说明](r6-model-routes.md)，尚未部署；R7仍为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，尚未实现。N3联网搜索保持暂缓。
+R1～R4已全部开发、测试、合并master并部署日常服务，原配置保持，统一及部署后检查通过，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)与[交付记录](github-delivery.md)。[阶段计划](next-stage-development.md)不再有待开发项；R5已在本分支实现，见[独立参数说明](r5-model-parameters.md)，尚未部署；R6已在本分支实现，见[独立入口说明](r6-model-routes.md)，尚未部署；R7仍为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，尚未实现。N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
 
 ## 后续开发计划
 
-详细设计、工作包、排期、测试与上传条件见[后续开发计划](next-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)、N2 [命名模型配置](named-models.md)已实现、依次合并 master 并部署日常服务，备份与部署后测试通过，见[验证](self-test.md#n1n2-合并与日常部署验证)；N3 联网搜索暂缓，仅保留候选设计。验证与上传结果见[进度](progress.md)。遵循复用现有实现、必要边界校验和有限验收范围，不增加无实际需求的防御层。上阶段结项及已取消验收不变。
+详细设计、工作包、排期、测试与上传条件见[后续开发计划](next-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)、N2 [命名模型配置](named-models.md)已实现、依次合并 master 并部署日常服务，备份与部署后测试通过，见[验证](self-test.md#n1n2-合并与日常部署验证)；N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。验证与上传结果见[进度](progress.md)。遵循复用现有实现、必要边界校验和有限验收范围，不增加无实际需求的防御层。上阶段结项及已取消验收不变。
 
 ## AI 与 Agent 本阶段结项
 

@@ -71,18 +71,45 @@ type AgentTaskInfo struct {
 	// Summary updates and cancellation do not restart the current stage.
 	PhaseStartedAt string `json:"phaseStartedAt,omitempty"`
 	// First admitted stop request; absent old data must not be inferred.
-	CancelRequestedAt string       `json:"cancelRequestedAt,omitempty"`
-	Action            string       `json:"action"`
-	Outcome           string       `json:"outcome"`
-	Error             string       `json:"error"`
-	StartedAt         string       `json:"startedAt"`
-	EndedAt           string       `json:"endedAt"`
-	Persisted         bool         `json:"persisted"`
-	Context           ContextUsage `json:"context"`
-	Memory            MemoryUsage  `json:"memory"`
-	Activity          TaskActivity `json:"activity"`
-	Results           TaskResults  `json:"results"`
-	Queries           TaskQueries  `json:"queries"`
+	CancelRequestedAt string        `json:"cancelRequestedAt,omitempty"`
+	Action            string        `json:"action"`
+	Outcome           string        `json:"outcome"`
+	Error             string        `json:"error"`
+	StartedAt         string        `json:"startedAt"`
+	EndedAt           string        `json:"endedAt"`
+	Persisted         bool          `json:"persisted"`
+	Context           ContextUsage  `json:"context"`
+	Memory            MemoryUsage   `json:"memory"`
+	Activity          TaskActivity  `json:"activity"`
+	Results           TaskResults   `json:"results"`
+	Queries           TaskQueries   `json:"queries"`
+	WebSearch         TaskWebSearch `json:"webSearch"`
+}
+
+type TaskWebSearch struct {
+	Available  bool `json:"available"`
+	Used       int  `json:"used"`
+	Limit      int  `json:"limit"`
+	Successful int  `json:"successful"`
+	Empty      int  `json:"empty"`
+	Errors     int  `json:"errors"`
+	Denied     int  `json:"denied"`
+}
+
+func (t *AgentTask) captureWebSearch(usage TaskWebSearch) error {
+	t.store.mu.Lock()
+	defer t.store.mu.Unlock()
+	if t.fault {
+		return ErrAgentTaskStore
+	}
+	if t.finished || t.info.Phase != "action_wait" || t.info.Action != goba.SearchWeb || t.info.Outcome != "in_flight" {
+		return ErrAgentTaskConflict
+	}
+	if !usage.Available || usage.Limit != webSearchLimit || usage.Used < 0 || usage.Used > webSearchLimit || usage.Successful < 0 || usage.Errors < 0 || usage.Successful+usage.Errors > usage.Used || usage.Empty < 0 || usage.Empty > usage.Successful || usage.Denied < 0 {
+		return errWebSearchUsage
+	}
+	t.info.WebSearch = usage
+	return t.saveLocked()
 }
 
 const agentQueryLimit = 3
@@ -362,7 +389,7 @@ func (t *AgentTask) Action(name string) error {
 	t.info.Action = taskActionName(name)
 	t.info.Outcome = "in_flight"
 	switch name {
-	case goba.SearchHistory, goba.ReadHistory, goba.SearchMemory, goba.ReadMemory, goba.SVM:
+	case goba.SearchHistory, goba.ReadHistory, goba.SearchMemory, goba.ReadMemory, goba.SearchWeb, goba.SVM:
 		t.info.Activity.LocalActions++
 	default:
 		t.info.Activity.PlatformActions++

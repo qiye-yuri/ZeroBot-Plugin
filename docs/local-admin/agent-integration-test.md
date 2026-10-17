@@ -1,5 +1,7 @@
 # AI 与 Agent 隔离整机自测
 
+N3在统一入口加入 `ai-search.js` 语法、8项离线Chrome表单用例及最终程序的 `web-search-integration`，合计16步。组件HTTP模拟核对5条结果、失败、配额、停止及来源；最终程序验证禁用时拒绝伪造工具、启用后非法参数不发搜索并继续明确工具回执，以及搜索后直接结束仍向原会话返回工具提示。真实Search另需显式指定本机凭据快照，使用模拟模型和OneBot，结果单独记录；不会给真实QQ发送消息。
+
 R3/R4 批次在统一入口增加 `ai-probe.js` 语法检查，合计 14 步；浏览器纳入 `scripts/test-ai-probe-ui.mjs`。原命名模型流程增加聊天/Agent 两次显式诊断，模拟服务核对地址、模型和凭据，返回结果不得包含提供商正文，配置修订及业务统计保持。完整通过时新增 `aiManualModelProbeAndBusinessStatsPassed=true`；诊断请求与原业务请求分开计数，不增加业务类别。
 
 R1/R2 批次在统一入口新增 `model-provider-tests` 和最终构建后的 `model-provider-integration`，合计 13 步。后者使用真实模型测试脚本的实际运行路径、命名配置解析快照和最终程序，完成 GPT、普通聊天、Agent、识图四个用例并核对三入口，服务全部为本机模拟。统一浏览器列表加入 `scripts/test-conversation-shortcuts-ui.mjs`，覆盖已加载范围、草稿确认、失败清理、退出及窄屏。当次结果见[自测](self-test.md#r1r2-第一批验收)，下文历史数量按当时范围保留。

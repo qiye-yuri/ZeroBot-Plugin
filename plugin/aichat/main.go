@@ -149,13 +149,14 @@ func init() {
 				return
 			}
 			role := agentRole(ctx)
+			webSearch := chat.NewTaskWebSearch(cfg, ctx.Event.SelfID, gid, role, run)
 			c, ok := ctx.State["manager"].(*ctrl.Control[*zero.Ctx])
 			if !ok {
 				logrus.Warnln("ERROR: cannot get ctrl mamager")
 			}
 			ag := chat.AgentOf(ctx.Event.SelfID, c.Service)
 			persona, _ := cfg.Persona(ctx.Event.SelfID, gid)
-			character := goba.Config{Nickname: strings.Join(zero.BotConfig.NickName, "/"), Chars: persona.Character, Sex: persona.Sex}
+			character := goba.Config{Nickname: strings.Join(zero.BotConfig.NickName, "/"), Chars: persona.Character, Sex: persona.Sex, WebSearch: webSearch.Allowed()}
 			logrus.Debugln("[aichat] got agent")
 			if cfg.ImageAPI != "" && !ag.CanViewImage() {
 				imageParams := cfg.RequestParams("Image")
@@ -179,7 +180,7 @@ func init() {
 				task.Fail()
 				return
 			}
-			err = chat.RunAgent(func(iter int) ([]zero.APIRequest, bool, error) {
+			next := func(iter int) ([]zero.APIRequest, bool, error) {
 				if e := run.Model(); e != nil {
 					return nil, false, e
 				}
@@ -196,7 +197,8 @@ func init() {
 					return nil, false, stopped
 				}
 				return reqs, ended, e
-			}, func(req zero.APIRequest) (actionErr error) {
+			}
+			execute := func(req zero.APIRequest) (actionErr error) {
 				if e := run.Action(req.Action); e != nil {
 					return e
 				}
@@ -207,6 +209,16 @@ func init() {
 					}
 				}()
 				mp.Store(chat.StateKeyAgentTriggered, struct{}{})
+				if req.Action == goba.SearchWeb {
+					e := webSearch.Execute(ag, req, func() error {
+						if generation != chat.AgentGeneration() {
+							return chat.ErrAgentReloaded
+						}
+						return run.Check()
+					})
+					outcome = webSearch.Outcome()
+					return e
+				}
 				if req.Action == goba.SearchHistory || req.Action == goba.ReadHistory || req.Action == goba.SearchMemory || req.Action == goba.ReadMemory {
 					e := search.Execute(ag, req)
 					outcome = search.Outcome()
@@ -238,6 +250,7 @@ func init() {
 					outcome = "ok"
 					return nil
 				}
+				req = webSearch.WithSources(req)
 				logrus.Debugln("[chat] agent triggered", gid, "add requ:", &req)
 				if err := ag.AddRequest(gid, &req); err != nil {
 					return err
@@ -268,7 +281,8 @@ func init() {
 					return errors.New("平台动作未成功或结果未知")
 				}
 				return nil
-			}, func() bool { return generation == chat.AgentGeneration() })
+			}
+			err = chat.RunAgent(next, execute, func() bool { return generation == chat.AgentGeneration() })
 			if stopped := run.Check(); stopped != nil {
 				err = stopped
 			}
@@ -279,6 +293,21 @@ func init() {
 				return
 			}
 			if hasresp {
+				return
+			}
+			if text := webSearch.ReplyIfUnsent(); text != "" {
+				if generation != chat.AgentGeneration() {
+					runError = chat.ErrAgentReloaded
+					return
+				}
+				req := zero.APIRequest{Action: "send_private_msg", Params: zero.Params{"user_id": ctx.Event.UserID, "message": message.Message{message.Text(text)}}}
+				if ctx.Event.GroupID != 0 {
+					req = zero.APIRequest{Action: "send_group_msg", Params: zero.Params{"group_id": ctx.Event.GroupID, "message": message.Message{message.Text(text)}}}
+				}
+				runError = execute(req)
+				if runError != nil {
+					task.Fail()
+				}
 				return
 			}
 			// no response, fall back to normal chat

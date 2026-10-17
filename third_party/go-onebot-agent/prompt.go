@@ -12,9 +12,10 @@ var sysp string
 
 // Config stores mutable characteristics of the agent.
 type Config struct {
-	Nickname string // Nickname 昵称
-	Sex      string // Sex 性别
-	Chars    string // Chars 个性
+	Nickname  string // Nickname 昵称
+	Sex       string // Sex 性别
+	Chars     string // Chars 个性
+	WebSearch bool   // Per-task host permission; never enabled by conversation text.
 }
 
 func (ag *Agent) system(role PermRole, iter int, grp int64, characters ...Config) (string, error) {
@@ -25,6 +26,13 @@ func (ag *Agent) system(role PermRole, iter int, grp int64, characters ...Config
 	tab, err := ag.perm.mdtable(role)
 	if err != nil {
 		return "", err
+	}
+	if character.WebSearch {
+		a, ok := ag.perm.Actions[SearchWeb]
+		if !ok {
+			return "", ErrUnexpectedAction
+		}
+		tab += "\n|" + a.Desc + "|" + SearchWeb + "|" + a.Params + "|" + a.Data + "|"
 	}
 	t := time.Now()
 	typ := "群聊"

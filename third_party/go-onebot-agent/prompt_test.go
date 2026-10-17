@@ -479,7 +479,7 @@ func (fakemem) Load(grp int64) []string {
 
 func TestAgent_system(t *testing.T) {
 	ag := NewAgent(&Config{
-		"testname", "testsex", "testchar",
+		Nickname: "testname", Sex: "testsex", Chars: "testchar",
 	}, 10, 10, time.Minute, "testd", &fakemem{}, false, false)
 	p, err := ag.system(PermRoleAdmin, 1, 123)
 	if err != nil {
