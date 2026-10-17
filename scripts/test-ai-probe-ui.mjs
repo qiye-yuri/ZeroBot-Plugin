@@ -25,6 +25,18 @@ async function fixture(t){
 }
 const idle=page=>page.waitForFunction(()=>!aiProbeBusy);
 
+test('GPT and summary diagnostics use their saved entries and the shared in-flight gate',async t=>{
+ const page=await fixture(t);
+ for(const entry of ['gpt','summary']){
+  await page.evaluate(value=>replies.push(value),{...result,entry});await page.locator('#ai-probe-'+entry).click();await idle(page);
+  assert.deepEqual(await page.evaluate(()=>requests.at(-1).body),{entry,revision:'a'.repeat(64)});
+  assert.match(await page.locator('#ai-probe-result h3').textContent(),entry==='gpt'?/GPT模型/:/群总结模型/);
+ }
+ await page.locator('#ai-probe-summary').click();await page.waitForFunction(()=>pending.length===1);
+ for(const entry of ['chat','gpt','summary','agent'])assert.equal(await page.locator('#ai-probe-'+entry).isDisabled(),true);
+ await page.evaluate(value=>pending[0]({ok:true,status:200,json:async()=>value}),{...result,entry:'summary'});await idle(page);assert.equal(await page.evaluate(()=>requests.length),3);
+});
+
 test('manual test sends only the saved entry/revision and preserves all drafts',async t=>{
  const page=await fixture(t);assert.equal(await page.evaluate(()=>requests.length),0);
  await page.locator('#ai-field-ModelName').fill('UNSAVED_MODEL');await page.selectOption('#ai-action-Key','replace');await page.locator('#ai-key-Key').fill('UNSAVED_SECRET');

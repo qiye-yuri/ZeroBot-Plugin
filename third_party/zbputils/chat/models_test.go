@@ -86,3 +86,32 @@ func TestModelCatalogDedupResolutionAndSnapshot(t *testing.T) {
 		t.Fatal("optional disabled route fell back")
 	}
 }
+
+func TestGPTSummarySnapshotUsesItsOwnGlobalInheritance(t *testing.T) {
+	chatMax, gptTop := uint(900), float32(.4)
+	c := AgentConfig{MaxN: 2048, TopP: .8, ReasoningEffort: "high", ModelProfiles: []ModelProfile{
+		{ID: "chat", Name: "聊天", API: "http://chat.invalid", Model: "chat", Key: "chat-key", Parameters: &modelconfig.Parameters{MaxN: &chatMax}},
+		{ID: "gpt", Name: "GPT", API: "http://gpt.invalid", Model: "gpt", Key: "gpt-key", Parameters: &modelconfig.Parameters{TopP: &gptTop}},
+	}, ModelRoutes: &ModelRoutes{Chat: "chat", GPT: "gpt"}}
+	snapshot, err := c.ResolveModels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.ModelProfiles[1].Key = "changed"
+	gptTop = .1
+	gpt := snapshot.ForModel("GPT")
+	summary := snapshot.ForModel("Summary")
+	if gpt.ModelName != "gpt" || gpt.Key != "gpt-key" || gpt.RequestParams("").MaxN != 2048 || gpt.RequestParams("").TopP != .4 {
+		t.Fatal("GPT inherited chat overrides or lost snapshot", gpt.RequestParams(""))
+	}
+	if summary.ModelName != "chat" || summary.RequestParams("").MaxN != 900 {
+		t.Fatal("summary did not inherit chat")
+	}
+	if snapshot.ModelName != "chat" || snapshot.RequestParams("").MaxN != 900 || snapshot.MaxN != 2048 {
+		t.Fatal("selection changed snapshot/global")
+	}
+	legacy, err := (AgentConfig{ModelName: "legacy", MaxN: 1234}).ResolveModels()
+	if err != nil || legacy.ForModel("GPT").ModelName != "legacy" || legacy.ForModel("Summary").RequestParams("").MaxN != 1234 {
+		t.Fatal("legacy changed", err)
+	}
+}

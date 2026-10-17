@@ -1347,10 +1347,10 @@ func verifyAIConfigChecks(value map[string]any) error {
 	fields, _ := global["fields"].(map[string]any)
 	keys, _ := global["keys"].(map[string]any)
 	checks, ok := global["checks"].(map[string]any)
-	if !ok || len(checks) != 3 {
+	if !ok || len(checks) != 5 {
 		return fmt.Errorf("AI checks missing independent interfaces")
 	}
-	for _, spec := range []struct{ name, prefix, key string }{{"chat", "", "Key"}, {"agent", "Agent", "AgentKey"}, {"image", "Image", "ImageKey"}} {
+	for _, spec := range []struct{ name, prefix, key string }{{"chat", "", "Key"}, {"gpt", "", "Key"}, {"summary", "", "Key"}, {"agent", "Agent", "AgentKey"}, {"image", "Image", "ImageKey"}} {
 		check, ok := checks[spec.name].(map[string]any)
 		if !ok || len(check) != 8 {
 			return fmt.Errorf("AI check schema invalid")

@@ -40,8 +40,8 @@ func (s *Server) testAIModel(w http.ResponseWriter, r *http.Request) {
 	if !readJSONLimit(w, r, &req, 2048) {
 		return
 	}
-	if (req.Entry != "chat" && req.Entry != "agent") || !validRevision(req.Revision) {
-		apiError(w, 400, "请选择聊天或 Agent 入口，并重新读取有效配置版本")
+	if (req.Entry != "chat" && req.Entry != "gpt" && req.Entry != "summary" && req.Entry != "agent") || !validRevision(req.Revision) {
+		apiError(w, 400, "请选择聊天、GPT、群总结或 Agent 入口，并重新读取有效配置版本")
 		return
 	}
 	if s.cfg.AI == nil || s.cfg.AI.repository == nil {
@@ -62,10 +62,8 @@ func (s *Server) testAIModel(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, "命名模型引用无效，请核对已保存配置")
 		return
 	}
-	kind, name, address, key := cfg.Type, cfg.ModelName, cfg.API, cfg.Key
-	if req.Entry == "agent" {
-		kind, name, address, key = cfg.AgentType, cfg.AgentModelName, cfg.AgentAPI, cfg.AgentKey
-	}
+	target := cfg.ForModel(probeModelRole(req.Entry))
+	kind, name, address, key := target.Type, target.ModelName, target.API, target.Key
 	if !checkAIConfig(kind, name, address, string(key), "API", true).Complete {
 		apiError(w, 400, "该入口未启用或配置不完整，请核对已保存的类型、模型、地址及密钥")
 		return
@@ -93,11 +91,7 @@ func (s *Server) testAIModel(w http.ResponseWriter, r *http.Request) {
 func runModelProbe(cfg chat.AgentConfig, entry, revision string, kind chat.ModelType, name, address string, key chat.ModelKey, client *http.Client) modelProbeResult {
 	start := time.Now()
 	result := modelProbeResult{Entry: entry, Model: cfg.Redact(name), Revision: revision, CheckedAt: start.UTC().Format(time.RFC3339Nano), Category: "invalid_response", Message: "模型响应无法解析或没有有效文字"}
-	role := ""
-	if entry == "agent" {
-		role = "Agent"
-	}
-	params := cfg.RequestParams(role)
+	params := cfg.RequestParams(probeModelRole(entry))
 	protocol, err := kind.ProtocolForAPI(address, name, .2, params.TopP, 128, params.ReasoningEffort, "")
 	if err != nil {
 		result.Category = "configuration_error"
@@ -121,6 +115,10 @@ func runModelProbe(cfg chat.AgentConfig, entry, revision string, kind chat.Model
 		result.Message = "收到有效非空文字，本次基础调用通过"
 	}
 	return result
+}
+
+func probeModelRole(entry string) string {
+	return map[string]string{"chat": "", "gpt": "GPT", "summary": "Summary", "agent": "Agent"}[entry]
 }
 
 type probeTransport struct {

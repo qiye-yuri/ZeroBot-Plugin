@@ -37,7 +37,23 @@ async function harness(t){
 const dirty=page=>page.evaluate(()=>aiDrafts());
 const waitIdle=page=>page.waitForFunction(()=>!aiBusy);
 
-const modelsFixture={named:false,revision:'e'.repeat(64),parameterDefaults:{maxN:4096,topP:.9,reasoningEffort:'high'},profiles:[{id:'first',name:'聊天模型',type:0,model:'chat',api:'https://chat.invalid',keyConfigured:true},{id:'second',name:'Agent 模型',type:1,model:'agent',api:'http://localhost:11434',keyConfigured:false}],routes:{chat:'first',agent:'second',image:''}};
+const modelsFixture={named:false,revision:'e'.repeat(64),parameterDefaults:{maxN:4096,topP:.9,reasoningEffort:'high'},profiles:[{id:'first',name:'聊天模型',type:0,model:'chat',api:'https://chat.invalid',keyConfigured:true},{id:'second',name:'Agent 模型',type:1,model:'agent',api:'http://localhost:11434',keyConfigured:false}],routes:{chat:'first',gpt:'',summary:'',agent:'second',image:''}};
+
+test('GPT and summary routes inherit chat or save independent selections and guard deletion',async t=>{
+ const page=await harness(t);await page.evaluate(value=>renderAIModels(value),modelsFixture);
+ assert.equal(await page.locator('#ai-model-route-gpt').inputValue(),'');assert.equal(await page.locator('#ai-model-route-summary').inputValue(),'');
+ assert.match(await page.locator('#ai-model-route-summary + p').textContent(),/继承聊天模型：聊天模型/);
+ await page.selectOption('#ai-model-route-gpt','second');await page.selectOption('#ai-model-route-agent','');
+ await page.locator('[data-model-id=second]').getByRole('button',{name:'删除配置'}).click();assert.equal(await page.locator('.ai-model-row').count(),2);assert.match(await page.locator('#ai-error').textContent(),/更改引用/);
+ await page.evaluate(value=>replies.push(value),{...modelsFixture,named:true,routes:{...modelsFixture.routes,gpt:'second',agent:''}});
+ await page.locator('#ai-models-form button[type=submit]').click();await waitIdle(page);
+ assert.deepEqual(await page.evaluate(()=>requests.at(-1).body.routes),{chat:'first',gpt:'second',summary:'',agent:'',image:''});
+ assert.match(await page.locator('#ai-model-route-gpt + p').textContent(),/当前选择：Agent 模型/);
+ await page.selectOption('#ai-model-route-gpt','');await page.selectOption('#ai-model-route-summary','second');await page.locator('[data-model-id=second]').getByRole('button',{name:'删除配置'}).click();assert.equal(await page.locator('.ai-model-row').count(),2);
+ await dialogAction(page,true,()=>page.locator('#ai-models-form [data-ai-discard]').click());assert.equal(await page.locator('#ai-model-route-summary').inputValue(),'');assert.equal(await page.locator('#ai-model-route-gpt').inputValue(),'second');
+ await page.evaluate(value=>renderAIModels(value),{...modelsFixture,routes:{...modelsFixture.routes,gpt:'missing'}});assert.equal(await page.locator('#ai-model-route-gpt').inputValue(),'missing');assert.match(await page.locator('#ai-model-route-gpt + p').textContent(),/引用配置不存在/);
+ await page.locator('#ai-field-model-first-name').fill('改名');assert.equal(await page.locator('#ai-model-route-gpt').inputValue(),'missing');
+});
 
 test('model parameter overrides keep empty reasoning, inherit per field, and preserve conflict drafts',async t=>{
   const page=await harness(t);await page.evaluate(value=>renderAIModels(value),modelsFixture);

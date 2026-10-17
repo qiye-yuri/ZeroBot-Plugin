@@ -65,6 +65,7 @@ func (c AgentConfig) selectModels() (map[string]modelconfig.Profile, error) {
 func (c AgentConfig) ResolveModels() (AgentConfig, error) {
 	if c.ModelRoutes == nil {
 		c.resolvedParameters = nil
+		c.resolvedModels = nil
 		if err := c.validateModelRoutes(); err != nil {
 			return AgentConfig{}, err
 		}
@@ -75,6 +76,7 @@ func (c AgentConfig) ResolveModels() (AgentConfig, error) {
 		return AgentConfig{}, err
 	}
 	c.resolvedParameters = make(map[string]modelconfig.RequestParameters, len(profiles))
+	c.resolvedModels = profiles
 	for role, profile := range profiles {
 		c.resolvedParameters[role] = profile.Parameters.Resolve(c.GlobalParameters())
 	}
@@ -97,6 +99,21 @@ func (c AgentConfig) RequestParams(role string) modelconfig.RequestParameters {
 		return p
 	}
 	return c.GlobalParameters()
+}
+
+// ForModel selects from the existing immutable snapshot, without rereading
+// configuration or treating the chat model's overrides as global defaults.
+func (c AgentConfig) ForModel(role string) AgentConfig {
+	params := c.RequestParams(role)
+	if p, ok := c.resolvedModels[role]; ok {
+		c.Type, c.ModelName, c.API, c.Key = ModelType(p.Type), p.Model, p.API, ModelKey(p.Key)
+	} else if role == "Agent" {
+		c.Type, c.ModelName, c.API, c.Key = c.AgentType, c.AgentModelName, c.AgentAPI, c.AgentKey
+	} else if role == "Image" {
+		c.Type, c.ModelName, c.API, c.Key = c.ImageType, c.ImageModelName, c.ImageAPI, c.ImageKey
+	}
+	c.resolvedParameters = map[string]modelconfig.RequestParameters{"": params}
+	return c
 }
 
 // ModelCatalog returns an in-memory migration preview; reading never writes.

@@ -90,6 +90,7 @@ type AgentConfig struct {
 	ModelProfiles                             []ModelProfile          `json:",omitempty"`
 	ModelRoutes                               *ModelRoutes            `json:",omitempty"`
 	resolvedParameters                        map[string]modelconfig.RequestParameters
+	resolvedModels                            map[string]modelconfig.Profile
 }
 
 func newconfig() AgentConfig {

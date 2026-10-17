@@ -109,7 +109,7 @@ func init() {
 			return
 		}
 		// 调用大模型API进行总结
-		summary, err := requestLLM(chat.ConfigOf(ctx), summaryPrompt, stor.Temp())
+		summary, err := requestLLM(chat.ConfigOf(ctx).ForModel("Summary"), summaryPrompt, stor.Temp())
 
 		if err != nil {
 			task.Fail()
@@ -183,7 +183,7 @@ func init() {
 		task := replystats.Default.Begin(ctx, replystats.GPT)
 		defer task.End()
 		// 调用大模型API进行聊天
-		reply, err := requestLLM(chat.ConfigOf(ctx), query, stor.Temp())
+		reply, err := requestLLM(chat.ConfigOf(ctx).ForModel("GPT"), query, stor.Temp())
 		if err != nil {
 			task.Fail()
 			ctx.SendChain(message.Text("ERROR: ", err))

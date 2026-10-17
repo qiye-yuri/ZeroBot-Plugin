@@ -40,6 +40,7 @@ type Harness struct {
 	current                                     *peer
 	messageID                                   int
 	mockQQ                                      int64
+	groupHistory                                string
 }
 
 func WriteJSON(path string, value any) error {
@@ -172,6 +173,7 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 				Echo   json.RawMessage `json:"echo"`
 				Params struct {
 					Message json.RawMessage `json:"message"`
+					GroupID int64           `json:"group_id"`
 				} `json:"params"`
 			}
 			if conn.ReadJSON(&request) != nil {
@@ -182,7 +184,14 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 			if request.Action == "get_login_info" {
 				userID = h.mockQQ
 			}
-			err = conn.WriteJSON(map[string]any{"status": "ok", "retcode": 0, "data": map[string]any{"message_id": 999, "user_id": userID, "nickname": "Synthetic acceptance user"}, "echo": request.Echo})
+			data := map[string]any{"message_id": 999, "user_id": userID, "nickname": "Synthetic acceptance user"}
+			if request.Action == "get_group_info" {
+				data = map[string]any{"group_id": request.Params.GroupID, "group_name": "合成验收群", "member_count": 2}
+			}
+			if request.Action == "get_group_msg_history" {
+				data = map[string]any{"messages": []any{map[string]any{"raw_message": h.groupHistory, "sender": map[string]any{"nickname": "合成发言者"}}}}
+			}
+			err = conn.WriteJSON(map[string]any{"status": "ok", "retcode": 0, "data": data, "echo": request.Echo})
 			p.mu.Unlock()
 			if err != nil {
 				return
@@ -376,6 +385,30 @@ func (h *Harness) SendWithContext(ctx context.Context, uid int64, text string, s
 		return reply, time.Since(start), nil
 	case <-ctx.Done():
 		return "", time.Since(start), ctx.Err()
+	}
+}
+
+// SendGroupWithContext exercises group summaries using only supplied synthetic
+// history. Ignore the command's preliminary acknowledgement and wait for output.
+func (h *Harness) SendGroupWithContext(ctx context.Context, uid, gid int64, text, history string) (string, error) {
+	h.messageID++
+	p := h.current
+	p.mu.Lock()
+	h.groupHistory = history
+	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "message", "message_type": "group", "sub_type": "normal", "message_id": h.messageID, "user_id": uid, "group_id": gid, "raw_message": text, "message": []any{map[string]any{"type": "text", "data": map[string]string{"text": text}}}, "sender": map[string]any{"user_id": uid, "nickname": "Synthetic acceptance user", "role": "owner"}})
+	p.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
+	for {
+		select {
+		case reply := <-h.replies:
+			if reply != "少女思考中..." {
+				return reply, nil
+			}
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
 	}
 }
 
