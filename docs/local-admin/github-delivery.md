@@ -1,4 +1,4 @@
-#2026-10-17合并交付：在master保留并提交原日常电量提醒源码，再依次合并[R5 #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)、[R6 #10](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/10)和[N3 #11](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/11)，三条PR目标统一为master，保留各自完整历史。合并构建已于20:54 +08:00启动，保留原配置与电量提醒；测试和后台登录后待核对范围见[本轮验收](self-test.md#r5r6n3-合并安装与部署验证)。本轮只上传源码、测试矩阵及公开文档；原data运行变化、凭据、QQ身份和备份/原始证据不纳入提交，不新增标签，不向上游推送。
+#2026-10-17合并交付：在master保留并提交原日常电量提醒源码，再依次合并[R5 #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)、[R6 #10](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/10)和[N3 #11](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/11)，三条PR目标统一为master，保留各自完整历史。合并构建已于20:54 +08:00启动，保留原配置与电量提醒；后台登录后页面实测及四个真实模型诊断也已通过，配置及219张控制表保持一致，完整范围见[本轮验收](self-test.md#r5r6n3-合并安装与部署验证)。本轮只上传源码、测试矩阵及公开文档；原data运行变化、凭据、QQ身份和备份/原始证据不纳入提交，不新增标签，不向上游推送。
 
 2026-10-17：N3在 `codex/deepseek-web-search` 基于R6提交 `f1e2568f` 实现DeepSeek独立Search，只取5条结果并附来源，不接Fetch。新增独立密钥、默认关闭的全局/会话角色与最小任务摘要，复用备份、修订、停止和原有动作执行；使用与计划已同步。统一16步、160项Chrome、五入口模拟及148项隔离冒烟通过；最终源码补验后台/聊天、构建、3组搜索整机、真实Search与完整冒烟通过，见[验收](self-test.md#n3-deepseek-联网搜索验收)。真实Search用模拟模型/OneBot，不代表真实QQ验收。
 
