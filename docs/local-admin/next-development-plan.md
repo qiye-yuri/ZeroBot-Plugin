@@ -1,8 +1,10 @@
+当前后续计划见[搜索交付后的 R7 开发计划](post-search-development-plan.md)：R5、R6、N3 已合并部署，R7 尚未实现。本文既有设计作为历史基线保留，排期与下一步以新计划为准。
+
 #2026-10-17：R5、R6、N3已合并到master，并于20:54 +08:00部署启动，原日常电量提醒保留。现有模型模式、人物、会话参数、密钥及219张控制表保持，未自动迁移命名模型或启用搜索。原QQ通过已有缓存恢复，后台重启后需用原密码登录；功能操作见[R5参数](r5-model-parameters.md)、[R6入口](r6-model-routes.md)及[N3搜索](web-search.md)，本轮结果见[合并部署验证](self-test.md#r5r6n3-合并安装与部署验证)。
 
  后续开发设计与执行计划
 
-2026-10-16 后续更新：本文N1/N2已交付，原设计与排期作为历史基线保留；[R1～R4阶段](next-stage-development.md)也已实现、测试、合并master并正式部署，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)。R5已在本分支实现，见[独立参数说明](r5-model-parameters.md)；R6已在本分支实现，见[独立入口说明](r6-model-routes.md)；R7仍为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，未实现。N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
+2026-10-16 后续更新：本文N1/N2已交付，原设计与排期作为历史基线保留；[R1～R4阶段](next-stage-development.md)也已实现、测试、合并master并正式部署，见[部署验证](self-test.md#r1-r4-合并与日常部署验证)。R5已合并部署，见[独立参数说明](r5-model-parameters.md)；R6已合并部署，见[独立入口说明](r6-model-routes.md)；R7仍为[候选规划PR #7](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/7)，未实现。N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
 
 日期：2026-10-16。基线：master 的 AI 与 Agent M1～M3 已交付实现（PR #2，合并提交 31716852；文档同步 bea405f5）。后续实现状态以末尾状态表为准，设计章节中的候选能力不代表已经交付。
 
