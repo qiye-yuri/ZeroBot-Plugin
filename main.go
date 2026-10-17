@@ -19,6 +19,7 @@ import (
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/abineundo" // 设置插件优先级&更改控制台属性
 	"github.com/FloatTech/ZeroBot-Plugin/internal/basiccommands"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/batteryhub"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/localadmin"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelstats"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/processidentity"
@@ -405,5 +406,6 @@ func main() {
 		Handle(func(ctx *zero.Ctx) {
 			ctx.SendChain(message.Text(strings.ReplaceAll(kanban.Kanban(), "\t", "")))
 		})
+	batteryhub.Start(config.Z.SuperUsers)
 	zero.RunAndBlock(&config.Z, process.GlobalInitMutex.Unlock)
 }
