@@ -92,6 +92,7 @@ pre {background:var(--surface-alt); color:var(--text);}
 /* Archive payloads are inert text and wrap on narrow screens. */
 .agent-record { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; font-size: 14px; }
 #memory-search-state { overflow-wrap: anywhere; }
+#conversation-check-status { overflow-wrap: anywhere; }
 #task-source h3, #task-source p { overflow-wrap: anywhere; }
 #agent-view input, #agent-view select { max-width: 100%; min-height: 44px; }
 #agent-view input[type=checkbox] { width: 18px; min-height: 18px; height: 18px; margin-right: 8px; }

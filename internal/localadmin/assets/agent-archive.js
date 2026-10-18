@@ -5,6 +5,7 @@ function clearAgentSearchContinue() {
   agentSearchContinue=null;$("agent-search-continue").hidden=true;$("agent-search-continue").disabled=true;
 }
 function agentControls() {
+  for(const id of ["conversation-check-load","conversation-check-persona","conversation-check-parameters","conversation-check-ai","conversation-check-plugins"])$(id).disabled=!authenticated||!agentVisible||agentBusy||!agentScope;
   for(const id of ["agent-open-persona","agent-open-ai"])$(id).disabled=!authenticated||!agentVisible||agentBusy||!agentScope;
   $("agent-search-continue").hidden=!agentSearchContinue;
   $("agent-search-continue").disabled=agentBusy||!agentSearchContinue;
@@ -23,6 +24,7 @@ function agentControls() {
   if(typeof taskControls==="function")taskControls();
 }
 function clearAgentContent() {
+  clearConversationCheck();
   clearAgentRecord();
   clearAgentSearchContinue();
   agentScope=null;agentNext="";$("agent-entries").replaceChildren();$("agent-keyword").value="";
@@ -214,6 +216,7 @@ async function loadAgentHistory({cursor="",search=false,reload=false,searchQuery
     // Keep the last successfully loaded scope; never retarget a search to draft inputs.
     const value=search?await api("/api/agent/history/search",{...scope,keyword,...(before?{before}:{}),...(from?{from}:{}),...(until?{until}:{}),...(sender?{sender}:{}),...(eventType?{eventType}:{})},signal):await api("/api/agent/history?"+new URLSearchParams({...scope,archived:String(scope.archived),cursor}),undefined,signal);
     if(!current())return;
+    if(!agentScope||["botId","type","id"].some(key=>agentScope[key]!==scope[key]))clearConversationCheck();
     if(typeof resetAgentMemory==="function"&&(!agentScope||["botId","type","id"].some(key=>agentScope[key]!==scope[key])))resetAgentMemory();
     if(typeof resetAgentTasks==="function"&&(!agentScope||["botId","type","id"].some(key=>agentScope[key]!==scope[key])))resetAgentTasks();
     agentScope={...scope};$("agent-scope").textContent="已加载：机器人 "+scope.botId+" / "+(scope.type==="group"?"群 ":"私聊 ")+scope.id+(scope.archived?" / 包含重置前记录":" / 最近重置之后");
@@ -242,4 +245,47 @@ $("agent-next").addEventListener("click",()=>{if(agentNext)loadAgentHistory({cur
 $("agent-list-next").addEventListener("click",()=>{if(agentListNext)loadAgentConversations(agentListNext);});
 $("agent-open-persona").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"persona");});
 $("agent-open-ai").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"parameters");});
+function clearConversationCheck() {
+  $("conversation-check-result").replaceChildren();$("conversation-check-links").hidden=true;
+  $("conversation-check-status").textContent="读取会话范围后可核对，不调用模型或搜索。";
+}
+function renderConversationCheck(value) {
+  const result=$("conversation-check-result"),on=value=>value?"开启":"关闭";
+  const source=value=>({global:"全局",group:"会话覆盖",conversation:"会话响应",default:"插件默认",none:"均未开启"}[value]||value);
+  const section=(title,text)=>{const heading=document.createElement("h3"),body=document.createElement("p");heading.textContent=title;body.className="agent-record";body.textContent=text;result.append(heading,body);};
+  const scope=value.scope;
+  $("conversation-check-status").textContent="机器人 "+scope.botId+" / "+(scope.type==="group"?"群 ":"私聊 ")+scope.id+" · 读取时间 "+value.observedAt+" · AI 修订 "+value.revision+"。仅为本次读取，各存储不是原子快照；更改后请手动重读。";
+  section("响应（实例共享）","全局："+on(value.response.globalEnabled)+"；当前会话："+on(value.response.conversationEnabled)+"；全局或当前会话任一开启："+on(value.response.effectiveEnabled)+"；来源："+source(value.response.source)+"。不包含发言者封禁、动作权限、实际消息 @ 或触发概率结果。");
+  const names={aichat:"普通聊天 / Agent",aichatcfg:"普通聊天 / Agent 参数",llm:"GPT / 群总结"};
+  section("相关插件（实例共享）",value.plugins.map(p=>names[p.service]+"："+(!p.registered?"未注册":on(p.state.effectiveEnabled)+"；来源 "+source(p.state.source)+"；全局 "+p.state.globalMode+" / 会话 "+p.state.groupMode+"；修订 "+p.state.revision)).join("\n")+(scope.type==="private"?"\n现有插件设置页只编辑全局和群，不能编辑私聊覆盖。":""));
+  section("AI 会话参数（各机器人共享）",value.conversation.length?value.conversation.map(p=>names[p.service]+"：温度 "+p.effectiveTemperature+(p.service==="aichatcfg"?"；概率 "+p.rate+"%；Agent "+on(p.useAgent)+"；响应 @ "+on(p.respondAt)+"；语音 "+on(p.voiceOutput):"（GPT / 群总结共用）")+"；修订 "+p.revision).join("\n"):"没有已注册的会话参数插件。");
+  const models=value.models;
+  section("模型（"+(models.named?"命名模式":"旧字段模式")+"）",models.error||"仅检查本地字段，连通性请在 AI 设置显式测试。");
+  const entryNames={chat:"普通聊天",gpt:"GPT",summary:"群总结",agent:"Agent",image:"识图"};
+  for(const row of models.entries){
+    const status=!row.applicable?"此会话不适用":!row.enabled?"入口停用":row.check.complete?"本地字段完整":"本地字段不完整";
+    const origin=value=>value==="model"?"模型覆盖":"全局";
+    section(entryNames[row.entry],status+"；"+(row.inherited?"继承聊天入口；":"")+(row.enabled?"模型 "+row.model+"；配置 "+row.name+"（"+row.profileId+"）；协议 "+row.type:"")+"\n最大输出长度 "+row.parameters.maxN+"（"+origin(row.parameterSources.maxN)+"）；TopP "+row.parameters.topP+"（"+origin(row.parameterSources.topP)+"）；推理 "+(row.parameters.reasoningEffort||"协议默认")+"（"+origin(row.parameterSources.reasoningEffort)+"）");
+  }
+  section("人物来源（按机器人隔离）",value.persona.mode==="custom"?"当前机器人会话自定义；不展开人物正文。":"继承全局人物；不展开人物正文。");
+  const search=value.search,roles={owner:"主人",admin:"管理员",user:"普通成员"};
+  section("搜索（按机器人隔离）","全局 "+on(search.enabled)+"；当前会话 "+on(search.policy.enabled)+"；密钥 "+(search.keyConfigured?"已配置":"未配置")+"；允许角色："+(search.policy.roles.map(role=>roles[role]||role).join("、")||"无")+"。这是保存的策略，不能据此确定某个发言者的实际权限；未调用 Search。");
+  $("conversation-check-links").hidden=false;
+}
+async function loadConversationCheck() {
+  if(!agentScope||agentBusy)return;
+  const {botId,type,id}=agentScope;
+  return agentRequest(async(signal,current)=>{
+    clearConversationCheck();$("conversation-check-status").textContent="正在核对已保存配置…";
+    try{
+      const value=await api("/api/agent/conversation-check?"+new URLSearchParams({botId,type,id}),undefined,signal);
+      if(current())renderConversationCheck(value);
+    }catch(error){if(current()){$("conversation-check-status").textContent="配置核对失败，请重新读取；不能据此判断配置关闭或缺失。";showError("agent-error",error);}}
+  });
+}
+$("conversation-check-load").addEventListener("click",loadConversationCheck);
+$("conversation-check-persona").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"persona");});
+$("conversation-check-parameters").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"parameters");});
+$("conversation-check-ai").addEventListener("click",()=>showWorkspaceView("ai"));
+$("conversation-check-plugins").addEventListener("click",()=>showWorkspaceView("plugins"));
 agentControls();

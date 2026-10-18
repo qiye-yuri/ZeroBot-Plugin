@@ -32,6 +32,13 @@ func (manager *Manager[CTX]) ReadResponseState(gid int64) (ResponseState, error)
 	if gid < 0 {
 		return ResponseState{}, errors.New("response scope must be global or a positive group")
 	}
+	return manager.ReadConversationResponseState(gid)
+}
+
+// ReadConversationResponseState also accepts the runtime's negative private-user
+// key. GroupEnabled is the local row for that conversation, not a positive group.
+// Like CanResponse, the result is global OR local; no user permissions are inferred.
+func (manager *Manager[CTX]) ReadConversationResponseState(gid int64) (ResponseState, error) {
 	manager.Lock()
 	defer manager.Unlock()
 	global, err := manager.responseRowActiveLocked(0)

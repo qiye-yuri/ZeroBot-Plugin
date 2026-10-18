@@ -50,10 +50,11 @@ try {
     foreach ($asset in @('agent-archive', 'agent-memory', 'agent-tasks', 'ai', 'ai-search', 'ai-probe')) {
         Invoke-AgentCheck ('syntax-' + $asset) $repoRoot 'node' @('--check', "internal/localadmin/assets/$asset.js")
     }
-    Invoke-AgentCheck 'browser' $repoRoot 'node' @('--test', 'scripts/test-agent-archive-ui.mjs', 'scripts/test-agent-memory-ui.mjs', 'scripts/test-agent-tasks-ui.mjs', 'scripts/test-ai-draft-ui.mjs', 'scripts/test-conversation-shortcuts-ui.mjs', 'scripts/test-ai-probe-ui.mjs', 'scripts/test-ai-check-ui.mjs', 'scripts/test-ai-search-ui.mjs')
+    Invoke-AgentCheck 'browser' $repoRoot 'node' @('--test', 'scripts/test-agent-archive-ui.mjs', 'scripts/test-agent-memory-ui.mjs', 'scripts/test-agent-tasks-ui.mjs', 'scripts/test-ai-draft-ui.mjs', 'scripts/test-conversation-shortcuts-ui.mjs', 'scripts/test-conversation-check-ui.mjs', 'scripts/test-ai-probe-ui.mjs', 'scripts/test-ai-check-ui.mjs', 'scripts/test-ai-search-ui.mjs')
     New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot '.local/bin') | Out-Null
     Invoke-AgentCheck 'build' $repoRoot 'go' @('build', '-trimpath', '-o', $report.binary, '.')
     $report.binarySHA256 = (Get-FileHash -LiteralPath (Join-Path $repoRoot $report.binary) -Algorithm SHA256).Hash
+    Invoke-AgentCheck 'conversation-check-integration' $repoRoot 'go' @('test', 'scripts/test-conversation-check_test.go', '-count=1', '-timeout=180s', '-args', '-validation-binary', $OutputName)
     Invoke-AgentCheck 'model-provider-integration' $repoRoot 'go' @('test', 'scripts/test-real-model.go', 'scripts/test-real-model_test.go', '-count=1', '-run=^TestRealModelIsolatedNamedRuntime$', '-timeout=180s', '-args', '-validation-binary', $OutputName)
     Invoke-AgentCheck 'web-search-integration' $repoRoot 'go' @('test', 'scripts/test-real-model.go', 'scripts/test-real-model_test.go', 'scripts/test-web-search_test.go', '-count=1', '-run=^TestWebSearchIsolatedRuntime$', '-timeout=180s', '-args', '-validation-binary', $OutputName)
     Invoke-AgentCheck 'integration' $repoRoot 'go' @('run', 'scripts/smoke-local-admin.go', '-binary-name', $OutputName)

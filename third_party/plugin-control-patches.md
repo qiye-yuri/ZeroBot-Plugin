@@ -1,3 +1,5 @@
+R7 新增 Manager.ReadConversationResponseState：接受运行时群号/负数私聊键，以与 CanResponse 相同的全局 OR 当前会话规则只读返回状态。沿用原锁与读取逻辑，不填缓存、不写库、不调备份钩子。原 ReadResponseState 保留只接受全局/正群号的接口约束；GroupEnabled 在新方法中表示当前会话行，后台转为 conversationEnabled，避免将私聊当同号群。验证见根模块 conversation_check_test.go 及最终程序隔离重启专项。
+
 # 本地插件控制补丁
 
 日期：2026-10-03。复制锁定模块源码并保留各目录 LICENSE；不修改全局 Go 模块缓存。

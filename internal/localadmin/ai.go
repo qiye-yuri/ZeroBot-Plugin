@@ -105,6 +105,14 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 	v.Global = &AISettings{Fields: fields, Keys: keys, AddressRedacted: redacted, Revision: revision, Ready: c.Ready()}
 	v.Global.Checks = aiConfigChecks(c)
 	v.Global.NamedModels = c.ModelRoutes != nil
+	v.Groups, err = s.conversationSettings(gid)
+	return v, err
+}
+
+// conversationSettings reads only shared conversation parameters, independently
+// of model resolution so a broken reference cannot hide the other settings.
+func (s *AIStore) conversationSettings(gid int64) ([]AIGroupSettings, error) {
+	groups := []AIGroupSettings{}
 	if gid != 0 {
 		for _, service := range []string{"aichatcfg", "llm"} {
 			control := s.groups[service]
@@ -113,7 +121,7 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 			}
 			data, revision, err := control.DataVersion(gid)
 			if err != nil {
-				return AIView{}, err
+				return nil, err
 			}
 			stor := chat.Storage(data)
 			setting := AIGroupSettings{Service: service, Revision: revision, Rate: int(stor.Rate()), Temperature: int(ctxext.Storage(data).Get(chat.BitmapTemp)), EffectiveTemperature: stor.Temp(), UseAgent: !stor.NoAgent(), VoiceOutput: !stor.NoRecord(), RespondAt: !stor.NoReplyAt()}
@@ -122,10 +130,10 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 			} else {
 				setting.GroupID = strconv.FormatInt(gid, 10)
 			}
-			v.Groups = append(v.Groups, setting)
+			groups = append(groups, setting)
 		}
 	}
-	return v, nil
+	return groups, nil
 }
 
 type AIKeyChange struct {
