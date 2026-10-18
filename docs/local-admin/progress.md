@@ -1,3 +1,5 @@
+R7 交付已完成：实现提交 `5fdd44ac` 已上传并核对 origin，[PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)目标为master，尚未合并部署。使用与测试范围见下文及[使用说明](conversation-check.md)。
+
 2026-10-18：R7 会话配置核对已实现，计划五个工作包的开发与测试完成。新增[使用说明](conversation-check.md)，同步相关导航与维护说明；17步统一回归、165项Chrome、最终二进制只读/重启专项及151项成功冒烟检查均通过，详见[验收](self-test.md#r7-会话配置核对验收)。本批交付分支 codex/conversation-config-check，上传与日常合并部署分开，未做真实QQ验收。
 
 ## 2026-10-17 搜索交付后的开发规划
