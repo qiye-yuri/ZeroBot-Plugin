@@ -1,3 +1,5 @@
+2026-10-18 实施更新：R7 在本分支实现，工作包 R7-01～05 的开发、使用文档及验收均完成，统一17步回归通过；上传结果以本批交付记录为准。已增加 [使用说明](conversation-check.md)；下文为原设计契约，当前验收与部署状态见[自测](self-test.md)。
+
 # 搜索交付后的开发计划：R7 会话配置核对
 
 日期：2026-10-17（Asia/Shanghai）。源码基线：master `7f321a8c`。状态：设计完成，功能待开发。本次交付开发文档；下列页面、接口和测试用例均为实施契约，不表示已上线。
@@ -115,3 +117,16 @@ R7 交付完成条件：工作包验收通过、统一回归通过、使用文�
 - 读取失败直接说明，用户手动重读；不吞错、不隐藏换模型、不以零值冒充正常结果。
 - 优先使用现有存储及解析器，只为已证实的复用提取小函数；不新增表、不迁移数据、不构建通用诊断平台。
 - 达到本表验收出口即结束本批，未经具体需求验证的优化留在候选清单。
+
+## R7 实施落点核对
+
+| 显示项 | 实际读取路径 | 范围 |
+| --- | --- | --- |
+| 响应 | PluginStore.responseManager.ReadConversationResponseState | 全局 OR 有符号会话键，读取不填缓存 |
+| 相关插件 | PluginControl.controls 的 aichat、llm；SwitchState | 读取实际业务插件，不把参数插件 aichatcfg 当作聊天开关 |
+| AI 会话参数 | AIStore.conversationSettings → aichatcfg/llm 的 DataVersion → chat.Storage | 同实例机器人共享，群/私聊分别使用正/负键 |
+| 模型 | ConfigRepository.Read → ResolveModels、ForModel、RequestParams，复用 checkAIConfig | 固定本次读取快照；错误引用显示在模型区，不调用旧字段兜底 |
+| 人物 | AgentConfig.Persona | 机器人 + 会话，仅取覆盖来源 |
+| 搜索 | AgentConfig.SearchPolicy 与 WebSearch 保存值 | 机器人 + 会话策略，密钥仅返回配置布尔值 |
+
+沿用旧模型读取、AI 表单和控制存储，未新增数据库、缓存、重试或诊断调度框架。API 只返回核对需要的字段；实现入口与使用步骤见[使用说明](conversation-check.md)。

@@ -1,3 +1,5 @@
+R7 在统一入口加入5项离线 Chrome 用例及 conversation-check-integration 最终二进制专项，合计17步。专项在独立目录通过后台保存五入口模型、人物、搜索及私聊参数，核对实际 aichat 开关、只读性、同号群/私聊隔离，再重启该隔离实例验证保持；提供商哨兵须为零请求。使用 scripts/test-conversation-check_test.go，报告位于本机忽略目录 .local/r7-runtime/，不接入真实 QQ。
+
 #主分支合并R5/R6/N3及原电量提醒后，统一入口的backend步骤纳入 `internal/batteryhub`，仍为16步。合并构建独立复验五个模型入口、搜索工具和完整148项隔离冒烟；真实提供商与日常服务连接分开记录，见[合并安装结果](self-test.md#r5r6n3-合并安装与部署验证)。
 
  AI 与 Agent 隔离整机自测

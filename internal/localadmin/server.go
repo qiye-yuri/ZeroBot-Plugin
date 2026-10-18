@@ -161,6 +161,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/ai-persona", s.authorize(s.aiPersona, false))
 	mux.HandleFunc("POST /api/ai-persona", s.authorize(s.aiPersona, true))
 	mux.HandleFunc("GET /api/agent/conversations", s.authorize(s.archive, false))
+	mux.HandleFunc("GET /api/agent/conversation-check", s.authorize(s.conversationCheck, false))
 	mux.HandleFunc("GET /api/agent/tasks", s.authorize(s.agentTasks, false))
 	mux.HandleFunc("GET /api/agent/tasks/read", s.authorize(s.agentTasks, false))
 	mux.HandleFunc("POST /api/agent/tasks/cancel", s.authorize(s.agentTasks, true))
