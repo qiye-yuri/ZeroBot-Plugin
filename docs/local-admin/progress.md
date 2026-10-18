@@ -1,3 +1,5 @@
+2026-10-18：完成[R7 后续开发规划](post-r7-development-plan.md)，基于 master 846a3a9e 核对现有代码与验收证据，明确 R8 会话搜索设置快捷入口、R9 已保存搜索密钥诊断和 R10 配置摘要可读性。两项P1、一项P2，按独立工作包交付，预计3.5～5.5个有效开发日；R8～R10均未实现。本次仅交付文档，检查范围见[规划检查](self-test.md#r7-之后的开发规划文档检查)。
+
 2026-10-18：R7已按要求合并[PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)，master提交c428bbf7，12:46 +08:00部署启动已验收程序。254份停机备份，原数据与配置保持，OneBot登录保留；部署后的真实后台范围/继承/搜索隔离/快捷入口测试通过，219张控制表一致，17个数据库完整性通过。详见[验收](self-test.md#r7-合并与日常部署验证)，入口见[使用说明](conversation-check.md)。本轮无真实模型请求或QQ测试消息。
 
 R7 开发上传记录（合并部署前）：实现提交 `5fdd44ac` 已上传并核对 origin，[PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)目标为master，尚未合并部署。使用与测试范围见下文及[使用说明](conversation-check.md)。
