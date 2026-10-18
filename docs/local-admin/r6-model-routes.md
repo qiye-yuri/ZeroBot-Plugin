@@ -2,7 +2,7 @@
 
  R6：GPT、群总结独立模型入口
 
-本批在已验收[R5独立参数](r5-model-parameters.md)基础上完成，R5对应[PR #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)，尚未合并。R6独立分支为 `codex/gpt-summary-model-routes`；上传不代表已部署。R7会话配置核对已在本分支实现，见[使用说明](conversation-check.md)，N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
+本批在已验收[R5独立参数](r5-model-parameters.md)基础上完成，R5对应[PR #9](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/9)，尚未合并。R6独立分支为 `codex/gpt-summary-model-routes`；上传不代表已部署。R7会话配置核对已合并master并部署，见[使用说明](conversation-check.md)，N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。
 
 ## 使用与兼容
 

@@ -1,4 +1,6 @@
-R7 上传结果：实现提交 `5fdd44ac` 已推送用户 origin，并创建[中文 PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)，目标 master，远端提交已核对一致，PR可合并；当前尚未合并或部署。随后仅同步本段交付链接和进度，功能源码与已通过测试的构建保持一致。
+2026-10-18 R7合并部署：按使用者要求将[PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)锁定2a321b03合并至用户origin/master，合并提交[c428bbf7](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/c428bbf71f88e34783f389a8a5215ae698f6d2ff)。合并树与已验收PR一致，部署使用同一验收二进制；12:46 +08:00已启动，原配置、运行数据与OneBot登录保持。部署后实际后台及数据核对通过，见[本轮验收](self-test.md#r7-合并与日常部署验证)。本次只同步公开使用、进度和部署文档；254份私有备份、凭据、真实身份、日志与截图留本机，不入提交，不创建标签或向上游推送。
+
+R7 上传结果（合并前历史记录）：实现提交 `5fdd44ac` 已推送用户 origin，并创建[中文 PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)，目标 master，远端提交已核对一致，PR当时可合并，尚未合并部署。随后仅同步本段交付链接和进度，功能源码与已通过测试的构建保持一致。
 
 2026-10-18 R7交付：分支 codex/conversation-config-check，目标为用户origin/master。新增会话配置只读核对，复用实际插件开关、会话参数及模型解析；[使用说明](conversation-check.md)和[最终验收](self-test.md#r7-会话配置核对验收)同步。统一17步、165项Chrome、R7隔离重启与完整冒烟通过后提交上传。文件范围为本批源码、测试、控制依赖小型读取补丁及公开文档；原data变化、本机凭据、日志、截图和运行证据不入提交。本批未部署日常服务，不创建标签。
 

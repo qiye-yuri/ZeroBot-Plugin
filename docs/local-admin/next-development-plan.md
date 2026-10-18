@@ -1,4 +1,4 @@
-当前后续计划见[搜索交付后的 R7 开发计划](post-search-development-plan.md)：R5、R6、N3 已合并部署，R7 已在本分支实现，操作见[会话配置核对](conversation-check.md)。本文既有设计作为历史基线保留，排期与下一步以新计划为准。
+当前后续计划见[搜索交付后的 R7 开发计划](post-search-development-plan.md)：R5、R6、N3 已合并部署，R7 已合并 master 并部署，操作见[会话配置核对](conversation-check.md)。本文既有设计作为历史基线保留，排期与下一步以新计划为准。
 
 #2026-10-17：R5、R6、N3已合并到master，并于20:54 +08:00部署启动，原日常电量提醒保留。现有模型模式、人物、会话参数、密钥及219张控制表保持，未自动迁移命名模型或启用搜索。原QQ通过已有缓存恢复，后台重启后需用原密码登录；功能操作见[R5参数](r5-model-parameters.md)、[R6入口](r6-model-routes.md)及[N3搜索](web-search.md)，本轮结果见[合并部署验证](self-test.md#r5r6n3-合并安装与部署验证)。
 
