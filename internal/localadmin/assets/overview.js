@@ -4,6 +4,8 @@ let overviewActive=false, overviewBusy=false, overviewGeneration=0, overviewRequ
 function clearModelRequests(message="请求统计待更新。") {
   if (typeof clearModelObservationCurrent==="function") clearModelObservationCurrent();
   $("model-request-summary").textContent=message;
+ if ($("model-usage-summary")) $("model-usage-summary").textContent="用量未知";
+ if ($("model-usage-recent")) $("model-usage-recent").textContent="";
   $("model-request-categories").replaceChildren();
 }
 function renderModelRequests(value) {
@@ -28,6 +30,7 @@ function renderModelRequests(value) {
     const row=value.categories.find(item=>item.kind===kind),card=document.createElement("article"),title=document.createElement("h3"),count=document.createElement("p"),time=document.createElement("p");
     title.textContent=name;count.textContent=countsText(row);time.className="field-help";time.textContent=elapsed(row);card.append(title,count,time);$("model-request-categories").append(card);
   }
+  renderModelUsage(value.recent);
   if (typeof receiveModelObservation==="function") receiveModelObservation(value);
 }
 
@@ -94,3 +97,18 @@ document.addEventListener("visibilitychange",()=>{
   cancelOverview();staleOverview();
   if (!document.hidden && authenticated && overviewActive) refreshOverview();
 });
+
+function renderModelUsage(recent) {
+  const summary=$("model-usage-summary"), detail=$("model-usage-recent");
+  if (!summary || !detail) return;
+  const rows=Array.isArray(recent)?recent.slice(-256):[];
+  const known=n=>Number.isSafeInteger(n)&&n>=0;
+  let hit=0,miss=0,covered=0;
+  for (const row of rows) if (known(row.usage?.hit)&&known(row.usage?.miss)) {hit+=row.usage.hit;miss+=row.usage.miss;covered++;}
+  const ratio=Number.isSafeInteger(hit+miss)&&hit+miss>0?(100*hit/(hit+miss)).toFixed(2)+"%":"未知";
+  summary.textContent=`最近${rows.length}次已结束请求，缓存字段完整${covered}次，按Token加权命中率${ratio}。缺失值为未知；重启清空，不等同账单。`;
+  const number=n=>known(n)?String(n):"未知";
+  detail.textContent=rows.slice(-20).reverse().map(r=>`#${r.id} ${r.kind} ${r.model||"模型未知"} ${r.outcome}
+输入 ${number(r.usage?.input)} / 命中 ${number(r.usage?.hit)} / 未命中 ${number(r.usage?.miss)} / 输出 ${number(r.usage?.output)}
+${r.provider||"提供商未知"} · ${r.startedAt} · ${Number(r.milliseconds).toFixed(0)}ms · 会话 ${r.session||"未知"} · 任务 ${r.task||"未知"} / 客户端请求序号 ${r.sequence||"未知"}`).join("\n\n");
+}

@@ -358,6 +358,7 @@ func (s *agentHistory) Modelize(p model.Protocol, grp int64, system string, user
 				text = value.String()
 			}
 		}
+		text = compactHistoryMedia(text)
 		current := "user"
 		if item.kind == "request" || item.kind == "end" {
 			current = "assistant"

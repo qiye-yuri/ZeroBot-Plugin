@@ -37,6 +37,14 @@ type Harness struct {
 	listener                                    net.Listener
 	connections                                 chan *peer
 	replies                                     chan string
+	deletions                                   chan int64
+	ImageReceived                               bool // read after synchronous Send returns, in isolated tests only
+	sentMu                                      sync.Mutex
+	lastSent                                    json.RawMessage
+	apiActions                                  []string
+	requestCalls                                []RequestCall
+	failAction                                  string
+	voiceModels                                 any
 	current                                     *peer
 	messageID                                   int
 	mockQQ                                      int64
@@ -61,7 +69,7 @@ func FreeAddress() (string, error) {
 }
 
 func PrepareFixture(root, destination string) error {
-	for _, relative := range []string{"data/Control/kanban.png", "data/Control/zbpuwu.png", "data/Font/GlowSansSC-Normal-ExtraBold.ttf", "data/Font/Impact.ttf", "data/Font/Torus-Regular.otf", "data/Font/FOT-Yuruka Std.ttf", "data/Chat/dict.txt", "data/hyaku/小倉百人一首.csv", "data/Dish/dishes.db", "data/Pig/pig_data.json", "data/McFish/articlesInfo.json"} {
+	for _, relative := range []string{"data/Control/kanban.png", "data/Control/zbpuwu.png", "data/Font/GlowSansSC-Normal-ExtraBold.ttf", "data/Font/Impact.ttf", "data/Font/Torus-Regular.otf", "data/Font/FOT-Yuruka Std.ttf", "data/Chat/dict.txt", "data/McFish/articlesInfo.json"} {
 		source, err := os.Open(filepath.Join(root, filepath.FromSlash(relative)))
 		if err != nil {
 			return err
@@ -110,7 +118,7 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 		l.Close()
 		return nil, err
 	}
-	h := &Harness{Root: destination, Binary: binary, ConfigPath: filepath.Join(destination, "config.json"), AdminDir: filepath.Join(destination, "admin"), Address: address, listener: l, connections: make(chan *peer, 8), replies: make(chan string, 64), mockQQ: mockQQ}
+	h := &Harness{Root: destination, Binary: binary, ConfigPath: filepath.Join(destination, "config.json"), AdminDir: filepath.Join(destination, "admin"), Address: address, listener: l, connections: make(chan *peer, 8), replies: make(chan string, 64), deletions: make(chan int64, 64), mockQQ: mockQQ}
 	if err = os.MkdirAll(h.AdminDir, 0700); err != nil {
 		l.Close()
 		return nil, err
@@ -172,51 +180,118 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 				Action string          `json:"action"`
 				Echo   json.RawMessage `json:"echo"`
 				Params struct {
-					Message json.RawMessage `json:"message"`
-					GroupID int64           `json:"group_id"`
+					Message   json.RawMessage `json:"message"`
+					Messages  json.RawMessage `json:"messages"`
+					GroupID   int64           `json:"group_id"`
+					MessageID int64           `json:"message_id"`
+					Flag      string          `json:"flag"`
+					Approve   bool            `json:"approve"`
+					SubType   string          `json:"sub_type"`
 				} `json:"params"`
 			}
 			if conn.ReadJSON(&request) != nil {
 				return
 			}
+			h.sentMu.Lock()
+			h.apiActions = append(h.apiActions, request.Action)
+			fail := h.failAction == request.Action
+			voiceModels := h.voiceModels
+			if request.Action == "set_friend_add_request" || request.Action == "set_group_add_request" {
+				h.requestCalls = append(h.requestCalls, RequestCall{request.Action, request.Params.Flag, request.Params.SubType, request.Params.Approve})
+			}
+			h.sentMu.Unlock()
 			p.mu.Lock()
 			userID := Owner
 			if request.Action == "get_login_info" {
 				userID = h.mockQQ
 			}
-			data := map[string]any{"message_id": 999, "user_id": userID, "nickname": "Synthetic acceptance user"}
+			var data any = map[string]any{"user_id": userID, "nickname": "Synthetic acceptance user"}
+			if request.Action == "send_private_msg" || request.Action == "send_group_msg" || request.Action == "send_private_forward_msg" || request.Action == "send_group_forward_msg" {
+				data = map[string]any{"message_id": 999}
+			}
 			if request.Action == "get_group_info" {
 				data = map[string]any{"group_id": request.Params.GroupID, "group_name": "合成验收群", "member_count": 2}
 			}
 			if request.Action == "get_group_msg_history" {
 				data = map[string]any{"messages": []any{map[string]any{"raw_message": h.groupHistory, "sender": map[string]any{"nickname": "合成发言者"}}}}
 			}
-			err = conn.WriteJSON(map[string]any{"status": "ok", "retcode": 0, "data": data, "echo": request.Echo})
+			if request.Action == "get_ai_characters" {
+				data = voiceModels
+			}
+			status, code := "ok", 0
+			if fail {
+				status, code = "failed", 1200
+			}
+			err = conn.WriteJSON(map[string]any{"status": status, "retcode": code, "data": data, "echo": request.Echo})
 			p.mu.Unlock()
 			if err != nil {
 				return
 			}
-			if request.Action == "send_private_msg" || request.Action == "send_group_msg" {
-				var segments []struct {
-					Type string            `json:"type"`
-					Data map[string]string `json:"data"`
-				}
-				_ = json.Unmarshal(request.Params.Message, &segments)
-				var text strings.Builder
-				for _, segment := range segments {
-					if segment.Type == "text" {
-						text.WriteString(segment.Data["text"])
-					}
-				}
+			if request.Action == "delete_msg" {
 				select {
-				case h.replies <- text.String():
+				case h.deletions <- request.Params.MessageID:
 				default:
+				}
+			}
+			if request.Action == "send_private_msg" || request.Action == "send_group_msg" || request.Action == "send_private_forward_msg" || request.Action == "send_group_forward_msg" {
+				raw := request.Params.Message
+				if len(request.Params.Messages) > 0 {
+					raw = request.Params.Messages
+				}
+				text, parseErr := fixtureMessageText(raw)
+				h.sentMu.Lock()
+				h.lastSent = append(h.lastSent[:0], raw...)
+				h.sentMu.Unlock()
+				h.ImageReceived = bytes.Contains(raw, []byte(`"type":"image"`)) || bytes.Contains(raw, []byte(`"type": "image"`))
+				if parseErr == nil {
+					select {
+					case h.replies <- text:
+					default:
+					}
 				}
 			}
 		}
 	})
 	go h.server.Serve(l)
 	return h, nil
+}
+
+// RequestCall records synthetic request decisions only.
+type RequestCall struct {
+	Action, Flag, SubType string
+	Approve               bool
+}
+
+func (h *Harness) RequestCalls() []RequestCall {
+	h.sentMu.Lock()
+	defer h.sentMu.Unlock()
+	return append([]RequestCall(nil), h.requestCalls...)
+}
+func (h *Harness) FailAction(action string) {
+	h.sentMu.Lock()
+	defer h.sentMu.Unlock()
+	h.failAction = action
+}
+func (h *Harness) SendRequest(ctx context.Context, uid, gid int64, flag string) (string, error) {
+	p := h.current
+	p.mu.Lock()
+	kind, sub := "friend", ""
+	if gid != 0 {
+		kind, sub = "group", "invite"
+	}
+	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "request", "request_type": kind, "sub_type": sub, "user_id": uid, "group_id": gid, "flag": flag, "comment": "合成验收申请"})
+	p.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
+	return h.AwaitReply(ctx)
+}
+
+// SetVoiceModels configures only the synthetic OneBot voice catalogue.
+func (h *Harness) SetVoiceModels(models any) {
+	h.sentMu.Lock()
+	defer h.sentMu.Unlock()
+	h.voiceModels = models
 }
 
 func (h *Harness) Close() {
@@ -228,6 +303,36 @@ func (h *Harness) Close() {
 
 // MockURL identifies this fixture's synthetic OneBot endpoint.
 func (h *Harness) MockURL() string { return "ws://" + h.listener.Addr().String() }
+
+// RecallLast emits a synthetic recall notice for the last incoming message and
+// returns the bot reply ID deleted by the plugin, or the caller's timeout.
+func (h *Harness) RecallLast(ctx context.Context, uid, gid int64) (int64, error) {
+	for {
+		select {
+		case <-h.deletions:
+			continue
+		default:
+		}
+		break
+	}
+	kind := "friend_recall"
+	if gid != 0 {
+		kind = "group_recall"
+	}
+	p := h.current
+	p.mu.Lock()
+	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "notice", "notice_type": kind, "group_id": gid, "user_id": uid, "operator_id": uid, "message_id": h.messageID})
+	p.mu.Unlock()
+	if err != nil {
+		return 0, err
+	}
+	select {
+	case id := <-h.deletions:
+		return id, nil
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+}
 
 // WaitConnection attaches an extra fixture endpoint to the already started test process.
 func (h *Harness) WaitConnection(ctx context.Context) error {
@@ -365,7 +470,61 @@ func (h *Harness) Send(uid int64, text string) (string, time.Duration, error) {
 	return reply, elapsed, err
 }
 
+// SendPoke emits a synthetic notification to the isolated bot only.
+func (h *Harness) SendPoke(ctx context.Context, uid, gid int64) (string, error) {
+	return h.SendPokeTarget(ctx, uid, gid, h.mockQQ)
+}
+
+// SendPokeTarget permits target-routing checks on the synthetic connection.
+func (h *Harness) SendPokeTarget(ctx context.Context, uid, gid, target int64) (string, error) {
+	p := h.current
+	p.mu.Lock()
+	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ,
+		"post_type": "notice", "notice_type": "notify", "sub_type": "poke",
+		"user_id": uid, "group_id": gid, "target_id": target})
+	p.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
+	select {
+	case reply := <-h.replies:
+		return reply, nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
 // SendWithContext sends only to this harness's synthetic OneBot connection.
+// AwaitReply observes delayed synthetic sends without injecting another event.
+func (h *Harness) AwaitReply(ctx context.Context) (string, error) {
+	select {
+	case reply := <-h.replies:
+		return reply, nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+// ActionCount inspects only API calls sent to this synthetic OneBot instance.
+func (h *Harness) ActionCount(action string) int {
+	h.sentMu.Lock()
+	defer h.sentMu.Unlock()
+	n := 0
+	for _, got := range h.apiActions {
+		if got == action {
+			n++
+		}
+	}
+	return n
+}
+
+// LastSentMessage returns a copy of the last synthetic send payload for identity checks.
+func (h *Harness) LastSentMessage() json.RawMessage {
+	h.sentMu.Lock()
+	defer h.sentMu.Unlock()
+	return append(json.RawMessage(nil), h.lastSent...)
+}
+
 // Real model checks can wait longer than the deterministic smoke timeout.
 func (h *Harness) SendWithContext(ctx context.Context, uid int64, text string, segments ...map[string]any) (string, time.Duration, error) {
 	h.messageID++
@@ -391,11 +550,19 @@ func (h *Harness) SendWithContext(ctx context.Context, uid int64, text string, s
 // SendGroupWithContext exercises group summaries using only supplied synthetic
 // history. Ignore the command's preliminary acknowledgement and wait for output.
 func (h *Harness) SendGroupWithContext(ctx context.Context, uid, gid int64, text, history string) (string, error) {
+	h.groupHistory = history
+	return h.SendGroupAs(ctx, uid, gid, text, "owner")
+}
+
+// SendGroupAs permits explicit roles and message segments in isolated tests.
+func (h *Harness) SendGroupAs(ctx context.Context, uid, gid int64, text, role string, segments ...map[string]any) (string, error) {
 	h.messageID++
 	p := h.current
 	p.mu.Lock()
-	h.groupHistory = history
-	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "message", "message_type": "group", "sub_type": "normal", "message_id": h.messageID, "user_id": uid, "group_id": gid, "raw_message": text, "message": []any{map[string]any{"type": "text", "data": map[string]string{"text": text}}}, "sender": map[string]any{"user_id": uid, "nickname": "Synthetic acceptance user", "role": "owner"}})
+	if len(segments) == 0 {
+		segments = []map[string]any{{"type": "text", "data": map[string]string{"text": text}}}
+	}
+	err := p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "message", "message_type": "group", "sub_type": "normal", "message_id": h.messageID, "user_id": uid, "group_id": gid, "raw_message": text, "message": segments, "sender": map[string]any{"user_id": uid, "nickname": "Synthetic acceptance user", "role": role}})
 	p.mu.Unlock()
 	if err != nil {
 		return "", err
@@ -504,4 +671,38 @@ func (b *Bot) Metrics() (float64, uint64, uint64, error) {
 	}
 	seconds := float64((uint64(kernel.HighDateTime)<<32|uint64(kernel.LowDateTime))+(uint64(user.HighDateTime)<<32|uint64(user.LowDateTime))) / 1e7
 	return seconds, uint64(m.PrivateUsage), uint64(m.WorkingSetSize), nil
+}
+
+func fixtureMessageText(raw json.RawMessage) (string, error) {
+	// OneBot accepts string/CQ and segment-array forms, including node content.
+	if bytes.HasPrefix(bytes.TrimSpace(raw), []byte(`"`)) {
+		var text string
+		err := json.Unmarshal(raw, &text)
+		return text, err
+	}
+	var segments []struct {
+		Type string
+		Data map[string]json.RawMessage
+	}
+	if err := json.Unmarshal(raw, &segments); err != nil {
+		return "", err
+	}
+	var out strings.Builder
+	for _, segment := range segments {
+		switch segment.Type {
+		case "text":
+			var text string
+			if err := json.Unmarshal(segment.Data["text"], &text); err != nil {
+				return "", err
+			}
+			out.WriteString(text)
+		case "node":
+			text, err := fixtureMessageText(segment.Data["content"])
+			if err != nil {
+				return "", err
+			}
+			out.WriteString(text)
+		}
+	}
+	return out.String(), nil
 }

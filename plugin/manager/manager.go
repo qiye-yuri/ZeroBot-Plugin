@@ -26,6 +26,8 @@ import (
 
 const (
 	hint = "====群管====\n" +
+		"- 开启自动撤回 / 关闭自动撤回\n" +
+		"- 查看群管功能开关\n" +
 		"- 禁言@QQ 1分钟\n" +
 		"- 解除禁言 @QQ\n" +
 		"- 我要自闭 1分钟\n" +
@@ -75,6 +77,8 @@ func init() { // 插件主体
 		Help:              hint,
 		PrivateDataFolder: "manager",
 	})
+
+	configureAutoWithdraw(engine)
 
 	go func() {
 		db = sql.New(engine.DataFolder() + "config.db")
@@ -662,14 +666,14 @@ func init() { // 插件主体
 	})
 	engine.OnCommand("精华列表", zero.OnlyGroup, zero.AdminPermission).SetBlock(true).Limit(ctxext.LimitByUser).Handle(func(ctx *zero.Ctx) {
 		list := ctx.GetThisGroupEssenceMessageList().Array()
-		msg := message.Message{ctxext.FakeSenderForwardNode(ctx, message.Text("本群精华列表："))}
+		msg := message.Message{ctxext.BotForwardNode(ctx, message.Text("本群精华列表："))}
 		n := len(list)
 		if n > 30 {
 			ctx.SendChain(message.Text("精华内容太多,仅显示前30个"))
 			n = 30
 		}
 		for _, info := range list[:n] {
-			msg = append(msg, ctxext.FakeSenderForwardNode(ctx,
+			msg = append(msg, ctxext.BotForwardNode(ctx,
 				message.Text(fmt.Sprintf(
 					"信息ID: %d\n发送者昵称: %s\n发送者QQ 号: %d\n消息发送时间: %s\n操作者昵称: %s\n操作者QQ 号: %d\n精华设置时间: %s",
 					info.Get("message_id").Int(),
@@ -688,7 +692,7 @@ func init() { // 插件主体
 				)
 			} else {
 				msg = append(msg,
-					message.CustomNode(info.Get("sender_nick").String(), info.Get("sender_id").Int(), "[error]信息久远，无法获取,如需查看原始内容请在“精华信息”中查看"),
+					message.CustomNode(ctxext.BotName(), ctx.Event.SelfID, "[error]信息久远，无法获取,如需查看原始内容请在“精华信息”中查看"),
 				)
 			}
 		}

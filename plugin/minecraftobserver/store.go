@@ -47,7 +47,10 @@ func initializeDB(dbpath string) error {
 		// logrus.Errorln(logPrefix+"initializeDB ERROR: ", err)
 		return err
 	}
-	gdb.AutoMigrate(&serverStatus{}, &serverSubscribe{})
+	if err := gdb.AutoMigrate(&serverStatus{}, &serverSubscribe{}, &pendingNotice{}).Error; err != nil {
+		gdb.Close()
+		return err
+	}
 	dbInstance = &db{
 		sdb:           gdb,
 		statusLock:    sync.RWMutex{},
@@ -98,7 +101,7 @@ func (d *db) updateServerStatus(ss *serverStatus) (err error) {
 		return errParam
 	}
 	ss.LastUpdate = time.Now().Unix()
-	ss2 := ss.deepCopy()
+	ss2 := statusFields(ss)
 	if err = d.sdb.Where(&serverStatus{ServerAddr: ss.ServerAddr}).Assign(ss2).FirstOrCreate(ss).Debug().Error; err != nil {
 		// logrus.Errorln(logPrefix, fmt.Sprintf("updateServerStatus %v ERROR: %v", ss, err))
 		return

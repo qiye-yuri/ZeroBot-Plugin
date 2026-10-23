@@ -1,3 +1,7 @@
+R7后续规划上传结果：规划提交 `a5123f18` 已推送用户origin并核对远端一致，创建[中文文档 PR #13](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/13)，目标master，当前尚未合并。随后仅同步本条交付入口，R8～R10功能状态仍为未实现。
+
+2026-10-18 R7后续规划交付：文档分支 codex/post-r7-development-plan，基于master 846a3a9e；范围为[R8～R10详细计划](post-r7-development-plan.md)、当前开发入口、待办、进度及文档检查摘要。R7已部署状态保持，R8～R10未实现；本次只上传公开规划，不带入data运行变化、密钥、原始会话或本机证据，不合并或部署功能。
+
 2026-10-18 R7合并部署：按使用者要求将[PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)锁定2a321b03合并至用户origin/master，合并提交[c428bbf7](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/c428bbf71f88e34783f389a8a5215ae698f6d2ff)。合并树与已验收PR一致，部署使用同一验收二进制；12:46 +08:00已启动，原配置、运行数据与OneBot登录保持。部署后实际后台及数据核对通过，见[本轮验收](self-test.md#r7-合并与日常部署验证)。本次只同步公开使用、进度和部署文档；254份私有备份、凭据、真实身份、日志与截图留本机，不入提交，不创建标签或向上游推送。
 
 R7 上传结果（合并前历史记录）：实现提交 `5fdd44ac` 已推送用户 origin，并创建[中文 PR #12](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/12)，目标 master，远端提交已核对一致，PR当时可合并，尚未合并部署。随后仅同步本段交付链接和进度，功能源码与已通过测试的构建保持一致。
@@ -81,3 +85,9 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 2026-10-13，PR #1按使用者明确要求合并到本仓库master，使用中文合并标题和说明，合并提交0349834791fa1b43438eebf961e0fdb514f76e5b。合并前核对407个变更文件，中间记录与运行资料均未包含。
 
 2026-10-16，AI 与 Agent M1～M3 的[中文 PR #2](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/2) 已按使用者要求于 11:34 +08:00 合并到本仓库 master，合并提交 [31716852](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/31716852fab99978218367f957aa7bb2ede3e261)。合并前锁定并检查提交 0b9a05fc，共 141 个文件（140 个功能交付文件及补充交付记录），内容与验证清单一致；重点复核会话隔离、认证、记忆迁移与版本、任务停止、动作权限和模型响应处理，未发现阻断合并的问题，无待处理审查意见。GitHub 未返回 CI 检查项，不记作 CI 通过；同一源码的独立统一 10 步、119 项 Chrome、145 项隔离整机分项检查及总判定已通过，真实模型与主人私聊范围见[交付说明](release-ai-agent.md)。本机配置、真实身份、原始证据、对话资料和 data 子模块工作区改动未上传；首次缺少生成文件的失败保留在本机，复验说明已修正。交付文档在 master 上同步，不新增或覆盖正式标签，不向上游推送。
+
+
+2026-10-24按使用者要求结束本轮测试，进入[代码上传快照](upload-2026-10-24.md)交付；所有未完成和暂缓项保留，不继续发送实机测试任务或执行付费验证。上传结果随后记录。
+
+
+上传结果：功能提交 `b5abdfe6` 已推送至用户仓库分支 `codex/plugin-consolidation-20261024`，并核对远端一致。已创建[中文草稿PR #14](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/14)，目标master，尚未合并。测试按要求停止，未完成验收项和暂缓项保持原状态；本次未发布正式标签或修改日常服务。此上传结果记录作为后续文档提交同步。

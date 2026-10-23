@@ -27,8 +27,11 @@ AI 阶段新增 ExtraJSON/UpdateExtraJSON、DataVersion/UpdateData，统一版�
 
 zbputils/chat 移除可变全局 AC，改为 CurrentConfig/ConfigOf 配置快照及共享 ConfigRepository；NewExtraSet* 参数由字段指针改为字段名。根仓库所有使用者已迁移；自定义外部插件若直接使用 AC 或旧 setter，需要相同迁移。这是源码 API 变化，不能声称与所有上游扩展无改动兼容。磁盘字段名与原数据保持兼容，未编辑未知字段保留。
 
-验证使用根模块的依赖版本：go test ./internal/localadmin ./internal/basiccommands ./plugin/llm ./plugin/tarot -count=1 -timeout=60s；相关包 go vet；完整 Windows 程序由 scripts/smoke-local-admin.go 验证。功能并发测试不能替代全仓 race 检测；未声称修复整个控制依赖中所有缓存。AI 细节见 [AI 设置记录](../docs/local-admin/ai-settings-2026-10-02.md)。
+验证使用根模块的依赖版本：go test ./internal/localadmin ./internal/basiccommands ./internal/aicommands ./plugin/tarot -count=1 -timeout=60s；相关包 go vet；完整 Windows 程序由 scripts/smoke-local-admin.go 验证。功能并发测试不能替代全仓 race 检测；未声称修复整个控制依赖中所有缓存。AI 细节见 [AI 设置记录](../docs/local-admin/ai-settings-2026-10-02.md)。
 
 控制策略写入在 Manager 锁内读取持久化状态，区分缺失行与数据库读取失败；实际修改前快照，提交后才更新缓存。重复封禁/解封/禁止/允许不备份；重复响应/沉默返回可识别的 ErrAlreadyResponding/ErrAlreadySilent。无本地响应行时，沉默操作不删除全局响应，不建立无变化快照。按群允许不删除全局禁止。Ban/Permit 新增 error 返回；直接忽略返回值的调用仍可编译，外部插件若以旧无返回方法签名存储方法值或实现接口需迁移。聊天指令检查返回值，逐项报告成功或失败；失败回复不包含底层 SQL、路径或配置。详细验证见 [控制策略备份记录](../docs/local-admin/control-policy-backups-2026-10-02.md)。
 
 恢复阶段新增 Manager.RestoredLocked：数据库事务成功后刷新默认翻转并清空开关、响应、黑名单和封禁缓存。IsBlocked/IsBannedIn 在同一锁内查库与缓存写回，避免恢复后的过期读者；Ban/Permit 查询与删除使用与存储一致的 int64 ID，群级未命中继续检查全局封禁，持久化失败不提前修改缓存。Ban 不再因群写入失败而意外扩大到全局封禁。隔离恢复、失败回滚、并发写入、符号位 ID 与全局封禁回归见 [备份恢复记录](../docs/local-admin/backup-restore-2026-10-02.md)。
+
+
+共享钱包（2026-10-23）：`internal/wallet` 基于AnimeAPI钱包包保留原接口、旧路径与表结构，新增事务转账及测试；源码来源与Apache-2.0许可证保存在包目录。现有7个钱包引用统一切换到此包，避免转账和其他增减余额使用不同的进程锁。其他AnimeAPI能力仍使用原依赖。

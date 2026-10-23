@@ -69,11 +69,11 @@ func init() {
 			msg = append(msg, message.Text("- 鱼竿数量请使用钓鱼背包查看"))
 			ctx.Send(msg)
 			// 等待用户下一步选择
-			recv, cancel := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(取消|\d+)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+			recv, cancel, expired0 := gameReply(ctx, `^(取消|\d+)$`, 120*time.Second)
 			defer cancel()
 			for {
 				select {
-				case <-time.After(time.Second * 120):
+				case <-expired0:
 					ctx.Send(
 						message.ReplyWithMessage(ctx.Event.MessageID,
 							message.Text("等待超时,取消装备"),
@@ -101,6 +101,7 @@ func init() {
 					break
 				}
 			}
+			cancel()
 		}
 		newEquipInfo := poles[index]
 		packEquip := articles[index]
@@ -205,11 +206,11 @@ func init() {
 			msg = append(msg, message.Text("————————\n输入对应序号进行修复,或回复“取消”取消"))
 			ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, msg...))
 			// 等待用户下一步选择
-			recv, cancel := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(取消|\d+)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+			recv, cancel, expired1 := gameReply(ctx, `^(取消|\d+)$`, 120*time.Second)
 			defer cancel()
 			for {
 				select {
-				case <-time.After(time.Second * 120):
+				case <-expired1:
 					ctx.Send(
 						message.ReplyWithMessage(ctx.Event.MessageID,
 							message.Text("等待超时,取消修复"),
@@ -237,6 +238,7 @@ func init() {
 					break
 				}
 			}
+			cancel()
 		}
 		newEquipInfo := poles[index]
 		number, err := dbdata.getNumberFor(uid, "竿")
@@ -397,11 +399,11 @@ func init() {
 			msg = append(msg, message.Text("- 输入“梭哈“，合成所有鱼竿"))
 			ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, msg...))
 			// 等待用户下一步选择
-			recv, cancel := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(梭哈|取消|\d+ \d+ \d+)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+			recv, cancel, expired2 := gameReply(ctx, `^(梭哈|取消|\d+ \d+ \d+)$`, 120*time.Second)
 			defer cancel()
 			for {
 				select {
-				case <-time.After(time.Second * 120):
+				case <-expired2:
 					ctx.Send(
 						message.ReplyWithMessage(ctx.Event.MessageID,
 							message.Text("等待超时,取消合成"),
@@ -504,6 +506,7 @@ func init() {
 					break
 				}
 			}
+			cancel()
 		}
 		upgradeNum := len(list)
 		favorLevel := 0

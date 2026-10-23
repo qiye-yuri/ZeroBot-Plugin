@@ -56,7 +56,7 @@ var (
 	engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "一群一天一夫一妻制群老婆",
-		Help: "- 娶群友\n- 群老婆列表\n- [允许|禁止]自由恋爱\n- [允许|禁止]牛头人\n- 设置CD为xx小时    →(默认12小时)\n- 重置花名册\n- 重置所有花名册(用于清除所有群数据及其设置)\n- 查好感度[对方Q号|@对方QQ]\n- 好感度列表\n- 好感度数据整理 (当好感度列表出现重复名字时使用)\n" +
+		Help: "- 娶群友\n- 群老婆列表\n- [允许|禁止]自由恋爱\n- [允许|禁止]牛头人\n- 设置CD为xx小时    →(默认12小时)\n- 重置花名册 / 重置本群花名册（主人，群内）\n- 重置[群号]花名册（主人，仅重置指定群）\n- 重置所有花名册(用于清除所有群数据及其设置)\n- 查好感度[对方Q号|@对方QQ]\n- 好感度列表\n- 好感度数据整理 (当好感度列表出现重复名字时使用)\n" +
 			"--------------------------------\n以下指令存在CD,不跨天刷新,前两个受指令开关\n--------------------------------\n" +
 			"- (娶|嫁)@对方QQ\n自由选择对象, 自由恋爱(好感度越高成功率越高,保底30%概率)\n" +
 			"- 当[对方Q号|@对方QQ]的小三\n我和你才是真爱, 为了你我愿意付出一切(好感度越高成功率越高,保底10%概率)\n" +
@@ -113,7 +113,7 @@ func init() {
 				ctx.SendChain(message.Text("今天你是单身贵族噢"))
 				return
 			case userInfo.User == uid: // 娶过别人
-				ctx.SendChain(
+				sendWithAvatarFallback(ctx,
 					message.At(uid),
 					message.Text("\n今天你在", userInfo.Updatetime, "娶了群友"),
 					message.Image("https://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(userInfo.Target, 10)+"&s=640").Add("cache", 0),
@@ -125,7 +125,7 @@ func init() {
 				)
 				return
 			case userInfo.Target == uid: // 嫁给别人
-				ctx.SendChain(
+				sendWithAvatarFallback(ctx,
 					message.At(uid),
 					message.Text("\n今天你在", userInfo.Updatetime, "被群友"),
 					message.Image("https://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(userInfo.User, 10)+"&s=640").Add("cache", 0),
@@ -154,7 +154,7 @@ func init() {
 				qqgrouplist = append(qqgrouplist, usr)
 			}
 			// 没有人（只剩自己）的时候
-			if len(qqgrouplist) == 1 {
+			if len(qqgrouplist) <= 1 {
 				ctx.SendChain(message.Text("~群里没有ta人是单身了哦 明天再试试叭"))
 				return
 			}
@@ -169,6 +169,7 @@ func init() {
 						return
 					}
 					ctx.SendChain(message.Text("今日获得成就：单身贵族"))
+					return
 				default:
 					ctx.SendChain(message.Text("呜...没娶到，你可以再尝试一次"))
 					return
@@ -185,7 +186,7 @@ func init() {
 				ctx.SendChain(message.Text("[ERROR]:", err))
 			}
 			// 请大家吃席
-			ctx.SendChain(
+			sendWithAvatarFallback(ctx,
 				message.At(uid),
 				message.Text("今天你的群老婆是"),
 				message.Image("https://q4.qlogo.cn/g?b=qq&nk="+strconv.FormatInt(fiancee, 10)+"&s=640").Add("cache", 0),
@@ -258,7 +259,7 @@ func init() {
 			}
 			ctx.SendChain(message.ImageBytes(data))
 		})
-	engine.OnRegex(`^重置(所有|本群|/d+)?花名册$`, zero.SuperUserPermission, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
+	engine.OnRegex(`^重置(所有|本群|\d+)?花名册$`, zero.SuperUserPermission, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
 			var err error
 			switch ctx.State["regex_matched"].([]string)[1] {
@@ -272,8 +273,8 @@ func init() {
 				err = 民政局.清理花名册(ctx.Event.GroupID)
 			default:
 				cmd := ctx.State["regex_matched"].([]string)[1]
-				gid, _ := strconv.ParseInt(cmd, 10, 64) // 判断是否为群号
-				if gid == 0 {
+				gid, parseErr := strconv.ParseInt(cmd, 10, 64)
+				if parseErr != nil || gid <= 0 {
 					ctx.SendChain(message.Text("请输入正确的群号"))
 					return
 				}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FloatTech/AnimeAPI/wallet"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/wallet"
 	"github.com/FloatTech/floatbox/file"
 	"github.com/FloatTech/floatbox/math"
 	"github.com/FloatTech/gg"
@@ -114,11 +114,11 @@ func init() {
 			ctx.Send(msg)
 			// 等待用户下一步选择
 			sell := false
-			recv, cancel := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(取消|\d+)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+			recv, cancel, expired0 := gameReply(ctx, `^(取消|\d+)$`, 120*time.Second)
 			defer cancel()
 			for {
 				select {
-				case <-time.After(time.Second * 120):
+				case <-expired0:
 					ctx.Send(
 						message.ReplyWithMessage(ctx.Event.MessageID,
 							message.Text("等待超时,取消出售"),
@@ -146,6 +146,7 @@ func init() {
 					break
 				}
 			}
+			cancel()
 		}
 
 		thing = articles[index]
@@ -168,12 +169,12 @@ func init() {
 		}
 		ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("是否接受商店将以", pice*number*8/10, "收购", number, "个", thingName, "?\n回答\"是\"或\"否\"")))
 		// 等待用户下一步选择
-		recv, cancel1 := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(是|否)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+		recv, cancel1, expired1 := gameReply(ctx, `^(是|否)$`, 60*time.Second)
 		defer cancel1()
 		buy := false
 		for {
 			select {
-			case <-time.After(time.Second * 60):
+			case <-expired1:
 				ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("等待超时,取消出售")))
 				return
 			case e := <-recv:
@@ -188,6 +189,7 @@ func init() {
 				break
 			}
 		}
+		cancel1()
 
 		records, err := dbdata.getUserThingInfo(uid, "唱片")
 		if err != nil {
@@ -203,13 +205,13 @@ func init() {
 			if numberOfRecord > 0 {
 				ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("是否使用唱片让价格翻倍?\n回答\"是\"或\"否\"")))
 				// 等待用户下一步选择
-				recv, cancel2 := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(是|否)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+				recv, cancel2, expired2 := gameReply(ctx, `^(是|否)$`, 60*time.Second)
 				defer cancel2()
 				use := false
 				checkTime := false
 				for {
 					select {
-					case <-time.After(time.Second * 60):
+					case <-expired2:
 						checkTime = true
 					case e := <-recv:
 						nextcmd := e.Event.Message.String()
@@ -222,6 +224,7 @@ func init() {
 						break
 					}
 				}
+				cancel2()
 				if use {
 					pice *= 2
 					if thingName == "唱片" {
@@ -346,12 +349,12 @@ func init() {
 
 		ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("是否接受回收站将以", pice, "收购全部垃圾", "?\n回答\"是\"或\"否\"")))
 		// 等待用户下一步选择
-		recv, cancel1 := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(是|否)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+		recv, cancel1, expired3 := gameReply(ctx, `^(是|否)$`, 60*time.Second)
 		defer cancel1()
 		buy := false
 		for {
 			select {
-			case <-time.After(time.Second * 60):
+			case <-expired3:
 				ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("等待超时,取消出售垃圾")))
 				return
 			case e := <-recv:
@@ -366,6 +369,7 @@ func init() {
 				break
 			}
 		}
+		cancel1()
 
 		msg := ""
 		curse, err := dbdata.getNumberFor(uid, "宝藏诅咒")
@@ -497,11 +501,11 @@ func init() {
 			ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, msg...))
 			// 等待用户下一步选择
 			sell := false
-			recv, cancel := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(取消|\d+)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+			recv, cancel, expired4 := gameReply(ctx, `^(取消|\d+)$`, 120*time.Second)
 			defer cancel()
 			for {
 				select {
-				case <-time.After(time.Second * 120):
+				case <-expired4:
 					ctx.Send(
 						message.ReplyWithMessage(ctx.Event.MessageID,
 							message.Text("等待超时,取消购买"),
@@ -529,6 +533,7 @@ func init() {
 					break
 				}
 			}
+			cancel()
 		}
 
 		thing := thingInfos[index]
@@ -540,18 +545,13 @@ func init() {
 
 		msg := ""
 		times := math.Min(3, number)
-		coupon, err := dbdata.useCouponAt(uid, times)
+		coupon, err := dbdata.useCouponAt(uid, times, false)
 		if err != nil {
 			logrus.Warnln(err)
 		}
 		if coupon != -1 {
-			msg += "\n(半价福利还有" + strconv.Itoa(3-coupon) + "次)"
+			msg += "\n(本次使用" + strconv.Itoa(coupon) + "次半价福利，成交后扣除)"
 			price = pice[index]*(number-coupon) + (pice[index]/2)*coupon
-		} else {
-			err = dbdata.updateBuyTimeFor(uid, 1)
-			if err != nil {
-				logrus.Warnln(err)
-			}
 		}
 		curse, err := dbdata.getNumberFor(uid, "宝藏诅咒")
 		if err != nil {
@@ -571,12 +571,12 @@ func init() {
 
 		ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("你确定花费", price, "购买", number, "个", thingName, "?", msg, "\n回答\"是\"或\"否\"")))
 		// 等待用户下一步选择
-		recv, cancel1 := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(是|否)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+		recv, cancel1, expired5 := gameReply(ctx, `^(是|否)$`, 60*time.Second)
 		defer cancel1()
 		buy := false
 		for {
 			select {
-			case <-time.After(time.Second * 60):
+			case <-expired5:
 				ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("等待超时,取消购买")))
 				return
 			case e := <-recv:
@@ -591,6 +591,7 @@ func init() {
 				break
 			}
 		}
+		cancel1()
 
 		ok, err := dbdata.checkStoreFor(thing, number)
 		if err != nil {
@@ -643,6 +644,16 @@ func init() {
 		err = dbdata.updateUserThingInfo(uid, newCommodity)
 		if err != nil {
 			ctx.SendChain(message.Text("[ERROR at store.go.14]:", err))
+			return
+		}
+		// Quoting and cancellation must not consume purchase benefits.
+		if coupon != -1 {
+			_, err = dbdata.useCouponAt(uid, times, true)
+		} else {
+			err = dbdata.updateBuyTimeFor(uid, 1)
+		}
+		if err != nil {
+			ctx.SendChain(message.Text("购买已完成，但优惠记录保存失败: ", err))
 			return
 		}
 		if strings.Contains(thingName, "竿") {

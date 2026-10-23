@@ -24,7 +24,7 @@ function fixture() {
     const bytes=Buffer.from('synthetic-program-'+prefix);
     write('.local/bin/zerobot-'+prefix+'-tested.exe',bytes,start+offset+10000);
     write('.local/bin/zerobot.exe',bytes,start+offset+10000);
-    write(base+'-go-tests.txt',['internal/localadmin','internal/basiccommands','plugin/llm','plugin/wordcount'].map(name=>'ok github.com/FloatTech/ZeroBot-Plugin/'+name+' 1.0s').join('\n'));
+    write(base+'-go-tests.txt',['internal/localadmin','internal/basiccommands','internal/aicommands','plugin/wordcount'].map(name=>'ok github.com/FloatTech/ZeroBot-Plugin/'+name+' 1.0s').join('\n'));
     write(base+'-vet.txt','');
     write(base+'-build.txt','all modules verified\nBuild ready: zerobot-'+prefix+'-tested.exe\n');
     write(base+'-smoke.txt','ARTIFACTS=/fixture/.local/smoke-admin/run-'+(offset+1)+'\n');

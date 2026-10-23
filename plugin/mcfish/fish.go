@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FloatTech/AnimeAPI/wallet"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/wallet"
 	"github.com/FloatTech/zbputils/ctxext"
 	"github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -51,14 +51,18 @@ func init() {
 				ctx.SendChain(message.At(uid), message.Text("请装备鱼竿后钓鱼", err))
 				return
 			}
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("你尚未装备鱼竿,是否花费100购买鱼竿?\n回答\"是\"或\"否\""))
-			// 等待用户下一步选择
-			recv, cancel := zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(是|否)$`), zero.CheckUser(ctx.Event.UserID)).Repeat()
+			// Consume the confirmation before ordinary chat can answer on the plugin's behalf.
+			confirmation := ctx.FutureEvent("message", zero.RegexRule(`^(是|否)$`), ctx.CheckSession())
+			confirmation.Block = true
+			recv, cancel := confirmation.Repeat()
 			defer cancel()
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("你尚未装备鱼竿,是否花费100购买鱼竿?\n回答\"是\"或\"否\""))
+			timer := time.NewTimer(120 * time.Second)
+			defer timer.Stop()
 			buy := false
 			for {
 				select {
-				case <-time.After(time.Second * 120):
+				case <-timer.C:
 					ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.Text("等待超时,取消购买")))
 					return
 				case e := <-recv:

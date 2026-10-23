@@ -100,3 +100,25 @@ FFmpeg、TiMidity 尚未在当前命令搜索路径中发现，使用视频解�
 2. 确定保留插件并补齐其资源；对其他外部接口逐项验证。
 3. 旧 WebUI 的 `model/webui.go` 将密码作为字符串保存并拼接查询；路由中日志等接口未挂认证中间件，CORS 反射请求来源。当前仅作源码参考，不直接启用；复用结论需结合现有控制层重新设计认证及接口边界。
 4. 完成基础私聊收发检查后，再逐项进行权限、保留插件和后台功能验收。
+
+## 2026-10 TLS 安全工具链
+
+项目最低 Go 版本已提高到 1.26.10，包含受影响 CA 中间证书的拦截修复。Windows 构建脚本优先使用项目内 `.local/tools/go1.26.10/go/bin/go.exe`，并为本次构建设置 `GOTOOLCHAIN=go1.26.10+auto`，结束后恢复环境变量。项目内工具链安装自 Go 官方 ZIP 并核对官方 SHA256；不会替换系统其他项目使用的 Go。
+
+执行 `./scripts/build-windows.ps1 -RunTests -OutputName zerobot-tls.exe` 构建候选程序。基线不再包含已删除的 chess 包，加入 B 站包及 TLS 验证测试。升级工具链后必须重新编译和重启 bot；仅安装 Go 不会更新已有程序。日常服务按 operations.md 的现有脚本管理。
+
+整机冒烟需从项目真实目录运行（本机为 D 盘路径，见 windows-paths.md）；C 盘父目录联接会被备份模块的安全目录检查拒绝。
+
+## 整机脚本的插件依赖（2026-10-21）
+
+`smoke-local-admin.go` 和 `test-admin-system.go` 的权限、消息路由、备份恢复及性能负载统一使用保留的 `choose` 插件，发送单选命令 `选择验收`，严格核对完整固定回复；不再依赖已删除的 `chrev`。响应/沉默、全局/群级开关、禁止/允许、封禁/解封和恢复后的行为断言全部保留。AI API 的 `aichatcfg`、`llm` 是统一 AI 功能保留的内部配置标识，不能按删除插件处理。
+
+从项目真实目录（本机 D 盘目录，参见 windows-paths.md）使用项目内 Go 1.26.10 执行：
+
+```powershell
+& ./.local/tools/go1.26.10/go/bin/go.exe test scripts/smoke-local-admin.go scripts/smoke-local-admin_test.go -count=1 -timeout=120s
+& ./.local/tools/go1.26.10/go/bin/go.exe run scripts/smoke-local-admin.go -binary-name zerobot.exe
+& ./.local/tools/go1.26.10/go/bin/go.exe run scripts/test-admin-system.go -mode restart -binary-name zerobot.exe
+```
+
+以上完整功能验收在新建的隔离目录中运行真实程序，使用合成 OneBot、模拟模型和测试配置，不修改日常配置或向真实 QQ 发送消息。结果保存在 `.local/smoke-admin/run-*/result.json` 与 `.local/admin-system/restart-*/result.json`。`-mode performance` 是独立持续性能采样，功能验收通过不等于完成性能、浏览器渲染或真实 QQ 业务验收。

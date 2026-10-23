@@ -22,7 +22,7 @@ func init() {
 		Extra:            control.ExtraFromString("airecord"),
 		Brief:            "群应用：AI声聊",
 		Help: "- 设置AI语音群号1048452984(tips：机器人任意所在群聊即可)\n" +
-			"- 设置AI语音模型\n" +
+			"- 设置AI语音模型（两分钟内回复序号，可发送取消）\n" +
 			"- 查看AI语音配置\n" +
 			"- 发送AI语音xxx",
 		PrivateDataFolder: "airecord",
@@ -49,9 +49,6 @@ func init() {
 		})
 	en.OnFullMatch("设置AI语音模型", zero.OnlyPrivate, zero.SuperUserPermission).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
-			next := zero.NewFutureEvent("message", 999, false, ctx.CheckSession())
-			recv, cancel := next.Repeat()
-			defer cancel()
 			jsonData := ctx.GetAICharacters(0, 1)
 
 			models := availableVoiceModels(jsonData)
@@ -61,7 +58,7 @@ func init() {
 			}
 			var builder strings.Builder
 			// 写入开头文本
-			builder.WriteString("请选择语音模型序号：\n")
+			builder.WriteString("请选择语音模型序号（两分钟内回复，发送取消可退出）：\n")
 
 			// 遍历names数组，拼接序号和名称
 			for i, v := range models {
@@ -73,15 +70,25 @@ func init() {
 				builder.WriteString(v.name)
 				builder.WriteString("\n")
 			}
-			// 获取最终字符串
+			// Consume selections before ordinary AI chat handles the same message.
+			next := ctx.FutureEvent("message", ctx.CheckSession())
+			next.Block = true
+			recv, cancel := next.Repeat()
+			defer cancel()
+			timer := time.NewTimer(120 * time.Second)
+			defer timer.Stop()
 			ctx.SendChain(message.Text(builder.String()))
 			for {
 				select {
-				case <-time.After(time.Second * 120):
+				case <-timer.C:
 					ctx.SendChain(message.Text("设置AI语音模型指令过期"))
 					return
 				case ct := <-recv:
-					msg := ct.Event.Message.ExtractPlainText()
+					msg := strings.TrimSpace(ct.Event.Message.ExtractPlainText())
+					if msg == "取消" {
+						ctx.SendChain(message.Text("已取消设置AI语音模型，原配置保持不变"))
+						return
+					}
 					num, err := strconv.Atoi(msg)
 					if err != nil {
 						ctx.SendChain(message.Text("请输入数字!"))
@@ -97,9 +104,7 @@ func init() {
 						continue
 					}
 					ctx.SendChain(message.Text("已选择语音模型: ", models[num].name))
-					if models[num].preview != "" {
-						ctx.SendChain(message.Record(models[num].preview))
-					}
+					// Changing configuration must not send an unsolicited preview recording.
 					return
 				}
 			}

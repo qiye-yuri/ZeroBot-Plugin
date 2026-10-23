@@ -20,3 +20,6 @@ ZeroBot-Plugin*
 
 # Local conversation notes are not part of usage/development documentation.
 /docs/local-notes/
+
+# Nested merged plugins may create local runtime data during tests.
+/plugin/**/data/

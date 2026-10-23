@@ -3,6 +3,7 @@ package ctxext
 
 import (
 	"encoding/json"
+	"strings"
 
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
@@ -65,6 +66,21 @@ func SendToSelf(ctx *zero.Ctx) NoCtxSendMsg {
 	return func(msg any) int64 {
 		return ctx.SendPrivateMessage(ctx.Event.SelfID, msg)
 	}
+}
+
+// BotName returns a configured display name without a group-member API request.
+func BotName() string {
+	for _, name := range zero.BotConfig.NickName {
+		if name = strings.TrimSpace(name); name != "" {
+			return name
+		}
+	}
+	return "机器人"
+}
+
+// BotForwardNode attributes generated content to the bot, not the requester.
+func BotForwardNode(ctx *zero.Ctx, msgs ...message.Segment) message.Segment {
+	return message.CustomNode(BotName(), ctx.Event.SelfID, msgs)
 }
 
 // FakeSenderForwardNode ...

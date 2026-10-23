@@ -44,7 +44,7 @@ try {
     $env:CGO_ENABLED = '0'
     Invoke-AgentCheck 'sdk' (Join-Path $repoRoot 'third_party/go-onebot-agent') 'go' @('test', './...', '-count=1', '-timeout=180s')
     Invoke-AgentCheck 'chat' (Join-Path $repoRoot 'third_party/zbputils') 'go' @('test', './modelconfig', './chat', '-count=1', '-timeout=180s')
-    Invoke-AgentCheck 'backend' $repoRoot 'go' @('test', './internal/localadmin', './plugin/aichat', './plugin/llm', './internal/modelrequest', './internal/modelstats', './internal/replystats', './internal/adminqa', './internal/batteryhub', '-count=1', '-timeout=180s')
+    Invoke-AgentCheck 'backend' $repoRoot 'go' @('test', './internal/localadmin', './plugin/aichat', './internal/aicommands', './internal/modelrequest', './internal/modelstats', './internal/replystats', './internal/adminqa', './internal/batteryhub', '-count=1', '-timeout=180s')
     Invoke-AgentCheck 'smoke-tests' $repoRoot 'go' @('test', 'scripts/smoke-local-admin.go', 'scripts/smoke-local-admin_test.go', '-count=1', '-timeout=120s')
     Invoke-AgentCheck 'model-provider-tests' $repoRoot 'go' @('test', 'scripts/test-real-model.go', 'scripts/test-real-model_test.go', '-count=1', '-timeout=120s')
     foreach ($asset in @('agent-archive', 'agent-memory', 'agent-tasks', 'ai', 'ai-search', 'ai-probe')) {

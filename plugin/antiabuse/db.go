@@ -38,7 +38,7 @@ func newantidb(path string) (*antidb, error) {
 	_ = db.FindFor("__bantime__", nilbt, "", func() error {
 		t := time.Unix(nilbt.Time, 0)
 		ttl := time.Until(t.Add(bandur))
-		if ttl < time.Minute {
+		if ttl <= 0 {
 			_ = managers.DoUnblock(nilbt.ID)
 			return nil
 		}
@@ -46,7 +46,7 @@ func newantidb(path string) (*antidb, error) {
 		cache.Touch(nilbt.ID, -time.Since(t))
 		return nil
 	})
-	_ = db.Del("__bantime__", "WHERE time <= ?", strconv.FormatInt(time.Now().Add(time.Minute-bandur).Unix(), 10))
+	_ = db.Del("__bantime__", "WHERE time <= ?", strconv.FormatInt(time.Now().Add(-bandur).Unix(), 10))
 	return db, nil
 }
 
@@ -54,10 +54,14 @@ func (db *antidb) isInAntiList(gid int64, msg string) bool {
 	grp := strconv.FormatInt(gid, 36)
 	db.RLock()
 	defer db.RUnlock()
-	return db.CanFind(grp, "WHERE instr('"+msg+"', word)>0")
+	return db.CanFind(grp, "WHERE word <> '' AND instr(?, word)>0", msg)
 }
 
 func (db *antidb) insertWord(gid int64, word string) error {
+	word = strings.TrimSpace(word)
+	if word == "" {
+		return errors.New("违禁词不能为空")
+	}
 	grp := strconv.FormatInt(gid, 36)
 	db.Lock()
 	defer db.Unlock()
@@ -65,17 +69,24 @@ func (db *antidb) insertWord(gid int64, word string) error {
 	if err != nil {
 		return err
 	}
+	if db.CanFind(grp, "WHERE word = ?", word) {
+		return nil
+	}
 	return db.Insert(grp, &banWord{Word: word})
 }
 
 func (db *antidb) deleteWord(gid int64, word string) error {
+	word = strings.TrimSpace(word)
+	if word == "" {
+		return errors.New("违禁词不能为空")
+	}
 	grp := strconv.FormatInt(gid, 36)
 	db.Lock()
 	defer db.Unlock()
 	if n, _ := db.Count(grp); n == 0 {
 		return errors.New("本群还没有违禁词~")
 	}
-	return db.Del(grp, "WHERE word='"+word+"'")
+	return db.Del(grp, "WHERE word = ?", word)
 }
 
 func (db *antidb) listWords(gid int64) string {
@@ -86,7 +97,7 @@ func (db *antidb) listWords(gid int64) string {
 	i := 0
 	db.RLock()
 	defer db.RUnlock()
-	_ = db.FindFor(grp, word, "", func() error {
+	_ = db.FindFor(grp, word, "WHERE word <> ''", func() error {
 		if i > 0 {
 			sb.WriteString(" | ")
 		}
@@ -94,7 +105,7 @@ func (db *antidb) listWords(gid int64) string {
 		i++
 		return nil
 	})
-	if sb.Len() <= 4 {
+	if i == 0 {
 		return "[]"
 	}
 	sb.WriteByte(']')

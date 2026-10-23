@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	fcext "github.com/FloatTech/floatbox/ctxext"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
-	"github.com/FloatTech/zbputils/ctxext"
 	"github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
@@ -21,13 +21,13 @@ var (
 	re     = regexp.MustCompile(`^\[(.*?)\](.*)\..*$`)
 	engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
-		Help:             "- 抽老婆",
-		Brief:            "从老婆库抽每日老婆",
+		Help:             "- 抽老婆（群自定义库优先，否则内置库）\n- 抽内置老婆\n- 抽wife（仅群自定义库）\n- 添加wife[名字][图片]（群管理员，或主人开放权限）\n- 删除wife[名字]（群管理员）\n- [让|不让]所有人均可添加wife（主人）\n- 猜老婆（内置库）",
+		Brief:            "角色库：每日抽取、自定义角色与猜角色",
 		PublicDataFolder: "Wife",
-	}).ApplySingle(ctxext.DefaultSingle)
+	})
 	getJSON = fcext.DoOnceOnSuccess(
 		func(ctx *zero.Ctx) bool {
-			data, err := engine.GetLazyData("wife.json", true)
+			data, err := builtinData("wife.json")
 			if err != nil {
 				logrus.Warnf("[wife] 远程同步 wife.json 失败: %v，正在尝试读取本地缓存...", err)
 				data, err = engine.GetLazyData("wife.json", false)
@@ -39,6 +39,10 @@ var (
 			err = json.Unmarshal(data, &cards)
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: 老婆库格式解析失败: ", err))
+				return false
+			}
+			if len(cards) == 0 {
+				ctx.SendChain(message.Text("内置角色库为空，请配置素材后重试。"))
 				return false
 			}
 			logrus.Infof("[wife] 已成功加载 %d 个老婆", len(cards))
@@ -57,10 +61,16 @@ func card2name(card string) (string, string) {
 
 func init() {
 	_ = os.MkdirAll(engine.DataFolder()+"wives", 0755)
-	engine.OnFullMatch("抽老婆", getJSON).SetBlock(true).
+	engine.OnRegex(`^\s*(抽老婆|抽内置老婆)[。.!！\s]*$`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
+			if roleCommand(ctx.ExtractPlainText()) == "抽老婆" && ctx.Event.GroupID != 0 && drawNative(ctx, false) {
+				return
+			}
+			if !getJSON(ctx) {
+				return
+			}
 			card := cards[fcext.RandSenderPerDayN(ctx.Event.UserID, len(cards))]
-			data, err := engine.GetLazyData("wives/"+card, true)
+			data, err := builtinData("wives/" + card)
 			var msgText string
 			work, name := card2name(card)
 			if work != "" && name != "" {
@@ -86,4 +96,17 @@ func init() {
 				)
 			}
 		})
+}
+
+func roleCommand(text string) string {
+	return strings.TrimSpace(strings.TrimRight(strings.TrimSpace(text), "。.!！ \t\r\n"))
+}
+
+// Existing local assets work offline; missing assets still use the lazy source.
+func builtinData(name string) ([]byte, error) {
+	data, err := os.ReadFile(engine.DataFolder() + name)
+	if err == nil {
+		return data, nil
+	}
+	return engine.GetLazyData(name, true)
 }

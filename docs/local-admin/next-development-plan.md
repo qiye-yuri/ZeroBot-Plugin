@@ -1,4 +1,4 @@
-当前后续计划见[搜索交付后的 R7 开发计划](post-search-development-plan.md)：R5、R6、N3 已合并部署，R7 已合并 master 并部署，操作见[会话配置核对](conversation-check.md)。本文既有设计作为历史基线保留，排期与下一步以新计划为准。
+当前后续计划见[R7 完成后的开发方向与计划](post-r7-development-plan.md)：R7 已合并部署；R8、R9 为 P1，R10 为 P2，均未实现。本文保留既有阶段的设计与验收基线，后续排期和下一步以新计划为准。
 
 #2026-10-17：R5、R6、N3已合并到master，并于20:54 +08:00部署启动，原日常电量提醒保留。现有模型模式、人物、会话参数、密钥及219张控制表保持，未自动迁移命名模型或启用搜索。原QQ通过已有缓存恢复，后台重启后需用原密码登录；功能操作见[R5参数](r5-model-parameters.md)、[R6入口](r6-model-routes.md)及[N3搜索](web-search.md)，本轮结果见[合并部署验证](self-test.md#r5r6n3-合并安装与部署验证)。
 
@@ -34,7 +34,7 @@
 | --- | --- | --- |
 | `third_party/zbputils/chat/cfg.go` | AgentConfig、配置仓库、字段校验与修订 | N1/N2 的配置结构、读取与更新 |
 | `third_party/zbputils/chat/agent.go` | Agent 上下文和执行协作 | 任务准备时固定生效人物与模型选择 |
-| `plugin/aichat/`、`plugin/llm/` | AI 消息入口与模型调用 | 按入口解析配置，保持原触发/权限 |
+| `plugin/aichat/`、`internal/aicommands/` | AI 消息入口与模型调用 | 按入口解析配置，保持原触发/权限 |
 | `internal/localadmin/ai.go`、`ai_checks.go` | 后台配置 API 与检查 | 展示继承来源、保存和引用检查 |
 | `internal/localadmin/assets/ai.js` | AI 配置表单 | 复用草稿、撤销、保存与错误提示 |
 | `internal/modelrequest/`、`internal/modelstats/` | 请求封装和统计 | 复用请求链路，确有必要才增加模型标识 |

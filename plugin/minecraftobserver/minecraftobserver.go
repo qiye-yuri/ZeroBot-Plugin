@@ -3,7 +3,9 @@ package minecraftobserver
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"strings"
+	"sync"
 	"time"
 
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -16,6 +18,8 @@ import (
 const (
 	name = "minecraftobserver"
 )
+
+var scanLock sync.Mutex
 
 var (
 	// 注册插件
@@ -45,7 +49,7 @@ func init() {
 		addr := ctx.State["regex_matched"].([]string)[1]
 		resp, err := getMinecraftServerStatus(addr)
 		if err != nil {
-			ctx.Send(message.Text("服务器状态获取失败... 错误信息: ", err))
+			ctx.SendChain(message.Text("服务器状态获取失败... 错误信息: ", err))
 			return
 		}
 		status := resp.genServerSubscribeSchema(addr, 0)
@@ -66,22 +70,22 @@ func init() {
 		addr := ctx.State["regex_matched"].([]string)[1]
 		status, err := getMinecraftServerStatus(addr)
 		if err != nil {
-			ctx.Send(message.Text("服务器信息初始化失败，请检查服务器是否可用！\n错误信息: ", err))
+			ctx.SendChain(message.Text("服务器信息初始化失败，请检查服务器是否可用！\n错误信息: ", err))
 			return
 		}
 		targetID, targetType := warpTargetIDAndType(ctx.Event.GroupID, ctx.Event.UserID)
 		err = dbInstance.newSubscribe(addr, targetID, targetType)
 		if err != nil {
-			ctx.Send(message.Text("订阅添加失败... 错误信息: ", err))
+			ctx.SendChain(message.Text("订阅添加失败... 错误信息: ", err))
 			return
 		}
 		// 插入数据库（首条，需要更新状态）
 		err = dbInstance.updateServerStatus(status.genServerSubscribeSchema(addr, 0))
 		if err != nil {
-			ctx.Send(message.Text("服务器状态更新失败... 错误信息: ", err))
+			ctx.SendChain(message.Text("服务器状态更新失败... 错误信息: ", err))
 			return
 		}
-		if sid := ctx.Send(message.Text(fmt.Sprintf("服务器 %s 订阅添加成功", addr))); sid.ID() == 0 {
+		if sid := ctx.SendChain(message.Text(fmt.Sprintf("服务器 %s 订阅添加成功", addr))); sid.ID() == 0 {
 			// logrus.Errorln(logPrefix + "Send failed")
 			return
 		}
@@ -104,20 +108,20 @@ func init() {
 		targetID, targetType := warpTargetIDAndType(ctx.Event.GroupID, ctx.Event.UserID)
 		err := dbInstance.deleteSubscribe(addr, targetID, targetType)
 		if err != nil {
-			ctx.Send(message.Text("取消订阅失败...", fmt.Sprintf("错误信息: %v", err)))
+			ctx.SendChain(message.Text("取消订阅失败...", fmt.Sprintf("错误信息: %v", err)))
 			return
 		}
-		ctx.Send(message.Text("取消订阅成功"))
+		ctx.SendChain(message.Text("取消订阅成功"))
 	})
 	// 查看当前渠道的所有订阅
 	engine.OnRegex(`^[mM][cC]服务器订阅列表$`, getDB).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		subList, err := dbInstance.getSubscribesByTarget(warpTargetIDAndType(ctx.Event.GroupID, ctx.Event.UserID))
 		if err != nil {
-			ctx.Send(message.Text("获取订阅列表失败... 错误信息: ", err))
+			ctx.SendChain(message.Text("获取订阅列表失败... 错误信息: ", err))
 			return
 		}
 		if len(subList) == 0 {
-			ctx.Send(message.Text("当前没有订阅哦"))
+			ctx.SendChain(message.Text("当前没有订阅哦"))
 			return
 		}
 		stringBuilder := strings.Builder{}
@@ -125,7 +129,7 @@ func init() {
 		for _, v := range subList {
 			stringBuilder.WriteString(fmt.Sprintf("服务器地址: %s\n", v.ServerAddr))
 		}
-		if sid := ctx.Send(message.Text(stringBuilder.String())); sid.ID() == 0 {
+		if sid := ctx.SendChain(message.Text(stringBuilder.String())); sid.ID() == 0 {
 			// logrus.Errorln(logPrefix + "Send failed")
 			return
 		}
@@ -134,15 +138,15 @@ func init() {
 	engine.OnRegex(`^[mM][cC]服务器全局订阅列表$`, zero.OnlyPrivate, zero.SuperUserPermission, getDB).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		subList, err := dbInstance.getAllSubscribes()
 		if err != nil {
-			ctx.Send(message.Text("获取全局订阅列表失败... 错误信息: ", err))
+			ctx.SendChain(message.Text("获取全局订阅列表失败... 错误信息: ", err))
 			return
 		}
 		if len(subList) == 0 {
-			ctx.Send(message.Text("当前一个订阅都没有哦"))
+			ctx.SendChain(message.Text("当前一个订阅都没有哦"))
 			return
 		}
-		userID := ctx.Event.UserID
-		userName := ctx.CardOrNickName(userID)
+		userID := ctx.Event.SelfID
+		userName := zbpCtxExt.BotName()
 		msg := make(message.Message, 0)
 
 		// 按照群组or用户分组来定
@@ -181,11 +185,13 @@ func init() {
 	})
 	// 状态变更通知，全局触发，逐个服务器检查，检查到变更则逐个发送通知
 	engine.OnRegex(`^[mM][cC]服务器订阅拉取$`, getDB).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		scanLock.Lock()
+		defer scanLock.Unlock()
 		serverList, err := dbInstance.getAllSubscribes()
 		if err != nil {
 			su := zero.BotConfig.SuperUsers[0]
 			// 如果订阅列表获取失败，通知管理员
-			ctx.SendPrivateMessage(su, message.Text(logPrefix, "获取订阅列表失败..."))
+			ctx.SendPrivateMessage(su, message.Message{message.Text(logPrefix, "获取订阅列表失败...")})
 			return
 		}
 		// logrus.Debugln(logPrefix+"global get ", len(serverList), " subscribe(s)")
@@ -193,40 +199,24 @@ func init() {
 		for _, v := range serverList {
 			serverMap[v.ServerAddr] = append(serverMap[v.ServerAddr], v)
 		}
-		changedCount := 0
-		for subAddr, oneServerSubList := range serverMap {
-			// 查询当前存储的状态
-			storedStatus, sErr := dbInstance.getServerStatus(subAddr)
-			if sErr != nil {
-				// logrus.Errorln(logPrefix+fmt.Sprintf("getServerStatus ServerAddr(%s) error: ", subAddr), sErr)
+		for subAddr := range serverMap {
+			storedStatus, err := dbInstance.getServerStatus(subAddr)
+			if err != nil {
+				logrus.Warnln("[mc-ob] read status:", err)
 				continue
 			}
-			isChanged, changedNotifyMsg, sErr := singleServerScan(storedStatus)
-			if sErr != nil {
-				// logrus.Errorln(logPrefix+"singleServerScan error: ", sErr)
-				continue
-			}
-			if !isChanged {
-				continue
-			}
-			changedCount++
-			// 发送变化信息
-			for _, subInfo := range oneServerSubList {
-				time.Sleep(100 * time.Millisecond)
-				if subInfo.TargetType == targetTypeUser {
-					ctx.SendPrivateMessage(subInfo.TargetID, changedNotifyMsg)
-				} else if subInfo.TargetType == targetTypeGroup {
-					m, ok := control.Lookup(name)
-					if !ok {
-						continue
-					}
-					if !m.IsEnabledIn(subInfo.TargetID) {
-						continue
-					}
-					ctx.SendGroupMessage(subInfo.TargetID, changedNotifyMsg)
-				}
+			if _, _, err = singleServerScan(storedStatus); err != nil {
+				logrus.Warnln("[mc-ob] scan:", err)
 			}
 		}
+		err = dbInstance.deliverPending(ctx.CallAction, func(n pendingNotice) bool {
+			m, ok := control.Lookup(name)
+			return ok && (n.TargetType != targetTypeGroup || m.IsEnabledIn(n.TargetID))
+		})
+		if err != nil {
+			logrus.Warnln("[mc-ob] notification remains pending:", err)
+		}
+
 	})
 }
 
@@ -260,12 +250,6 @@ func singleServerScan(oldSubStatus *serverStatus) (changed bool, notifyMsg messa
 	if oldSubStatus.isServerStatusSpecChanged(newSubStatus) {
 		// logrus.Warnf(logPrefix+"server subscribe spec changed: (%+v) -> (%+v)", oldSubStatus, newSubStatus)
 		changed = true
-		// 更新数据库
-		err = dbInstance.updateServerStatus(newSubStatus)
-		if err != nil {
-			// logrus.Errorln(logPrefix+"updateServerSubscribeStatus error: ", err)
-			return
-		}
 		// 纯文本信息
 		notifyMsg = append(notifyMsg, message.Text(formatSubStatusChangeText(oldSubStatus, newSubStatus)))
 		// 如果有图标变更
@@ -294,6 +278,10 @@ func singleServerScan(oldSubStatus *serverStatus) (changed bool, notifyMsg messa
 			notifyMsg = append(notifyMsg, message.Image(iconBase64))
 		}
 		notifyMsg = append(notifyMsg, message.Text(textMsg))
+		err = dbInstance.queueStatusChange(newSubStatus, notifyMsg)
+		if err != nil {
+			return false, nil, err
+		}
 	}
 	// 逻辑到达这里，说明状态已经变更 or 无变更且服务器可达，重置不可达计数器
 	resetPingServerUnreachableCounter(oldSubStatus.ServerAddr)

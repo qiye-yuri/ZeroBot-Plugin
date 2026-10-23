@@ -112,7 +112,11 @@ func (s *Server) conversationCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	plugins := []map[string]any{}
-	for _, service := range []string{"aichat", "llm"} {
+	services := []string{"aichat", "llm"}
+	if s.cfg.AI.unified {
+		services = []string{"aichat"}
+	}
+	for _, service := range services {
 		plugin := map[string]any{"service": service, "registered": false}
 		if control := s.cfg.PluginControl.controls[service]; control != nil {
 			state, err := control.SwitchState(id)

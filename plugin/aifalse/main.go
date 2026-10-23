@@ -2,7 +2,6 @@
 package aifalse
 
 import (
-	"bytes"
 	"errors"
 	"image"
 	"image/color"
@@ -11,13 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
-	"unsafe"
 
-	"github.com/FloatTech/AnimeAPI/bilibili"
 	"github.com/FloatTech/floatbox/file"
-	"github.com/FloatTech/floatbox/web"
 	"github.com/FloatTech/gg"
 	"github.com/FloatTech/gg/factory"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -39,15 +34,9 @@ import (
 	"github.com/wdvxdr1123/ZeroBot/message"
 )
 
-const (
-	backgroundURL = "https://pic.re/image"
-	referer       = "https://weibo.com/"
-)
-
 var (
+	renderMu   sync.Mutex
 	boottime   = time.Now()
-	bgdata     *[]byte
-	bgcount    uintptr
 	isday      bool
 	lightcolor = [3][4]uint8{{255, 70, 0, 255}, {255, 165, 0, 255}, {145, 240, 145, 255}}
 	darkcolor  = [3][4]uint8{{215, 50, 0, 255}, {205, 135, 0, 255}, {115, 200, 115, 255}}
@@ -73,6 +62,8 @@ func init() { // 插件主体
 	}
 	engine.OnFullMatchGroup([]string{"检查身体", "自检", "启动自检", "系统状态"}, zero.AdminPermission).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
+			renderMu.Lock()
+			defer renderMu.Unlock()
 			now := time.Now().Hour()
 			isday = now > 7 && now < 19
 
@@ -119,6 +110,10 @@ func init() { // 插件主体
 				return
 			}
 			if ctx.State["regex_matched"].([]string)[2] == "分钟" {
+				if m > 65535/60 {
+					ctx.SendChain(message.Text("ERROR: interval too big"))
+					return
+				}
 				m *= 60
 			}
 			if m >= 65536 || m <= 0 {
@@ -134,12 +129,12 @@ func init() { // 插件主体
 				ctx.SendChain(message.Text("ERROR: burst too big"))
 				return
 			}
-			ctxext.SetDefaultLimiterManagerParam(time.Duration(m)*time.Second, int(n))
 			err = c.SetData(0, (m&0xffff)|((n<<16)&0xffff0000))
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
+			ctxext.SetDefaultLimiterManagerParam(time.Duration(m)*time.Second, int(n))
 			ctx.SendChain(message.Text("设置默认限速为每", m, "秒触发", n, "次"))
 		})
 }
@@ -162,36 +157,12 @@ func drawstatus(m *ctrl.Control[*zero.Ctx], uid int64, botname string, botrunsta
 		return
 	}
 
-	dldata := (*[]byte)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&bgdata))))
-	if dldata == (*[]byte)(nil) || uintptr(time.Since(boottime).Hours()/24) >= atomic.LoadUintptr(&bgcount) {
-		url, err1 := bilibili.GetRealURL(backgroundURL)
-		if err1 != nil {
-			return nil, err1
-		}
-		data, err1 := web.RequestDataWith(web.NewDefaultClient(), url, "", referer, "", nil)
-		if err1 != nil {
-			return nil, err1
-		}
-		atomic.AddUintptr(&bgcount, 1)
-		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&bgdata)), unsafe.Pointer(&data))
-		dldata = &data
-	}
-	data := *dldata
-
-	back, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return
-	}
-
-	data, err = web.GetData("https://q4.qlogo.cn/g?b=qq&nk=" + strconv.FormatInt(uid, 10) + "&s=640")
-	if err != nil {
-		return
-	}
-	avatar, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return
-	}
-	avatarf := factory.Size(avatar, 200, 200)
+	// Status diagnostics must work when remote backgrounds or avatars are unavailable.
+	back := image.NewUniform(color.NRGBA{R: 46, G: 62, B: 82, A: 255})
+	avatar := gg.NewContext(200, 200)
+	avatar.SetRGB255(74, 144, 190)
+	avatar.Clear()
+	avatarf := factory.Size(avatar.Image(), 200, 200)
 
 	fontbyte, err := file.GetLazyData(text.GlowSansFontFile, control.Md5File, true)
 	if err != nil {
@@ -200,15 +171,9 @@ func drawstatus(m *ctrl.Control[*zero.Ctx], uid int64, botname string, botrunsta
 
 	canvas := gg.NewContext(1280, 70+250+40+380+diskcardh+40+moreinfocardh+40+70)
 
-	bh, bw, ch, cw := float64(back.Bounds().Dy()), float64(back.Bounds().Dx()), float64(canvas.H()), float64(canvas.W())
-
-	if bh/bw < ch/cw {
-		back = factory.Size(back, int(bw*ch/bh), int(bh*ch/bh)).Image()
-		canvas.DrawImageAnchored(back, canvas.W()/2, canvas.H()/2, 0.5, 0.5)
-	} else {
-		back = factory.Size(back, int(bw*cw/bw), int(bh*cw/bw)).Image()
-		canvas.DrawImage(back, 0, 0)
-	}
+	ch, cw := float64(canvas.H()), float64(canvas.W())
+	canvas.SetColor(back.C)
+	canvas.Clear()
 	var blurback image.Image
 	bwg := &sync.WaitGroup{}
 	bwg.Add(1)
@@ -216,6 +181,7 @@ func drawstatus(m *ctrl.Control[*zero.Ctx], uid int64, botname string, botrunsta
 		defer bwg.Done()
 		blurback = imaging.Blur(canvas.Image(), 8)
 	}()
+	bwg.Wait()
 
 	if !isday {
 		canvas.SetRGBA255(0, 0, 0, 50)
@@ -250,7 +216,7 @@ func drawstatus(m *ctrl.Control[*zero.Ctx], uid int64, botname string, botrunsta
 
 		titlecard.DrawImage(avatarf.Circle(0).Image(), (titlecardh-avatarf.H())/2, (titlecardh-avatarf.H())/2)
 
-		err = titlecard.ParseFontFace(fontbyte, 72)
+		err := titlecard.ParseFontFace(fontbyte, 72)
 		if err != nil {
 			return
 		}
@@ -342,7 +308,7 @@ func drawstatus(m *ctrl.Control[*zero.Ctx], uid int64, botname string, botrunsta
 			basiccard.DrawCircle((float64(basiccard.W())-200*float64(bslen))/float64(bslen+1)+200/2+offset, 20+200/2, 80)
 			basiccard.Fill()
 
-			err = basiccard.ParseFontFace(fontbyte, 42)
+			err := basiccard.ParseFontFace(fontbyte, 42)
 			if err != nil {
 				return
 			}
@@ -384,7 +350,7 @@ func drawstatus(m *ctrl.Control[*zero.Ctx], uid int64, botname string, botrunsta
 		diskcard.ResetClip()
 		diskcard.Stroke()
 
-		err = diskcard.ParseFontFace(fontbyte, 32)
+		err := diskcard.ParseFontFace(fontbyte, 32)
 		if err != nil {
 			return
 		}
@@ -484,7 +450,7 @@ func drawstatus(m *ctrl.Control[*zero.Ctx], uid int64, botname string, botrunsta
 		moreinfocard.ResetClip()
 		moreinfocard.Stroke()
 
-		err = moreinfocard.ParseFontFace(fontbyte, 32)
+		err := moreinfocard.ParseFontFace(fontbyte, 32)
 		if err != nil {
 			return
 		}
@@ -583,7 +549,7 @@ type status struct {
 }
 
 func basicstate() (stateinfo [3]*status, err error) {
-	percent, err := cpu.Percent(time.Second, true)
+	percent, err := cpu.Percent(time.Second, false)
 	if err != nil {
 		return
 	}

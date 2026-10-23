@@ -74,7 +74,6 @@ func init() {
 		msg := strings.ReplaceAll(ctx.MessageString(), "\n", "")
 		msg = strings.ReplaceAll(msg, "\r", "")
 		msg = strings.ReplaceAll(msg, "\t", "")
-		msg = strings.ReplaceAll(msg, ";", "")
 		if db.isInAntiList(gid, msg) {
 			if err := ctx.State["manager"].(*ctrl.Control[*zero.Ctx]).Manager.DoBlock(uid); err == nil {
 				t := time.Now().Unix()

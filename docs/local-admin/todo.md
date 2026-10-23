@@ -1,4 +1,4 @@
-当前后续计划见[搜索交付后的 R7 开发计划](post-search-development-plan.md)：R5、R6、N3 已合并部署，R7 已合并 master 并部署，操作见[会话配置核对](conversation-check.md)。本文既有设计作为历史基线保留，排期与下一步以新计划为准。
+当前后续计划见[R7 完成后的开发方向与计划](post-r7-development-plan.md)：R7 已合并部署；R8、R9 为 P1，R10 为 P2，均未实现。本文保留既有阶段的设计与验收基线，后续排期和下一步以新计划为准。
 
 #2026-10-17：R5、R6、N3已合并到master，并于20:54 +08:00部署启动，原日常电量提醒保留。现有模型模式、人物、会话参数、密钥及219张控制表保持，未自动迁移命名模型或启用搜索。原QQ通过已有缓存恢复，后台重启后需用原密码登录；功能操作见[R5参数](r5-model-parameters.md)、[R6入口](r6-model-routes.md)及[N3搜索](web-search.md)，本轮结果见[合并部署验证](self-test.md#r5r6n3-合并安装与部署验证)。
 
@@ -8,7 +8,7 @@ R1～R4已全部开发、测试、合并master并部署日常服务，原配置�
 
 ## 后续开发计划
 
-详细设计、工作包、排期、测试与上传条件见[后续开发计划](next-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)、N2 [命名模型配置](named-models.md)已实现、依次合并 master 并部署日常服务，备份与部署后测试通过，见[验证](self-test.md#n1n2-合并与日常部署验证)；N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。验证与上传结果见[进度](progress.md)。遵循复用现有实现、必要边界校验和有限验收范围，不增加无实际需求的防御层。上阶段结项及已取消验收不变。
+当前待开发为 R8 会话搜索设置快捷入口、R9 已保存搜索密钥单次诊断和 R10 配置摘要可读性。详细设计、工作包、排期、测试与上传条件见[R7 后续计划](post-r7-development-plan.md)。N1 [会话人物覆盖](conversation-persona.md)、N2 [命名模型配置](named-models.md)已实现、依次合并 master 并部署日常服务，备份与部署后测试通过，见[验证](self-test.md#n1n2-合并与日常部署验证)；N3已按新要求恢复为 DeepSeek Search，见[联网搜索说明](web-search.md)和[实施计划](deferred-web-search-design.md)。验证与上传结果见[进度](progress.md)。遵循复用现有实现、必要边界校验和有限验收范围，不增加无实际需求的防御层。上阶段结项及已取消验收不变。
 
 ## AI 与 Agent 本阶段结项
 

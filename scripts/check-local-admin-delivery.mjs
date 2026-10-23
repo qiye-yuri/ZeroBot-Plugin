@@ -28,7 +28,7 @@ for(const [name,stats] of [['界面回归',ui],['新增界面回归',focused]])c
 const layout=json(uiBase+'-layout-result.json');
 check('离线布局回归',layout?.passed===true&&layout.offline===true&&layout.networkRequestsAllowed===false&&Array.isArray(layout.measurements)&&layout.measurements.length>0);
 const go=read(base+'-go-tests.txt');
-for(const name of ['internal/localadmin','internal/basiccommands','plugin/llm','plugin/wordcount'])check('Go '+name,!!go&&new RegExp('^ok\\s+github\\.com/FloatTech/ZeroBot-Plugin/'+name+'\\s','m').test(go));
+for(const name of ['internal/localadmin','internal/basiccommands','internal/aicommands','plugin/wordcount'])check('Go '+name,!!go&&new RegExp('^ok\\s+github\\.com/FloatTech/ZeroBot-Plugin/'+name+'\\s','m').test(go));
 check('Go 无失败记录',!!go&&!/^FAIL\b/m.test(go));
 const vet=read(base+'-vet.txt');check('vet 无诊断',vet!==null&&vet.trim()==='');
 const build=read(base+'-build.txt');
