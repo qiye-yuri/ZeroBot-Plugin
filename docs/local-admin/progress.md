@@ -860,3 +860,6 @@ R8 上传完成：见[PR #15](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/1
 
 
 2026-10-24 R9：新增[已保存搜索密钥诊断](search-probe.md)，共用现有搜索请求解析，固定公开查询、全局保存版本、10秒/256 KiB、禁重定向，与模型测试共享单次在途名额。页面保留草稿，标记历史结果，离开与退出清理；无新存储或自动重试。测试范围见[自测](self-test.md)，尚未合并部署，下一项为R10。
+
+
+R9 上传完成：[PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)，功能提交 a24e885d，统一18步和178项页面测试通过；尚未合并部署，下一开发项为 R10。
