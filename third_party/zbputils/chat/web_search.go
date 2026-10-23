@@ -188,36 +188,57 @@ func (s *WebSearch) record() error {
 	return s.task.captureWebSearch(s.usage)
 }
 
+// WebSearchDiagnostic contains only safe transport and parse metadata.
+type WebSearchDiagnostic struct {
+	Category   string
+	HTTPStatus int
+}
+
 func (s *WebSearch) search(query string) WebSearchPage {
-	failure := func(message string) WebSearchPage {
-		return WebSearchPage{Status: "error", Results: []WebSearchResult{}, Message: message}
+	page, _ := SearchWeb(context.Background(), s.client, s.key, query)
+	return page
+}
+
+// SearchWeb performs one fixed-endpoint request without task, quota or reply effects.
+// Callers supply the query and key; the deadline and source limits match Agent search.
+func SearchWeb(ctx context.Context, client *http.Client, key ModelKey, query string) (WebSearchPage, WebSearchDiagnostic) {
+	diagnostic := WebSearchDiagnostic{Category: "invalid_response"}
+	failure := func(category, message string) (WebSearchPage, WebSearchDiagnostic) {
+		diagnostic.Category = category
+		return WebSearchPage{Status: "error", Results: []WebSearchResult{}, Message: message}, diagnostic
 	}
 	body, _ := json.Marshal(map[string]any{"query": query, "count": 5, "need_content": false})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, deepSeekSearchEndpoint, bytes.NewReader(body))
 	if err != nil {
-		return failure("搜索请求创建失败")
+		return failure("invalid_response", "搜索请求创建失败")
 	}
-	req.Header.Set("Authorization", "Bearer "+string(s.key))
+	req.Header.Set("Authorization", "Bearer "+string(key))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := s.client.Do(req)
+	copyClient := *client
+	copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := copyClient.Do(req)
 	if err != nil {
-		return failure("搜索连接失败或超时，本轮未取得资料")
+		return failure("network_error", "搜索连接失败或超时，本轮未取得资料")
 	}
 	defer resp.Body.Close()
+	diagnostic.HTTPStatus = resp.StatusCode
 	if resp.StatusCode != http.StatusOK {
-		return failure("搜索服务拒绝请求或暂不可用，请检查凭据、余额或额度")
+		return failure("http_error", "搜索服务拒绝请求或暂不可用，请检查凭据、余额或额度")
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 256*1024+1))
-	if err != nil || len(raw) > 256*1024 {
-		return failure("搜索响应读取失败或超过256 KiB")
+	if err != nil {
+		return failure("network_error", "搜索响应读取失败或超过256 KiB")
+	}
+	if len(raw) > 256*1024 {
+		return failure("response_limit", "搜索响应读取失败或超过256 KiB")
 	}
 	var response struct {
 		Results *[]struct{ Title, URL, Snippet, Summary string } `json:"results"`
 	}
 	if json.Unmarshal(raw, &response) != nil || response.Results == nil {
-		return failure("搜索响应格式无效，不能判断为没有结果")
+		return failure("invalid_response", "搜索响应格式无效，不能判断为没有结果")
 	}
 	page := WebSearchPage{Status: "ok", Results: []WebSearchResult{}}
 	for _, item := range *response.Results {
@@ -236,12 +257,16 @@ func (s *WebSearch) search(query string) WebSearchPage {
 	}
 	if len(page.Results) == 0 {
 		if len(*response.Results) > 0 {
-			return failure("搜索结果没有可用的来源链接")
+			return failure("invalid_response", "搜索结果没有可用的来源链接")
 		}
 		page.Status = "empty"
 		page.Message = "本次没有找到匹配结果，不能据此断言资料不存在"
 	}
-	return page
+	diagnostic.Category = "success"
+	if page.Status == "empty" {
+		diagnostic.Category = "empty"
+	}
+	return page, diagnostic
 }
 
 func clipSearchText(text string, limit int) string {
