@@ -56,7 +56,7 @@ function aiChangedFieldNames(name,entry) {
   } else if (name==="persona") {
     take(["ai-field-persona-mode"],"人物继承模式"); take(["ai-field-persona-character"],"人物设定"); take(["ai-field-persona-sex"],"性别");
   } else if (name==="aichatcfg" || name==="llm") {
-    for (const [field,label] of [["temperature","温度百分比"],...(name==="aichatcfg" ? [["rate","非 @ 消息触发概率"],["agent","Agent 模式"],["voice","QQ AI 语音输出"],["at","响应 @ 消息"]] : [])]) take(["ai-field-"+field+"-"+name],label);
+    for (const [field,label] of [["temperature","温度百分比"],...(name==="aichatcfg" ? [["rate","非 @ 消息触发概率"],["agent","Agent 模式"],["voice","QQ AI 语音输出"],["at","响应 @ 消息"],["proactive","群主动接话"],["proactiveMinutes","主动接话间隔"],["followupMinutes","相关话题续聊窗口"]] : [])]) take(["ai-field-"+field+"-"+name],label);
   }
   // Only fixed labels reach the DOM: never display input IDs or old/new values.
   if (changed.size) labels.push("其他表单字段");
@@ -181,12 +181,18 @@ function renderAIGroups(groups, onlyService="") {
     heading.textContent=(value.service==="llm" ? (value.privateId ? "GPT 温度" : "GPT / 群总结温度") : "聊天会话参数")+" · "+(value.privateId ? "私聊 QQ "+value.privateId : "群 "+value.groupId); fields.append(heading);
     const suffix=value.service;
     const temp=aiInput(fields,"temperature-"+suffix,"温度百分比（0 为默认 70）","number",value.temperature,0,100);
-    let rate,agent,voice,at;
+    let rate,agent,voice,at,proactive,proactiveMinutes,followupMinutes;
     if (value.service==="aichatcfg") {
       rate=aiInput(fields,"rate-"+suffix,"非 @ 消息触发概率（百分比）","number",value.rate,0,100);
       agent=aiInput(fields,"agent-"+suffix,"使用 Agent 模式（可调用机器人操作）","checkbox",value.useAgent);
       voice=aiInput(fields,"voice-"+suffix,"尝试使用 QQ AI 语音输出","checkbox",value.voiceOutput);
       at=aiInput(fields,"at-"+suffix,"响应 @ 消息","checkbox",value.respondAt);
+      if (!value.privateId) {
+        proactive=aiInput(fields,"proactive-"+suffix,"主动接话：有新消息时按间隔接话，相关话题可续聊","checkbox",value.proactive);
+        proactiveMinutes=aiInput(fields,"proactiveMinutes-"+suffix,"主动接话最小间隔（分钟，默认10）","number",value.proactiveMinutes ?? 10,1,1440);
+        followupMinutes=aiInput(fields,"followupMinutes-"+suffix,"相关话题续聊窗口（分钟，默认2）","number",value.followupMinutes ?? 2,1,30);
+        const hint=document.createElement("p");hint.textContent="开启后替代非@随机概率：提及机器人立即响应；忽略机器人自己的消息；无新消息不发言。相关性判断会调用聊天模型。";fields.append(hint);
+      }
     }
     save.type="submit"; save.className="primary"; save.textContent="备份并保存会话参数";
     const discard = document.createElement("button"); discard.type="button"; discard.className="secondary ai-discard"; discard.textContent="放弃此表单更改";
@@ -200,6 +206,7 @@ function renderAIGroups(groups, onlyService="") {
       const generation=aiGeneration, body={service:value.service,revision:value.revision,temperature:Number(temp.value)};
       if (value.privateId) body.privateId=value.privateId; else body.groupId=value.groupId;
       if (rate) Object.assign(body,{rate:Number(rate.value),useAgent:agent.checked,voiceOutput:voice.checked,respondAt:at.checked});
+      if (proactive) Object.assign(body,{proactive:proactive.checked,proactiveMinutes:Number(proactiveMinutes.value),followupMinutes:Number(followupMinutes.value)});
       aiBusyState(true); $("ai-error").hidden=true;
       try { const saved=await api("/api/ai-group",body); if (generation!==aiGeneration || !authenticated) return; aiState.groups=saved.groups; renderAIGroups(saved.groups,value.service); $("ai-status").textContent="会话参数已保存；后续消息使用新参数。"; }
       catch(error) { if (generation===aiGeneration && authenticated) showError("ai-error",error); }

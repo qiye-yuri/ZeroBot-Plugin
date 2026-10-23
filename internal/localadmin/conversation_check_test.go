@@ -204,6 +204,15 @@ func TestConversationCheckAuthErrorsAndUnregisteredPlugin(t *testing.T) {
 	if v["plugins"].([]any)[1].(map[string]any)["registered"] != false {
 		t.Fatal("unregistered shown as disabled")
 	}
+	s.cfg.AI.unified = true
+	v = decodeCheck(t, request(s, "GET", base, nil, cookie, ""))
+	entries := v["plugins"].([]any)
+	if len(entries) != 1 || entries[0].(map[string]any)["service"] != "aichat" {
+		t.Fatal("unified AI diagnostics exposed a retired plugin switch", entries)
+	}
+	if len(v["conversation"].([]any)) != 2 {
+		t.Fatal("unified diagnostics lost legacy conversation parameters")
+	}
 	if err := c.SetExtra(map[string]any{"ModelRoutes": map[string]string{"chat": "missing"}}); err != nil {
 		t.Fatal(err)
 	}

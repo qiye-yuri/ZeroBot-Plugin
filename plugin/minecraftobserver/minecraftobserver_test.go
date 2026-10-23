@@ -7,6 +7,8 @@ import (
 )
 
 func Test_singleServerScan(t *testing.T) {
+	reachable := mockStatusServer(t)
+	unreachable := closedStatusAddress(t)
 	initErr := initializeDB("data/minecraftobserver/" + dbPath)
 	if initErr != nil {
 		t.Fatalf("initializeDB() error = %v", initErr)
@@ -17,7 +19,7 @@ func Test_singleServerScan(t *testing.T) {
 	t.Run("状态变更", func(t *testing.T) {
 		cleanTestData(t)
 		newSS1 := &serverStatus{
-			ServerAddr:  "cn.nekoland.top",
+			ServerAddr:  reachable,
 			Description: "测试服务器",
 			Players:     "1/20",
 			Version:     "1.16.5",
@@ -27,7 +29,7 @@ func Test_singleServerScan(t *testing.T) {
 		if err != nil {
 			t.Fatalf("upsertServerStatus() error = %v", err)
 		}
-		err = dbInstance.newSubscribe("cn.nekoland.top", 123456, 1)
+		err = dbInstance.newSubscribe(reachable, 123456, 1)
 		if err != nil {
 			t.Fatalf("getServerSubscribeByTargetGroupAndAddr() error = %v", err)
 		}
@@ -47,7 +49,7 @@ func Test_singleServerScan(t *testing.T) {
 	t.Run("可达 -> 不可达", func(t *testing.T) {
 		cleanTestData(t)
 		newSS1 := &serverStatus{
-			ServerAddr:  "dx.123213213123123.net",
+			ServerAddr:  unreachable,
 			Description: "测试服务器",
 			Players:     "1/20",
 			Version:     "1.16.5",
@@ -58,7 +60,7 @@ func Test_singleServerScan(t *testing.T) {
 		if err != nil {
 			t.Fatalf("upsertServerStatus() error = %v", err)
 		}
-		err = dbInstance.newSubscribe("dx.123213213123123.net", 123456, 1)
+		err = dbInstance.newSubscribe(unreachable, 123456, 1)
 		if err != nil {
 			t.Fatalf("getServerSubscribeByTargetGroupAndAddr() error = %v", err)
 		}
@@ -96,7 +98,7 @@ func Test_singleServerScan(t *testing.T) {
 	t.Run("不可达 -> 可达", func(t *testing.T) {
 		cleanTestData(t)
 		newSS1 := &serverStatus{
-			ServerAddr:  "cn.nekoland.top",
+			ServerAddr:  reachable,
 			Description: "测试服务器",
 			Players:     "1/20",
 			Version:     "1.16.5",
@@ -107,7 +109,7 @@ func Test_singleServerScan(t *testing.T) {
 		if err != nil {
 			t.Fatalf("upsertServerStatus() error = %v", err)
 		}
-		err = dbInstance.newSubscribe("cn.nekoland.top", 123456, 1)
+		err = dbInstance.newSubscribe(reachable, 123456, 1)
 		if err != nil {
 			t.Fatalf("newSubscribe() error = %v", err)
 		}

@@ -753,7 +753,7 @@ func (sql *fishdb) updateBuyTimeFor(uid int64, add int) (err error) {
 }
 
 // 使用优惠卷
-func (sql *fishdb) useCouponAt(uid int64, times int) (int, error) {
+func (sql *fishdb) useCouponAt(uid int64, times int, consume bool) (int, error) {
 	useTimes := -1
 	sql.Lock()
 	defer sql.Unlock()
@@ -766,6 +766,9 @@ func (sql *fishdb) useCouponAt(uid int64, times int) (int, error) {
 	if userInfo.Coupon > 0 {
 		useTimes = math.Min(userInfo.Coupon, times)
 		userInfo.Coupon -= useTimes
+	}
+	if !consume {
+		return useTimes, nil
 	}
 	return useTimes, sql.db.Insert("buff", &userInfo)
 }

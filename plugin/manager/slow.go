@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"github.com/FloatTech/zbputils/ctxext"
 	"time"
 
 	"github.com/RomiChan/syncx"
@@ -27,7 +28,7 @@ func collectsend(ctx *zero.Ctx, msgs ...message.Segment) {
 				m := make(message.Message, len(msg))
 				for i, item := range msg {
 					m[i] = message.CustomNode(
-						zero.BotConfig.NickName[0],
+						ctxext.BotName(),
 						ctx.Event.SelfID,
 						message.Message{item})
 				}

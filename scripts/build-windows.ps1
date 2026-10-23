@@ -4,8 +4,13 @@ param([switch]$RunTests,[ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]*\.exe$')][s
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $previousCgo = $env:CGO_ENABLED
+$previousPath = $env:PATH
+$previousToolchain = $env:GOTOOLCHAIN
+$localGo = Join-Path $repoRoot '.local/tools/go1.26.10/go/bin'
+if (Test-Path (Join-Path $localGo 'go.exe')) { $env:PATH = $localGo + ';' + $env:PATH }
 Push-Location $repoRoot
 try {
+    $env:GOTOOLCHAIN = 'go1.26.10+auto'
     $env:CGO_ENABLED = '0'
     & go version
     if ($LASTEXITCODE -ne 0) { throw 'Go toolchain is unavailable.' }
@@ -21,7 +26,7 @@ try {
     if ($RunTests) {
         # Existing tests in other packages include live services and deliberate failures.
         # Even these packages may download fonts during package initialization.
-        & go test ./internal/basiccommands ./internal/localadmin ./kanban ./plugin/chess ./plugin/tarot ./plugin/llm -count=1 -timeout=60s
+        & go test ./internal/basiccommands ./internal/localadmin ./kanban ./plugin/tarot ./internal/aicommands ./plugin/bilibiliparse/... -count=1 -timeout=60s
         if ($LASTEXITCODE -ne 0) { throw 'Selected baseline tests failed.' }
         Push-Location (Join-Path $repoRoot 'third_party/go-registry')
         try {
@@ -32,5 +37,7 @@ try {
     Write-Host "Build ready: $repoRoot/.local/bin/$OutputName"
 } finally {
     $env:CGO_ENABLED = $previousCgo
+    $env:PATH = $previousPath
+    $env:GOTOOLCHAIN = $previousToolchain
     Pop-Location
 }

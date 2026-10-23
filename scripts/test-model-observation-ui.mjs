@@ -84,3 +84,19 @@ test('report actions and long counter summary fit four widths and both themes',a
  const p=await fixture(t);await read(p);await p.locator('#start-model-observation').click();await p.evaluate(()=>document.getElementById('model-observation-summary').textContent='观察快照间隔 123456789.123 秒：新发起 9007199254740000 次；结束并完成接口传输 8000000000000000 次；失败 100000 次；提前关闭 100000 次。起点进行中 100000 次，结束进行中 100000 次。');
  for(const width of [320,375,640,1280]){await p.setViewportSize({width,height:1000});for(const mode of ['light','dark']){await p.evaluate(mode=>document.documentElement.dataset.theme=mode,mode);const shape=await p.locator('.model-observation-panel').evaluate(el=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,panelWidth:el.clientWidth,panelScroll:el.scrollWidth,buttons:[...el.querySelectorAll('button')].map(b=>({left:b.getBoundingClientRect().left,right:b.getBoundingClientRect().right,width:b.getBoundingClientRect().width}))}));assert.ok(shape.scrollWidth<=width+1&&shape.panelScroll<=shape.panelWidth+1,JSON.stringify(shape));assert.ok(shape.buttons.every(b=>b.left>=0&&b.right<=width+1),JSON.stringify(shape));}}
 });
+
+
+test('usage shows unknown, weighted cache ratio and escaped model metadata',async t=>{
+ const p=await fixture(t);
+ await p.evaluate(()=>renderModelUsage([
+ {id:1,kind:'agent',model:'<img src=x onerror=alert(1)>',outcome:'completed',startedAt:'synthetic',milliseconds:1,usage:{input:100,output:3,hit:90,miss:10}},
+ {id:2,kind:'chat',outcome:'completed',milliseconds:2,usage:{input:900,hit:0,miss:900}},
+ {id:3,kind:'chat',outcome:'failed',milliseconds:3,usage:{input:null,output:null,hit:null,miss:null}}
+ ]));
+ assert.match(await p.locator('#model-usage-summary').textContent(),/字段完整2次.*9.00%/);
+ assert.match(await p.locator('#model-usage-recent').textContent(),/输出 未知/);
+ assert.match(await p.locator('#model-usage-recent').textContent(),/<img src=x/);
+ assert.equal(await p.locator('#model-usage-recent img').count(),0);
+ await p.evaluate(()=>clearModelRequests('unavailable'));
+ assert.equal(await p.locator('#model-usage-recent').textContent(),'');
+});

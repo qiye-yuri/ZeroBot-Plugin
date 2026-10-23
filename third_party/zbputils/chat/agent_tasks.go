@@ -341,6 +341,13 @@ func (t *AgentTask) checkLocked() error {
 	}
 	return nil
 }
+
+// TelemetryID returns the task identifier for anonymous usage correlation.
+func (t *AgentTask) TelemetryID() string {
+	t.store.mu.Lock()
+	defer t.store.mu.Unlock()
+	return t.info.ID
+}
 func (t *AgentTask) Check() error {
 	t.store.mu.Lock()
 	defer t.store.mu.Unlock()

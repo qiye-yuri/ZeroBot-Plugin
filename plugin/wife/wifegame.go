@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/FloatTech/gg/factory"
-	ctrl "github.com/FloatTech/zbpctrl"
-	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/ctxext"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
@@ -20,19 +18,15 @@ import (
 
 var (
 	sizeList = []int{0, 3, 5, 8}
-	enguess  = control.AutoRegister(&ctrl.Options[*zero.Ctx]{
-		DisableOnDefault: false,
-		Help:             "- 猜老婆",
-		Brief:            "从老婆库猜老婆",
-	}).ApplySingle(ctxext.NewGroupSingle("已经有正在进行的游戏..."))
+	enguess  = engine.ApplySingle(ctxext.NewGroupSingle("已经有正在进行的游戏..."))
 )
 
 func init() {
-	enguess.OnFullMatch("猜老婆", getJSON).SetBlock(true).Limit(ctxext.LimitByUser).Handle(func(ctx *zero.Ctx) {
+	enguess.OnRegex(`^\s*猜老婆[。.!！\s]*$`, getJSON).SetBlock(true).Limit(ctxext.LimitByUser).Handle(func(ctx *zero.Ctx) {
 		class := 3
 
 		card := cards[rand.Intn(len(cards))]
-		pic, err := engine.GetLazyData("wives/"+card, true)
+		pic, err := builtinData("wives/" + card)
 		if err != nil {
 			logrus.Warnf("[wife] 猜老婆图片同步失败: %v，尝试读取本地文件...", err)
 			pic, err = engine.GetLazyData("wives/"+card, false)
@@ -57,21 +51,22 @@ func init() {
 			)
 			return
 		}
-		if id := ctx.SendChain(
-			message.ImageBytes(q),
-		); id.ID() != 0 {
-			ctx.SendChain(message.Text("请回答该二次元角色名字\n以“xxx酱”格式回答\n发送“跳过”结束猜题"))
-		}
 		var next *zero.FutureEvent
 		if ctx.Event.GroupID == 0 {
-			next = zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(·)?[^酱]+酱|^跳过$`), ctx.CheckSession())
+			next = zero.NewFutureEvent("message", ctx.GetMatcher().Priority-1, true, zero.RegexRule(`^(·)?[^酱]+酱|^\s*跳过[。.!！\s]*$`), ctx.CheckSession())
 		} else {
-			next = zero.NewFutureEvent("message", 999, false, zero.RegexRule(`^(·)?[^酱]+酱|^跳过$`), zero.CheckGroup(ctx.Event.GroupID))
+			next = zero.NewFutureEvent("message", ctx.GetMatcher().Priority-1, true, zero.RegexRule(`^(·)?[^酱]+酱|^\s*跳过[。.!！\s]*$`), zero.CheckGroup(ctx.Event.GroupID))
 		}
+		next.Rule = append(next.Rule, func(c *zero.Ctx) bool { return c.Event.UserID != c.Event.SelfID })
 		recv, cancel := next.Repeat()
 		defer cancel()
+		if id := ctx.SendChain(message.ImageBytes(q)); id.ID() != 0 {
+			ctx.SendChain(message.Text("请回答该二次元角色名字\n以“xxx酱”格式回答\n发送“跳过”结束猜题"))
+		}
 		tick := time.NewTimer(105 * time.Second)
 		after := time.NewTimer(120 * time.Second)
+		defer tick.Stop()
+		defer after.Stop()
 		for {
 			select {
 			case <-tick.C:
@@ -85,7 +80,7 @@ func init() {
 				)
 				return
 			case c := <-recv:
-				msg := strings.ReplaceAll(c.Event.Message.String(), "酱", "")
+				msg := strings.ReplaceAll(roleCommand(c.ExtractPlainText()), "酱", "")
 				if msg == "" {
 					continue
 				}
@@ -93,7 +88,7 @@ func init() {
 					if msgID := ctx.Send(message.ReplyWithMessage(c.Event.MessageID,
 						message.Text("已跳过猜题\n角色是:\n", name, "\n出自《", work, "》\n"),
 						message.ImageBytes(pic))); msgID.ID() == 0 {
-						ctx.SendChain(message.Text("太棒了,你猜对了!\n图片发送失败,可能被风控\n角色是:\n", name, "\n出自《", work, "》"))
+						ctx.SendChain(message.Text("已跳过猜题\n图片发送失败,可能被风控\n角色是:\n", name, "\n出自《", work, "》"))
 					}
 					return
 				}

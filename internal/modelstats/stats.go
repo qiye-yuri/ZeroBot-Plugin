@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/FloatTech/ZeroBot-Plugin/internal/processidentity"
@@ -41,6 +42,7 @@ type Snapshot struct {
 	CheckedAt time.Time                 `json:"checkedAt"`
 	Counts
 	Categories []Category `json:"categories"`
+	Recent     []Request  `json:"recent"`
 }
 
 type aggregate struct {
@@ -52,13 +54,15 @@ type Collector struct {
 	started time.Time
 	total   aggregate
 	rows    [kindCount]aggregate
+	recent  []Request
+	serial  uint64
 }
 
 func New() *Collector { return &Collector{started: time.Now().UTC()} }
 
 var Default = New()
 
-// Read copies constant-size aggregates; there is no request history or reset API.
+// Read returns aggregate counters and a bounded copy of recent metadata.
 func (c *Collector) Read() Snapshot {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -66,11 +70,18 @@ func (c *Collector) Read() Snapshot {
 	for i, name := range [...]string{"gpt", "chat", "agent", "vision"} {
 		s.Categories[i] = Category{Kind: name, Counts: c.rows[i].Counts}
 	}
+	s.Recent = append([]Request(nil), c.recent...)
+	for i := range s.Recent {
+		s.Recent[i].Usage = cloneUsage(s.Recent[i].Usage)
+	}
 	return s
 }
 
-func (c *Collector) begin(kind Kind) func(outcome uint8) {
+func (c *Collector) begin(kind Kind, record Request, capture *usageCapture) func(outcome uint8) {
 	c.mu.Lock()
+	c.serial++
+	record.ID = c.serial
+	record.StartedAt = time.Now().UTC()
 	c.total.Started++
 	c.total.Active++
 	c.rows[kind].Started++
@@ -80,9 +91,20 @@ func (c *Collector) begin(kind Kind) func(outcome uint8) {
 	var once sync.Once
 	return func(outcome uint8) {
 		once.Do(func() {
+			data := capture.finish()
+			if outcome == 0 {
+				record.Usage = parseUsage(data)
+			}
+			record.Outcome = [...]string{"completed", "failed", "incomplete"}[outcome]
 			ms := float64(time.Since(start)) / float64(time.Millisecond)
 			c.mu.Lock()
 			defer c.mu.Unlock()
+			record.Milliseconds = ms
+			if len(c.recent) == 256 {
+				copy(c.recent, c.recent[1:])
+				c.recent = c.recent[:255]
+			}
+			c.recent = append(c.recent, record)
 			for _, a := range []*aggregate{&c.total, &c.rows[kind]} {
 				a.Active--
 				switch outcome {
@@ -106,8 +128,8 @@ func (c *Collector) begin(kind Kind) func(outcome uint8) {
 
 // Client copies the client and preserves its timeout, jar, redirect policy and
 // original transport. Exchanges include redirects; it neither retries nor reads
-// any request/response payload. Invalid categories simply leave it unchanged.
-func (c *Collector) Client(client *http.Client, kind Kind) *http.Client {
+// request payloads. It inspects a bounded copy of consumed response bytes for usage. Invalid categories simply leave it unchanged.
+func (c *Collector) Client(client *http.Client, kind Kind, labels ...Labels) *http.Client {
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -119,7 +141,11 @@ func (c *Collector) Client(client *http.Client, kind Kind) *http.Client {
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	copy.Transport = &transport{base: base, collector: c, kind: kind}
+	var label Labels
+	if len(labels) > 0 {
+		label = labels[0]
+	}
+	copy.Transport = &transport{base: base, collector: c, kind: kind, labels: label}
 	return &copy
 }
 
@@ -127,6 +153,8 @@ type transport struct {
 	base      http.RoundTripper
 	collector *Collector
 	kind      Kind
+	labels    Labels
+	sequence  atomic.Uint64
 }
 
 func (t *transport) CloseIdleConnections() {
@@ -135,7 +163,15 @@ func (t *transport) CloseIdleConnections() {
 	}
 }
 func (t *transport) RoundTrip(r *http.Request) (response *http.Response, err error) {
-	finish := t.collector.begin(t.kind)
+	capture := &usageCapture{}
+	record := Request{Sequence: t.sequence.Add(1), Kind: [...]string{"gpt", "chat", "agent", "vision"}[t.kind], Model: t.labels.Model, Session: anonymous(t.labels.Session), Task: anonymous(t.labels.Task)}
+	if len(record.Model) > 128 {
+		record.Model = record.Model[:128]
+	}
+	if t.labels.Model != "" {
+		record.Provider = r.URL.Hostname()
+	}
+	finish := t.collector.begin(t.kind, record, capture)
 	returned := false
 	defer func() {
 		if !returned {
@@ -157,7 +193,7 @@ func (t *transport) RoundTrip(r *http.Request) (response *http.Response, err err
 		}
 		return
 	}
-	response.Body = &body{ReadCloser: response.Body, finish: finish, ok: ok, remaining: response.ContentLength}
+	response.Body = &body{ReadCloser: response.Body, finish: finish, ok: ok, remaining: response.ContentLength, capture: capture}
 	return
 }
 
@@ -168,10 +204,12 @@ type body struct {
 	finish    func(uint8)
 	ok        bool
 	remaining int64
+	capture   *usageCapture
 }
 
 func (b *body) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
+	b.capture.add(p[:n])
 	if b.remaining >= 0 {
 		b.remaining -= int64(n)
 	}

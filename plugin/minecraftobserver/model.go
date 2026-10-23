@@ -32,7 +32,7 @@ type serverStatus struct {
 	// FaviconRaw 原始数据
 	FaviconRaw icon `json:"favicon_raw" gorm:"column:favicon_raw;default:null;type:CLOB"`
 	// 延迟，不可达时为-1
-	PingDelay int64 `json:"ping_delay" gorm:"column:ping_delay;default:-1"`
+	PingDelay int64 `json:"ping_delay" gorm:"column:ping_delay"`
 	// 更新时间
 	LastUpdate int64 `json:"last_update" gorm:"column:last_update;default:0"`
 }

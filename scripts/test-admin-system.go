@@ -23,6 +23,9 @@ import (
 	qa "github.com/FloatTech/ZeroBot-Plugin/internal/adminqa"
 )
 
+// Invalid sign-in style gives a deterministic reply without network or account changes.
+const gateReply = "ERROR: 未找到签到设定: 99"
+
 var mode = flag.String("mode", "restart", "restart or performance")
 var binaryName = flag.String("binary-name", "zerobot.exe", "tested executable filename under .local/bin")
 var warmup = flag.Duration("warmup", 60*time.Second, "performance warmup per profile")
@@ -110,18 +113,18 @@ func pluginState(c *qa.Client, group string) (map[string]any, error) {
 	}
 	for _, item := range list["plugins"].([]any) {
 		p := item.(map[string]any)
-		if p["name"] == "chrev" {
+		if p["name"] == "score" {
 			return p["state"].(map[string]any), nil
 		}
 	}
-	return nil, fmt.Errorf("chrev missing")
+	return nil, fmt.Errorf("score missing")
 }
 func setPlugin(c *qa.Client, group, mode string) error {
 	s, err := pluginState(c, group)
 	if err != nil {
 		return err
 	}
-	_, err = c.Checked("POST", "/api/plugin-switch", map[string]any{"name": "chrev", "groupId": group, "mode": mode, "revision": s["revision"]})
+	_, err = c.Checked("POST", "/api/plugin-switch", map[string]any{"name": "score", "groupId": group, "mode": mode, "revision": s["revision"]})
 	return err
 }
 func setModel(c *qa.Client, model string) error {
@@ -168,7 +171,8 @@ func command(h *qa.Harness, text, want string) error {
 	return nil
 }
 func privateGate(h *qa.Harness, uid int64, want string) error {
-	reply, _, err := h.Send(uid, "翻转 abc")
+	time.Sleep(2100 * time.Millisecond)
+	reply, _, err := h.Send(uid, "签到99")
 	if err != nil || reply != want {
 		return fmt.Errorf("synthetic message gate %d failed", uid)
 	}
@@ -205,7 +209,7 @@ func restartCheck(ctx context.Context, root, binary, output string, result map[s
 	if err = setModel(c, "qa-restart-original"); err != nil {
 		return err
 	}
-	if err = command(h, "/全局禁止 chrev 23456789", "已禁止"); err != nil {
+	if err = command(h, "/全局禁止 score 23456789", "已禁止"); err != nil {
 		return err
 	}
 	if err = command(h, "/封禁 34567890", "已封禁"); err != nil {
@@ -258,7 +262,7 @@ func restartCheck(ctx context.Context, root, binary, output string, result map[s
 	if err = setModel(c, "qa-restart-temporary"); err != nil {
 		return err
 	}
-	if err = command(h, "/全局允许 chrev 23456789", "已允许"); err != nil {
+	if err = command(h, "/全局允许 score 23456789", "已允许"); err != nil {
 		return err
 	}
 	if err = command(h, "/解封 34567890", "已解封"); err != nil {
@@ -302,7 +306,7 @@ func restartCheck(ctx context.Context, root, binary, output string, result map[s
 	if connections["restartRequired"] != true || len(connections["runningSuperUsers"].([]any)) != 2 {
 		return fmt.Errorf("restored startup did not mark restart")
 	}
-	if err = privateGate(h, qa.Owner, "ɔqɐ"); err != nil {
+	if err = privateGate(h, qa.Owner, gateReply); err != nil {
 		return err
 	}
 	bot.Stop()
@@ -346,7 +350,7 @@ func restartCheck(ctx context.Context, root, binary, output string, result map[s
 	if ai["global"].(map[string]any)["fields"].(map[string]any)["ModelName"] != "qa-restart-original" {
 		return fmt.Errorf("restored AI configuration lost on restart")
 	}
-	if err = privateGate(h, qa.Owner, "ɔqɐ"); err != nil {
+	if err = privateGate(h, qa.Owner, gateReply); err != nil {
 		return err
 	}
 	if err = privateGate(h, 23456789, ""); err != nil {
@@ -383,7 +387,7 @@ func restartCheck(ctx context.Context, root, binary, output string, result map[s
 		rsp.Body.Close()
 		return fmt.Errorf("disabled admin still listening")
 	}
-	if err = privateGate(h, qa.Owner, "ɔqɐ"); err != nil {
+	if err = privateGate(h, qa.Owner, gateReply); err != nil {
 		return err
 	}
 	for _, key := range []string{"startupSaveRestartPassed", "startupRestoreRestartPassed", "controlRestoreRestartPassed", "adminAddressRestoreRestartPassed", "adminDisableRestoreRestartPassed", "oldSessionRejectedPassed", "credentialPreservedPassed", "restoredResponseBanBlockPassed"} {
@@ -459,7 +463,7 @@ func performanceCheck(ctx context.Context, root, binary, output string, result m
 	}
 	result["fullTiming"] = fullTiming
 	result["thresholdsPassed"] = thresholds
-	result["workload"] = "one synthetic chrev private message every five seconds; Windows process metrics every two seconds; 10 successful logins and 20 reads per endpoint outside resource interval; server-side polling only"
+	result["workload"] = "one synthetic score private message every five seconds; Windows process metrics every two seconds; 10 successful logins and 20 reads per endpoint outside resource interval; server-side polling only"
 	result["browserRendererMeasured"] = false
 	result["schedulerMeasured"] = false
 	if !thresholds {
@@ -536,8 +540,8 @@ func measureProfile(ctx context.Context, h *qa.Harness, name string) (p profileR
 			}
 			now := time.Now()
 			if !now.Before(nextMessage) {
-				reply, t, err := h.Send(qa.Owner, "翻转 abc")
-				if err != nil || reply != "ɔqɐ" {
+				reply, t, err := h.Send(qa.Owner, "签到99")
+				if err != nil || reply != gateReply {
 					return fmt.Errorf("performance message reply failed")
 				}
 				if record {

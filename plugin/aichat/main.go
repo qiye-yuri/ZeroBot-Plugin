@@ -4,6 +4,7 @@ package aichat
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -20,6 +21,9 @@ import (
 	"github.com/wdvxdr1123/ZeroBot/message"
 
 	"github.com/FloatTech/AnimeAPI/airecord"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/aicenter"
+	_ "github.com/FloatTech/ZeroBot-Plugin/internal/aicommands"
+	_ "github.com/FloatTech/ZeroBot-Plugin/internal/aisettings"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelrequest"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelstats"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/qqvoice"
@@ -30,17 +34,7 @@ import (
 	"github.com/FloatTech/zbputils/control"
 )
 
-var (
-	// en data [8 temp] [8 rate] LSB
-	en = control.AutoRegister(&ctrl.Options[*zero.Ctx]{
-		DisableOnDefault: false,
-		Extra:            control.ExtraFromString("aichat"),
-		Brief:            "大模型聊天和Agent",
-		Help:             "- (随意聊天, 概率匹配)",
-
-		PrivateDataFolder: "aichat",
-	})
-)
+var en = aicenter.Engine
 
 // Admission is atomic and keyed by both account and conversation. It also covers
 // ordinary-chat fallback while an Agent task is winding down.
@@ -52,6 +46,9 @@ var (
 
 func init() {
 	en.OnMessage(chat.EnsureConfig, func(ctx *zero.Ctx) bool {
+		if ctx.Event.UserID == ctx.Event.SelfID {
+			return false
+		}
 		if !chat.ConfigOf(ctx).Ready() {
 			return false
 		}
@@ -64,6 +61,17 @@ func init() {
 		if _, ok := mp.Load(chat.StateKeyAgentHooked); !ok && !stor.NoAgent() {
 			logrus.Infoln("[aichat] skip agent for ctx has not been hooked by agent")
 			return false
+		}
+		direct := mentioned(ctx)
+		ctx.State["aichat_direct"] = direct
+		if ctx.Event.GroupID != 0 && stor.Proactive() {
+			if ctx.ExtractPlainText() == "" {
+				return false
+			}
+			if direct {
+				ctx.Block()
+			}
+			return true
 		}
 		if !(ctx.ExtractPlainText() != "" &&
 			(!stor.NoReplyAt() || (stor.NoReplyAt() && !ctx.Event.IsToMe))) {
@@ -84,13 +92,27 @@ func init() {
 		}
 		key := [2]int64{ctx.Event.SelfID, conversation}
 		if _, busy := conversationRuns.LoadOrStore(key, struct{}{}); busy {
-			if ctx.Event.IsToMe {
+			if ctx.State["aichat_direct"] == true {
 				ctx.SendChain(message.Text("当前机器人会话正在处理上一条请求，请稍后再试。"))
 			}
 			return
 		}
 		defer conversationRuns.Delete(key)
 		cfg := chat.ConfigOf(ctx)
+		storage := ctx.State[zero.StateKeyPrefixKeep+"aichatcfg_stor__"].(chat.Storage)
+		if ctx.Event.GroupID != 0 && storage.Proactive() && ctx.State["aichat_direct"] != true {
+			due, turns := proactive.plan(proactiveKey{ctx.Event.SelfID, ctx.Event.GroupID}, time.Now(),
+				time.Duration(storage.ProactiveMinutes())*time.Minute, time.Duration(storage.FollowupMinutes())*time.Minute)
+			if !due && (len(turns) == 0 || !relatedContext(cfg, turns, ctx.ExtractPlainText())) {
+				return
+			}
+			// Configuration/response switches may have changed while judging.
+			c, ok := control.Lookup("aichat")
+			if !ok || !c.Handler(ctx.Event.GroupID, ctx.Event.UserID) ||
+				!chat.Storage(aicenter.Settings.GetData(ctx.Event.GroupID)).Proactive() {
+				return
+			}
+		}
 		kind := replystats.Chat
 		if !ctx.State[zero.StateKeyPrefixKeep+"aichatcfg_stor__"].(chat.Storage).NoAgent() && cfg.AgentAPI != "" && cfg.AgentModelName != "" && (cfg.AgentKey != "" || cfg.AgentType == 1) {
 			kind = replystats.Agent
@@ -140,7 +162,7 @@ func init() {
 			runError = errors.New("任务提前结束")
 			logrus.Debugln("[aichat] enter agent mode")
 			x := deepinfra.NewAPI(cfg.AgentAPI, string(cfg.AgentKey))
-			x.SetHTTPClient(modelstats.Default.Client(boundedAgentClient(&http.Client{Timeout: 30 * time.Second}), modelstats.Agent))
+			x.SetHTTPClient(modelstats.Default.Client(boundedAgentClient(&http.Client{Timeout: 30 * time.Second}), modelstats.Agent, modelstats.Labels{Model: cfg.AgentModelName, Session: fmt.Sprint(ctx.Event.SelfID, ":", gid), Task: run.TelemetryID()}))
 			agentParams := cfg.RequestParams("Agent")
 			mod, err := cfg.AgentType.ProtocolForAPI(cfg.AgentAPI, cfg.AgentModelName, temperature, agentParams.TopP, agentParams.MaxN, agentParams.ReasoningEffort, cfg.Separator)
 			if err != nil {
@@ -167,7 +189,7 @@ func init() {
 					return
 				}
 				imageAPI := deepinfra.NewAPI(cfg.ImageAPI, string(cfg.ImageKey))
-				imageAPI.SetHTTPClient(modelstats.Default.Client(boundedVisionClient(&http.Client{Timeout: 30 * time.Second}), modelstats.Vision))
+				imageAPI.SetHTTPClient(modelstats.Default.Client(boundedVisionClient(&http.Client{Timeout: 30 * time.Second}), modelstats.Vision, modelstats.Labels{Model: cfg.ImageModelName, Session: fmt.Sprint(ctx.Event.SelfID, ":", gid)}))
 				ag.SetViewImageAPI(imageAPI, mod)
 				logrus.Debugln("[aichat] agent set img")
 			}
@@ -258,6 +280,7 @@ func init() {
 				hasresp = true
 				outcome = "unknown"
 				rsp := task.Call(req.Action, req.Params, ctx.CallAction)
+				recordProactiveDelivery(ctx, req.Action, req.Params, rsp)
 				outcome = "unknown"
 				if rsp.Status == "ok" && rsp.RetCode == 0 {
 					outcome = "ok"
@@ -335,6 +358,7 @@ func init() {
 				}
 			}
 			rsp := task.Call(action, params, ctx.CallAction)
+			recordProactiveDelivery(ctx, action, params, rsp)
 			if activeRun != nil {
 				outcome := "unknown"
 				if rsp.Status == "ok" && rsp.RetCode == 0 {
@@ -360,7 +384,7 @@ func init() {
 		}
 
 		x := deepinfra.NewAPI(cfg.API, string(cfg.Key))
-		x.SetHTTPClient(modelstats.Default.Client(&http.Client{Timeout: 30 * time.Second}, modelstats.Chat))
+		x.SetHTTPClient(modelstats.Default.Client(&http.Client{Timeout: 30 * time.Second}, modelstats.Chat, modelstats.Labels{Model: cfg.ModelName, Session: fmt.Sprint(ctx.Event.SelfID, ":", gid)}))
 		mod, err := cfg.Type.ProtocolForAPI(cfg.API, cfg.ModelName, temperature, params.TopP, params.MaxN, params.ReasoningEffort, cfg.Separator)
 		if err != nil {
 			task.Fail()
@@ -390,7 +414,8 @@ func init() {
 			if ctx.Event.IsToMe {
 				id = ctx.Event.MessageID
 			}
-			for _, t := range strings.Split(txt, "{segment}") {
+			segments := strings.Split(txt, "{segment}")
+			for segmentIndex, t := range segments {
 				if t == "" {
 					continue
 				}
@@ -429,12 +454,23 @@ func init() {
 						return
 					}
 					id = message.NewMessageIDFromInteger(rsp.Data.Get("message_id").Int())
-				} else if id != nil {
-					id = task.SendChain(ctx, message.Reply(id), message.Text(t))
 				} else {
-					id = task.SendChain(ctx, message.Text(t))
+					msg := message.Message{message.Text(t)}
+					if id != nil {
+						msg = append(message.Message{message.Reply(id)}, msg...)
+					}
+					action := "send_private_msg"
+					params := zero.Params{"user_id": ctx.Event.UserID, "message": msg}
+					if ctx.Event.GroupID != 0 {
+						action = "send_group_msg"
+						params = zero.Params{"group_id": ctx.Event.GroupID, "message": msg}
+					}
+					rsp := fallbackCall(action, params)
+					id = message.NewMessageIDFromInteger(rsp.Data.Get("message_id").Int())
 				}
-				process.SleepAbout1sTo2s()
+				if segmentIndex < len(segments)-1 {
+					process.SleepAbout1sTo2s()
+				}
 			}
 		}
 	})

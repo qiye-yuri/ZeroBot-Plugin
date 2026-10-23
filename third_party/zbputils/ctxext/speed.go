@@ -1,8 +1,8 @@
 package ctxext
 
 import (
+	"sync"
 	"time"
-	"unsafe"
 
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/extension/rate"
@@ -62,26 +62,26 @@ func NewGroupSingle(failtext string) *single.Single[int64] {
 //
 //	每 10s 5次触发
 var defaultLimiterManager = rate.NewManager[int64](time.Second*10, 5)
-
-type fakeLM struct {
-	limiters unsafe.Pointer
-	interval time.Duration
-	burst    int
-}
+var defaultLimiterMu sync.RWMutex
 
 // SetDefaultLimiterManagerParam 设置默认限速器参数
 //
 //	每 interval 时间 burst 次触发
 func SetDefaultLimiterManagerParam(interval time.Duration, burst int) {
-	f := (*fakeLM)(unsafe.Pointer(defaultLimiterManager))
-	f.interval = interval
-	f.burst = burst
+	if interval <= 0 || burst <= 0 {
+		return
+	}
+	defaultLimiterMu.Lock()
+	defer defaultLimiterMu.Unlock()
+	defaultLimiterManager = rate.NewManager[int64](interval, burst)
 }
 
 // LimitByUser 默认限速器 每 10s 5次触发
 //
 //	按 qq 号限制
 func LimitByUser(ctx *zero.Ctx) *rate.Limiter {
+	defaultLimiterMu.RLock()
+	defer defaultLimiterMu.RUnlock()
 	return defaultLimiterManager.Load(ctx.Event.UserID)
 }
 
@@ -89,6 +89,8 @@ func LimitByUser(ctx *zero.Ctx) *rate.Limiter {
 //
 //	按群号限制
 func LimitByGroup(ctx *zero.Ctx) *rate.Limiter {
+	defaultLimiterMu.RLock()
+	defer defaultLimiterMu.RUnlock()
 	return defaultLimiterManager.Load(ctx.Event.GroupID)
 }
 

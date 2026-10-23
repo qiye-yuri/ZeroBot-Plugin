@@ -34,6 +34,9 @@ import (
 	"github.com/RomiChan/websocket"
 )
 
+// Invalid sign-in style gives a deterministic reply without network or account changes.
+const gateReply = "ERROR: 未找到签到设定: 99"
+
 type apiRequest struct {
 	Action string `json:"action"`
 	Params struct {
@@ -479,6 +482,9 @@ func run() error {
 	time.Sleep(500 * time.Millisecond)
 	controlMessageID := 100
 	sendMessage := func(uid, gid int64, role, command string, atBot bool) (string, error) {
+		if command == "签到99" {
+			time.Sleep(2100 * time.Millisecond)
+		}
 		controlMessageID++
 		segments := []map[string]any{{"type": "text", "data": map[string]string{"text": command}}}
 		if command == "NAMED_MODEL_CHECK" {
@@ -653,13 +659,13 @@ func run() error {
 	if text, err := sendControl(12345678, "/全局响应\n"); err != nil || !strings.Contains(text, "全部位置工作") {
 		return fmt.Errorf("owner private global response failed: %v", err)
 	}
-	if text, err := sendMessage(23456789, 202, "member", "翻转 abc", false); err != nil || text != "ɔqɐ" {
+	if text, err := sendMessage(23456789, 202, "member", "签到99", false); err != nil || text != gateReply {
 		return fmt.Errorf("global response did not open other group: %v", err)
 	}
 	if text, err := sendControl(12345678, "/全局沉默"); err != nil || !strings.Contains(text, "休息") {
 		return fmt.Errorf("owner private global silence failed: %v", err)
 	}
-	if text, err := sendMessage(23456789, 202, "member", "翻转 abc", false); err != nil || text != "" {
+	if text, err := sendMessage(23456789, 202, "member", "签到99", false); err != nil || text != "" {
 		return fmt.Errorf("global silence did not restore unspecified group: %v", err)
 	}
 	for i, command := range []string{"/help", "/help\n", " \t/help\r\n"} {
@@ -875,8 +881,8 @@ func prepareFixture(root, destination string) error {
 		"data/Control/kanban.png", "data/Control/zbpuwu.png",
 		"data/Font/GlowSansSC-Normal-ExtraBold.ttf", "data/Font/Impact.ttf",
 		"data/Font/Torus-Regular.otf", "data/Font/FOT-Yuruka Std.ttf",
-		"data/hyaku/小倉百人一首.csv",
-		"data/Dish/dishes.db", "data/Pig/pig_data.json", "data/McFish/articlesInfo.json",
+
+		"data/McFish/articlesInfo.json",
 	} {
 		if err := copyFixtureFile(filepath.Join(root, filepath.FromSlash(relative)), filepath.Join(destination, filepath.FromSlash(relative))); err != nil {
 			return fmt.Errorf("fixture %s: %w", relative, err)
@@ -916,32 +922,32 @@ func verifyGroupResponses(send func(int64, int64, string, string, bool) (string,
 		atBot                     bool
 	}{
 		{"owner response without mention rejected", "member", "/响应", "", 12345678, 101, false},
-		{"missing mention preserves silence", "member", "翻转 abc", "", 23456789, 101, false},
+		{"missing mention preserves silence", "member", "签到99", "", 23456789, 101, false},
 		{"owner response with mention", "member", "/响应", "工作", 12345678, 101, true},
-		{"current group enabled", "member", "翻转 abc", "ɔqɐ", 23456789, 101, false},
-		{"other group stays silent", "member", "翻转 abc", "", 23456789, 202, false},
+		{"current group enabled", "member", "签到99", gateReply, 23456789, 101, false},
+		{"other group stays silent", "member", "签到99", "", 23456789, 202, false},
 		{"member silence rejected", "member", "/沉默", "", 23456789, 101, false},
 		{"member silence with mention rejected", "member", "/沉默", "", 23456789, 101, true},
-		{"rejected silence preserves response", "member", "翻转 abc", "ɔqɐ", 23456789, 101, false},
+		{"rejected silence preserves response", "member", "签到99", gateReply, 23456789, 101, false},
 		{"admin silence without mention rejected", "admin", "/沉默\n", "", 23456789, 101, false},
-		{"missing mention preserves response", "member", "翻转 abc", "ɔqɐ", 23456789, 101, false},
+		{"missing mention preserves response", "member", "签到99", gateReply, 23456789, 101, false},
 		{"admin silence with mention", "admin", "/沉默\n", "休息", 23456789, 101, true},
-		{"current group silent", "member", "翻转 abc", "", 23456789, 101, false},
+		{"current group silent", "member", "签到99", "", 23456789, 101, false},
 		{"member response rejected", "member", "/响应", "", 23456789, 101, false},
 		{"member response with mention rejected", "member", "/响应", "", 23456789, 101, true},
 		{"response prefix rejected", "admin", "/响应xxx", "", 23456789, 101, true},
 		{"response arguments rejected", "admin", "/响应 202", "", 23456789, 101, true},
-		{"rejected response preserves silence", "member", "翻转 abc", "", 23456789, 101, false},
+		{"rejected response preserves silence", "member", "签到99", "", 23456789, 101, false},
 		{"admin response without mention rejected", "admin", "/响应\r\n", "", 23456789, 101, false},
-		{"missing admin mention preserves silence", "member", "翻转 abc", "", 23456789, 101, false},
+		{"missing admin mention preserves silence", "member", "签到99", "", 23456789, 101, false},
 		{"admin response with whitespace and mention", "admin", "/响应\r\n", "工作", 23456789, 101, true},
-		{"admin response enables plugin", "member", "翻转 abc", "ɔqɐ", 23456789, 101, false},
+		{"admin response enables plugin", "member", "签到99", gateReply, 23456789, 101, false},
 		{"group owner silence", "owner", "/沉默", "休息", 34567890, 101, true},
 		{"admin response with mention", "admin", "/response", "工作", 23456789, 101, true},
-		{"other group remains silent", "member", "翻转 abc", "", 23456789, 202, false},
+		{"other group remains silent", "member", "签到99", "", 23456789, 202, false},
 		{"group owner silence alias", "owner", "/silence", "休息", 34567890, 101, true},
 		{"global response restricted to bot owner", "admin", "/全局响应", "", 23456789, 101, true},
-		{"global denial preserves other group", "member", "翻转 abc", "", 23456789, 202, false},
+		{"global denial preserves other group", "member", "签到99", "", 23456789, 202, false},
 	}
 	for _, c := range cases {
 		text, err := send(c.uid, c.gid, c.role, c.command, c.atBot)
@@ -1172,7 +1178,7 @@ func verifySequentialPluginSaves(do func(string, string, any, string) (int, map[
 		states := map[string]map[string]any{}
 		for _, raw := range value["plugins"].([]any) {
 			p := raw.(map[string]any)
-			if p["name"] == "chat" || p["name"] == "atri" {
+			if p["name"] == "chat" || p["name"] == "breakrepeat" {
 				states[p["name"].(string)] = p["state"].(map[string]any)
 			}
 		}
@@ -1216,7 +1222,7 @@ func verifySequentialPluginSaves(do func(string, string, any, string) (int, map[
 	if err != nil {
 		return err
 	}
-	for _, name := range []string{"chat", "atri"} {
+	for _, name := range []string{"chat", "breakrepeat"} {
 		mode := "enabled"
 		if initial[name]["globalMode"] == mode {
 			mode = "disabled"
@@ -1239,18 +1245,18 @@ func verifySequentialPluginSaves(do func(string, string, any, string) (int, map[
 	if err != nil {
 		return err
 	}
-	if _, err := write("atri", initial["atri"]["globalMode"].(string), initial["atri"], 409); err != nil {
+	if _, err := write("breakrepeat", initial["breakrepeat"]["globalMode"].(string), initial["breakrepeat"], 409); err != nil {
 		return err
 	}
 	partial, err := read()
-	if err != nil || partial["chat"]["revision"] != first["revision"] || partial["atri"]["revision"] != changed["atri"]["revision"] {
+	if err != nil || partial["chat"]["revision"] != first["revision"] || partial["breakrepeat"]["revision"] != changed["breakrepeat"]["revision"] {
 		return fmt.Errorf("partial failure lost successful or remaining state")
 	}
-	if _, err := write("atri", initial["atri"]["globalMode"].(string), partial["atri"], 200); err != nil {
+	if _, err := write("breakrepeat", initial["breakrepeat"]["globalMode"].(string), partial["breakrepeat"], 200); err != nil {
 		return err
 	}
 	final, err := read()
-	if err != nil || final["chat"]["globalMode"] != initial["chat"]["globalMode"] || final["atri"]["globalMode"] != initial["atri"]["globalMode"] {
+	if err != nil || final["chat"]["globalMode"] != initial["chat"]["globalMode"] || final["breakrepeat"]["globalMode"] != initial["breakrepeat"]["globalMode"] {
 		return fmt.Errorf("sequential fixture cleanup did not restore modes")
 	}
 	after, err = backups()
@@ -1698,6 +1704,12 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	plugins, _ := list["plugins"].([]any)
 	found := false
 	for _, value := range plugins {
+		if p, ok := value.(map[string]any); ok {
+			switch p["name"] {
+			case "bookreview", "ygocdb", "ygotrade", "gif", "midicreate", "qzone", "tiangou", "alipayvoice", "nihongo", "pig", "moyucalendar", "funny", "xhstext", "base64gua", "baseamasiro", "shadiao", "atri", "ahsai", "lolimi", "yujn", "magicprompt", "curse", "thesaurus", "llm", "aichatcfg":
+				return fmt.Errorf("removed plugin still appears in admin registry: %v", p["name"])
+			}
+		}
 		if p, ok := value.(map[string]any); ok && p["name"] == "chat" {
 			found = true
 		}
@@ -1710,6 +1722,11 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 		text, err := sendControl(23456789, fmt.Sprintf("/服务列表 %d", page))
 		if err != nil || !strings.Contains(text, fmt.Sprintf("第 %d/%d 页", page, pages)) {
 			return fmt.Errorf("service list page %d failed: %v", page, err)
+		}
+		for _, removed := range []string{"bookreview", "ygocdb", "ygotrade", "gif", "midicreate", "qzone", "tiangou", "alipayvoice", "nihongo", "pig", "moyucalendar", "funny", "xhstext", "base64gua", "baseamasiro", "shadiao", "atri", "ahsai", "lolimi", "yujn", "magicprompt", "curse", "thesaurus", "llm", "aichatcfg"} {
+			if strings.Contains(text, "插件："+removed+"\n") {
+				return fmt.Errorf("removed plugin still appears in service list: %s", removed)
+			}
 		}
 		for _, item := range plugins[(page-1)*20 : min(page*20, len(plugins))] {
 			plugin := item.(map[string]any)
@@ -1746,7 +1763,7 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	// These overrides affect only this synthetic database. GPT remains enabled.
 	for _, item := range plugins {
 		p := item.(map[string]any)
-		if p["name"] == "aichat" || p["name"] == "chat" || p["name"] == "atri" || p["name"] == "thesaurus" {
+		if p["name"] == "chat" || p["name"] == "breakrepeat" {
 			state := p["state"].(map[string]any)
 			status, _, err = do("POST", "/api/plugin-switch", map[string]any{"name": p["name"], "groupId": "0", "mode": "disabled", "revision": state["revision"]}, csrf)
 			if err != nil || status != 200 {
@@ -1764,21 +1781,21 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 		}
 		items, _ := list["plugins"].([]any)
 		for _, item := range items {
-			if p, ok := item.(map[string]any); ok && p["name"] == "chrev" {
+			if p, ok := item.(map[string]any); ok && p["name"] == "score" {
 				state, _ := p["state"].(map[string]any)
 				if state != nil {
 					return state, nil
 				}
 			}
 		}
-		return nil, fmt.Errorf("compiled chrev control missing")
+		return nil, fmt.Errorf("compiled score control missing")
 	}
 	setPlugin := func(group, mode string) (map[string]any, error) {
 		state, err := pluginState(group)
 		if err != nil {
 			return nil, err
 		}
-		body := map[string]any{"name": "chrev", "groupId": group, "mode": mode, "revision": state["revision"]}
+		body := map[string]any{"name": "score", "groupId": group, "mode": mode, "revision": state["revision"]}
 		status, _, err := do("POST", "/api/plugin-switch", body, "invalid")
 		if err != nil || status != 403 {
 			return nil, fmt.Errorf("plugin save lacked CSRF protection")
@@ -1796,24 +1813,24 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	if _, err := setPlugin("0", "disabled"); err != nil {
 		return err
 	}
-	if text, err := sendControl(12345678, "翻转 abc"); err != nil || text != "" {
+	if text, err := sendControl(12345678, "签到99"); err != nil || text != "" {
 		return fmt.Errorf("disabled plugin still replied: %v", err)
 	}
-	if text, err := sendControl(23456789, "/全局启用 chrev"); err != nil || text != "" {
+	if text, err := sendControl(23456789, "/全局启用 score"); err != nil || text != "" {
 		return fmt.Errorf("non-owner global command was accepted: %v", err)
 	}
 	state, err := pluginState("101")
 	if err != nil || state["effectiveEnabled"] != false || state["source"] != "global" {
 		return fmt.Errorf("disabled global state lost")
 	}
-	if text, err := sendControl(12345678, "/全局启用 chrev"); err != nil || !strings.Contains(text, "已全局启用") {
+	if text, err := sendControl(12345678, "/全局启用 score"); err != nil || !strings.Contains(text, "已全局启用") {
 		return fmt.Errorf("owner global command failed: %v", err)
 	}
 	state, err = pluginState("101")
 	if err != nil || state["effectiveEnabled"] != true || state["source"] != "global" {
 		return fmt.Errorf("chat update not visible to admin")
 	}
-	if text, err := sendControl(12345678, "翻转 abc"); err != nil || text != "ɔqɐ" {
+	if text, err := sendControl(12345678, "签到99"); err != nil || text != gateReply {
 		return fmt.Errorf("enabled plugin did not reply correctly: %v", err)
 	}
 	state, err = setPlugin("101", "disabled")
@@ -1965,11 +1982,7 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	if text, err := sendControl(12345678, "/gpt second"); err != nil || !strings.Contains(text, "30 秒") {
 		return fmt.Errorf("GPT request quota not enforced")
 	}
-	for _, command := range []string{"/gptabc", "普通提及 /gpt"} {
-		if text, err := sendControl(12345678, command); err != nil || text != "" {
-			return fmt.Errorf("GPT command boundary accepted %q", command)
-		}
-	}
+	// Command boundaries are unit-tested; natural AI may answer these texts.
 	if text, err := sendControl(12345678, "/gpt"); err != nil || !strings.Contains(text, "填写问题") {
 		return fmt.Errorf("empty GPT did not show usage")
 	}
@@ -2020,8 +2033,29 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 			return fmt.Errorf("post-AI model category differs: %d want=%v started=%v completed=%v", i, want, row["started"], row["completed"])
 		}
 	}
+	recent, ok := stats["recent"].([]any)
+	if !ok || len(recent) == 0 || len(recent) > 256 {
+		return fmt.Errorf("missing bounded model usage records")
+	}
+	foundUsage := false
+	for _, item := range recent {
+		row, ok := item.(map[string]any)
+		if !ok {
+			return fmt.Errorf("invalid usage row")
+		}
+		usage, ok := row["usage"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("missing nullable usage")
+		}
+		if usage["input"] == float64(100) && usage["hit"] == float64(64) && usage["miss"] == float64(36) && usage["output"] == float64(3) {
+			foundUsage = true
+		}
+	}
+	if !foundUsage {
+		return fmt.Errorf("synthetic provider usage missing from overview")
+	}
 	statsJSON, _ := json.Marshal(stats)
-	for _, secret := range []string{"synthetic-model-key", "smoke-chat-model", modelURL, "quoted smoke", "本地模型模拟回复", smokeModelFailureText} {
+	for _, secret := range []string{"synthetic-model-key", modelURL, "quoted smoke", "本地模型模拟回复", smokeModelFailureText} {
 		if bytes.Contains(statsJSON, []byte(secret)) {
 			return fmt.Errorf("model aggregates retained sensitive request data")
 		}
@@ -2347,7 +2381,7 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	if err != nil || status != 200 || ai["global"].(map[string]any)["fields"].(map[string]any)["ModelName"] != currentModel {
 		return fmt.Errorf("control restore did not recover AI settings")
 	}
-	if text, err := sendControl(12345678, "翻转 abc"); err != nil || text != "ɔqɐ" {
+	if text, err := sendControl(12345678, "签到99"); err != nil || text != gateReply {
 		return fmt.Errorf("restored plugin did not reply: %v", err)
 	}
 	status, backups, err := do("GET", "/api/backups", nil, "")
@@ -2980,7 +3014,7 @@ func smokeModelReplyEnvelope(name, text string) map[string]any {
 		cut := len(string(runes[:len(runes)/2])) // Preserve UTF-8 at the text-part boundary.
 		content = []any{map[string]any{"type": "text", "text": text[:cut]}, map[string]any{"type": "text", "text": text[cut:]}}
 	}
-	return map[string]any{"choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": content}}}}
+	return map[string]any{"usage": map[string]any{"prompt_tokens": 100, "completion_tokens": 3, "prompt_cache_hit_tokens": 64, "prompt_cache_miss_tokens": 36}, "choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": content}}}}
 }
 
 func smokeModelRequestFailure(kind string) (int, string, bool) {
@@ -5174,7 +5208,7 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 		return nil
 	}
 	route := func(uid, gid int64, want string) error {
-		text, err := group(uid, gid, "member", "翻转 abc", false)
+		text, err := group(uid, gid, "member", "签到99", false)
 		if err != nil || text != want {
 			return fmt.Errorf("policy gate for synthetic user %d/group %d failed: %v", uid, gid, err)
 		}
@@ -5190,11 +5224,11 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 		gid                  int64
 		add, remove, yes, no string
 	}{
-		{101, "/禁止 chrev 23456789", "/允许 chrev 23456789", "已禁止", "已允许"},
-		{0, "/全局禁止 chrev 23456789", "/全局允许 chrev 23456789", "已禁止", "已允许"},
+		{101, "/禁止 score 23456789", "/允许 score 23456789", "已禁止", "已允许"},
+		{0, "/全局禁止 score 23456789", "/全局允许 score 23456789", "已禁止", "已允许"},
 		{0, "/封禁 23456789", "/解封 23456789", "已封禁", "已解封"},
 	} {
-		if err := route(user, 101, "ɔqɐ"); err != nil {
+		if err := route(user, 101, gateReply); err != nil {
 			return err
 		}
 		if err := command(pair.gid, pair.add, pair.yes, 1); err != nil {
@@ -5212,7 +5246,7 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 		if err := command(pair.gid, pair.remove, pair.no, 0); err != nil {
 			return err
 		}
-		if err := route(user, 101, "ɔqɐ"); err != nil {
+		if err := route(user, 101, gateReply); err != nil {
 			return err
 		}
 	}
@@ -5220,7 +5254,7 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 	if err != nil {
 		return err
 	}
-	if text, err := group(user, 101, "member", "/禁止 chrev 12345678", true); err != nil || text != "" {
+	if text, err := group(user, 101, "member", "/禁止 score 12345678", true); err != nil || text != "" {
 		return fmt.Errorf("unauthorized policy command accepted")
 	}
 	after, err := count()
@@ -5231,8 +5265,8 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 		gid       int64
 		cmd, want string
 	}{
-		{101, "/禁止 chrev 34567890", "已禁止"},
-		{0, "/全局禁止 chrev 45678901", "已禁止"},
+		{101, "/禁止 score 34567890", "已禁止"},
+		{0, "/全局禁止 score 45678901", "已禁止"},
 		{0, "/封禁 56789012", "已封禁"},
 	} {
 		if err := command(c.gid, c.cmd, c.want, 1); err != nil {
@@ -5278,8 +5312,8 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 			cmd string
 		}{
 			{202, "/响应"}, {101, "/沉默"}, {0, "/全局响应"},
-			{101, "/禁止 chrev 23456789"}, {101, "/允许 chrev 34567890"},
-			{0, "/全局禁止 chrev 23456789"}, {0, "/全局允许 chrev 45678901"},
+			{101, "/禁止 score 23456789"}, {101, "/允许 score 34567890"},
+			{0, "/全局禁止 score 23456789"}, {0, "/全局允许 score 45678901"},
 			{0, "/封禁 23456789"}, {0, "/解封 56789012"},
 		} {
 			if err := failure(c.gid, c.cmd); err != nil {
@@ -5290,7 +5324,7 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 			uid, gid int64
 			want     string
 		}{
-			{user, 101, "ɔqɐ"}, {user, 202, ""}, {34567890, 101, ""}, {45678901, 101, ""}, {56789012, 101, ""},
+			{user, 101, gateReply}, {user, 202, ""}, {34567890, 101, ""}, {45678901, 101, ""}, {56789012, 101, ""},
 		} {
 			if err := route(c.uid, c.gid, c.want); err != nil {
 				return err
@@ -5304,7 +5338,7 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 		gid       int64
 		cmd, want string
 	}{
-		{101, "/允许 chrev 34567890", "已允许"}, {0, "/全局允许 chrev 45678901", "已允许"},
+		{101, "/允许 score 34567890", "已允许"}, {0, "/全局允许 score 45678901", "已允许"},
 		{0, "/解封 56789012", "已解封"}, {101, "/沉默", "休息"}, {0, "/全局响应", "全部位置工作"},
 	} {
 		if err := command(c.gid, c.cmd, c.want, 1); err != nil {
@@ -5315,7 +5349,7 @@ func verifyPolicyCommands(dataDir string, private func(int64, string) (string, e
 		if err := failure(0, "/全局沉默"); err != nil {
 			return err
 		}
-		return route(user, 202, "ɔqɐ")
+		return route(user, 202, gateReply)
 	}); err != nil {
 		return err
 	}
@@ -5411,6 +5445,28 @@ func verifyReverseDriver(root, parent, binary string) error {
 	}
 	if !ready {
 		return fmt.Errorf("reverse fixture admin unavailable")
+	}
+	// Admin and reverse WebSocket listeners start independently. Admin readiness
+	// is not evidence that the reverse port can already accept connections.
+	reverseReady := false
+	for attempt := 0; attempt < 50; attempt++ {
+		probe, probeErr := net.DialTimeout("tcp", address, 200*time.Millisecond)
+		if probeErr == nil {
+			probe.Close()
+			reverseReady = true
+			break
+		}
+		select {
+		case e := <-exited:
+			return fmt.Errorf("reverse fixture exited before listener ready: %v", e)
+		case <-ctx.Done():
+			return fmt.Errorf("reverse listener startup timeout")
+		default:
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !reverseReady {
+		return fmt.Errorf("reverse fixture listener unavailable")
 	}
 	for _, check := range []struct {
 		auth   string

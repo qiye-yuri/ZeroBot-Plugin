@@ -388,3 +388,11 @@ Windows 隔离整机通过：实际程序执行本地检索和三次带消息来
 复验入口：根目录 `go test ./internal/localadmin ./plugin/aichat -count=1 -timeout=180s`、`node --test scripts/test-agent-memory-ui.mjs`；在 `third_party/zbputils` 执行 `go test ./chat -count=1 -timeout=180s`，在 `third_party/go-onebot-agent` 执行 `go test ./... -count=1 -timeout=120s`。
 
 整机复验使用项目实际路径执行 `go run scripts/smoke-local-admin.go -binary-name zerobot-agent-memory-final.exe`。构建保存在 `.local/bin/zerobot-agent-memory-final.exe`，没有自动替换日常运行程序或迁移真实旧文件。
+
+### 历史筛选实机核对
+
+可先在私聊发送一条带唯一测试关键词的普通聊天记录，再要求AI实际检索当前私聊中本人在指定日期发出的聊天消息，并提供命中的来源序号；另以同一关键词检索通知事件，检查聊天消息不会混入通知结果。单凭回答记住了内容不能证明发生检索，需核对任务动作及来源。未命中只描述本次查询结果，不推断全部历史不存在；无需清空档案或保存长期记忆。2026-10-23相关17项专项自动化检查通过；用户确认真实筛选正常，后台已核对实际检索动作、应用条件和原始来源。
+
+来源精确读取可使用已返回的真实档案序号，要求AI调用`read_history`读取当前会话。不存在的序号应明确无结果或失败，不应编造；群聊不能凭同一序号读取私聊档案。序号属于档案系统，不是QQ消息编号。2026-10-23精确读取、上下文邻居、范围隔离、字节预算和共享额度5项专项自动化检查通过，用户确认真实QQ来源读取、空结果和跨会话拒绝正常，实际read_history动作及返回范围已核对。
+
+2026-10-23长期记忆补测：重复保存、编号/修订/来源保持、并发复用、失败回滚、旧文件回执及会话隔离6项专项自动化检查通过。真实模型验收使用唯一合成正文，两次明确要求执行save_memory，核对同一编号和修订，再search_memory/read_memory读取，并在群中查询相同关键词验证隔离。模型口头称“已经记住”不能替代保存动作和数据库条目数核对；验收后仅清理本次合成条目。该批真实结果仍待反馈。

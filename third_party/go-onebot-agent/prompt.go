@@ -3,6 +3,7 @@ package goba
 import (
 	_ "embed"
 	"fmt"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -19,18 +20,23 @@ type Config struct {
 }
 
 func (ag *Agent) system(role PermRole, iter int, grp int64, characters ...Config) (string, error) {
+	stable, runtime, err := ag.promptParts(role, iter, grp, characters...)
+	return stable + runtime, err
+}
+
+func (ag *Agent) promptParts(role PermRole, iter int, grp int64, characters ...Config) (string, string, error) {
 	character := *ag.cfg
 	if len(characters) > 0 {
 		character = characters[0]
 	}
 	tab, err := ag.perm.mdtable(role)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if character.WebSearch {
 		a, ok := ag.perm.Actions[SearchWeb]
 		if !ok {
-			return "", ErrUnexpectedAction
+			return "", "", ErrUnexpectedAction
 		}
 		tab += "\n|" + a.Desc + "|" + SearchWeb + "|" + a.Params + "|" + a.Data + "|"
 	}
@@ -41,7 +47,7 @@ func (ag *Agent) system(role PermRole, iter int, grp int64, characters ...Config
 	}
 	memory, err := ag.memoryof(grp)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if len(memory) > 32768 {
 		start := len(memory) - 32768
@@ -50,9 +56,11 @@ func (ag *Agent) system(role PermRole, iter int, grp int64, characters ...Config
 		}
 		memory = "（更早记忆未装载到本次请求，原文件保留）\n" + memory[start:]
 	}
-	return fmt.Sprintf(
-		sysp, character.Nickname, character.Sex,
-		character.Chars, tab, memory,
-		t.Format(time.RFC3339), t.Unix(), typ, iter,
-	), nil
+	const marker = "\n### 记忆\n"
+	fixed, dynamic, found := strings.Cut(sysp, marker)
+	if !found {
+		return "", "", fmt.Errorf("Agent runtime template missing")
+	}
+	return fmt.Sprintf(fixed, character.Nickname, character.Sex, character.Chars, tab),
+		marker + fmt.Sprintf(dynamic, memory, t.Format(time.RFC3339), t.Unix(), typ, iter), nil
 }

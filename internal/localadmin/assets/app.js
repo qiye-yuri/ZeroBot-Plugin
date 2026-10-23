@@ -33,6 +33,7 @@ async function api(path, body, signal) {
 }
 function showError(id, error) { $(id).textContent = error.message; $(id).hidden = false; }
 function showAuth() {
+  if (typeof resetUpdateWatch === "function") resetUpdateWatch();
   closePluginUsage();
   if (typeof resetAgentArchive === "function") resetAgentArchive();
   if (typeof resetSecurity === "function") resetSecurity();
@@ -81,6 +82,7 @@ async function showWorkspace() {
   if (typeof showAgentArchive === "function") showAgentArchive(currentView === "agent");
   if (currentView === "connections") loadConnections();
   if (currentView === "ai") loadAI();
+  if (currentView === "updatewatch") loadUpdateWatch();
 }
 function duration(seconds) {
   if (seconds >= 86400) return Math.floor(seconds / 86400) + " 天";
@@ -585,10 +587,11 @@ function showWorkspaceView(name, {autoLoadAI=true}={}) {
   if (typeof agentMemoryCanLeave === "function" && !agentMemoryCanLeave()) return;
   if (typeof securityCanLeave === "function" && !securityCanLeave()) return;
   document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("active", item === button));
-  for (const view of ["overview", "plugins", "connections", "ai", "logs", "backups", "security", "agent"]) $(view + "-view").hidden = button.dataset.view !== view;
+  for (const view of ["overview", "plugins", "connections", "ai", "logs", "backups", "security", "agent", "updatewatch"]) $(view + "-view").hidden = button.dataset.view !== view;
   renderPluginCatalogControls();
-  $("breadcrumb").textContent = "工作空间 / " + ({ overview:"运行概览", plugins:"插件列表", connections:"连接设置", ai:"AI 设置", agent:"Agent 会话", logs:"运行日志", backups:"备份恢复", security:"后台安全" }[button.dataset.view]);
+  $("breadcrumb").textContent = "工作空间 / " + ({ overview:"运行概览", plugins:"插件列表", connections:"连接设置", ai:"AI 设置", updatewatch:"更新监控", agent:"Agent 会话", logs:"运行日志", backups:"备份恢复", security:"后台安全" }[button.dataset.view]);
   showOverview(button.dataset.view === "overview");
+  if (button.dataset.view === "updatewatch" && !updateWatchState) loadUpdateWatch();
   if (button.dataset.view === "plugins") ensurePluginList();
   if (button.dataset.view === "connections" && !connectionSettings) loadConnections();
   if (button.dataset.view === "ai" && !aiState && autoLoadAI) loadAI();

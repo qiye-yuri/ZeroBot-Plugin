@@ -4,6 +4,7 @@ package score
 import (
 	"encoding/base64"
 	"errors"
+	"github.com/FloatTech/ZeroBot-Plugin/plugin/score/internal/walletcommands"
 	"io"
 	"math"
 	"math/rand"
@@ -12,17 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FloatTech/AnimeAPI/wallet"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/wallet"
 	"github.com/FloatTech/floatbox/file"
-	"github.com/FloatTech/floatbox/process"
-	"github.com/FloatTech/floatbox/web"
 	"github.com/FloatTech/gg/factory"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/ctxext"
 	"github.com/FloatTech/zbputils/img/text"
 	"github.com/golang/freetype"
-	log "github.com/sirupsen/logrus"
 	"github.com/wcharczuk/go-chart/v2"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
@@ -40,8 +38,8 @@ var (
 	rankArray = [...]int{0, 10, 20, 50, 100, 200, 350, 550, 750, 1000, 1200}
 	engine    = control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault:  false,
-		Brief:             "签到",
-		Help:              "- 签到\n- 获得签到背景[@xxx] | 获得签到背景\n- 设置签到预设(0~3)\n- 查看等级排名\n注:为跨群排名\n- 查看我的钱包\n- 查看钱包排名\n注:为本群排行，若群人数太多不建议使用该功能!!!",
+		Brief:             "签到与钱包",
+		Help:              "- 签到\n- 补发签到图（不重复奖励）\n- 获得签到背景[@xxx] | 获得签到背景\n- 设置签到预设(0~3)\n- 查看等级排名\n注:为跨群排名\n- 查看我的钱包 | 查看钱包余额[@xxx]\n- 钱包转账金额[@xxx]（群内）\n- 设置硬币名称XX（主人）\n- 管理钱包余额[+金额|-金额][@xxx]（主人）\n- 查看钱包排名\n注:为本群排行，若群人数太多不建议使用该功能!!!",
 		PrivateDataFolder: "score",
 	})
 	styles = []scoredrawer{
@@ -53,9 +51,10 @@ var (
 )
 
 func init() {
+	walletcommands.Register(engine)
+	sdb = initialize(engine.DataFolder() + "score.db")
 	cachePath := engine.DataFolder() + "cache/"
 	go func() {
-		sdb = initialize(engine.DataFolder() + "score.db")
 		ok := file.IsExist(cachePath)
 		if !ok {
 			err := os.MkdirAll(cachePath, 0777)
@@ -77,22 +76,22 @@ func init() {
 		// 选择key
 		key := ctx.State["regex_matched"].([]string)[1]
 		gid := ctx.Event.GroupID
-		if gid < 0 {
+		if gid <= 0 {
 			// 个人用户设为负数
 			gid = -ctx.Event.UserID
 		}
-		k := uint8(0)
+		k := int64(0)
 		if key == "" {
-			k = uint8(ctx.State["manager"].(*ctrl.Control[*zero.Ctx]).GetData(gid))
+			k = ctx.State["manager"].(*ctrl.Control[*zero.Ctx]).GetData(gid)
 		} else {
 			kn, err := strconv.Atoi(key)
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
-			k = uint8(kn)
+			k = int64(kn)
 		}
-		if int(k) >= len(styles) {
+		if k < 0 || k >= int64(len(styles)) {
 			ctx.SendChain(message.Text("ERROR: 未找到签到设定: ", key))
 			return
 		}
@@ -155,29 +154,34 @@ func init() {
 			level:      level,
 			rank:       rank,
 		}
-		drawimage, err := styles[k](alldata)
-		if err != nil {
-			ctx.SendChain(message.Text("签到成功，但签到图生成失败，请勿重复签到:\n", err))
+		if err := sendSigninImage(ctx, alldata, int(k)); err != nil {
+			ctx.SendChain(message.Text("签到成功，但签到图生成失败，请使用补发签到图（不会重复奖励）:\n", err))
+		}
+	})
+
+	engine.OnFullMatch("补发签到图").Limit(ctxext.LimitByUser).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		uid := ctx.Event.UserID
+		si := sdb.GetSignInByUID(uid)
+		today := time.Now().Format("20060102")
+		if si.Count < 1 || si.UpdatedAt.Format("20060102") != today {
+			ctx.SendChain(message.Text("今天还没有签到，请先签到"))
 			return
 		}
-		// done.
-		f, err := os.Create(drawedFile)
-		if err != nil {
-			data, err := factory.ToBytes(drawimage)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			ctx.SendChain(message.ImageBytes(data))
+		gid := ctx.Event.GroupID
+		if gid == 0 {
+			gid = -uid
+		}
+		k := ctx.State["manager"].(*ctrl.Control[*zero.Ctx]).GetData(gid)
+		if k < 0 || k >= int64(len(styles)) {
+			ctx.SendChain(message.Text("ERROR: 未找到签到设定"))
 			return
 		}
-		_, err = factory.WriteTo(drawimage, f)
-		defer f.Close()
-		if err != nil {
-			ctx.SendChain(message.Text("ERROR: ", err))
-			return
+		level := sdb.GetScoreByUID(uid).Score
+		a := &scdata{drawedfile: cachePath + strconv.FormatInt(uid, 10) + today + "signin.png", picfile: cachePath + strconv.FormatInt(uid, 10) + today + ".png", uid: uid, nickname: ctx.GetStrangerInfo(uid, false).Get("nickname").String(), inc: 0, score: wallet.GetWalletOf(uid), level: level, rank: getrank(level)}
+		ctx.SendChain(message.Text("补发今日签到图，本次不增加等级和奖励；图中新增金额为0"))
+		if err := sendSigninImage(ctx, a, int(k)); err != nil {
+			ctx.SendChain(message.Text("补图失败: ", err))
 		}
-		trySendImage(drawedFile, ctx)
 	})
 
 	engine.OnPrefix("获得签到背景", zero.OnlyGroup).Limit(ctxext.LimitByGroup).SetBlock(true).
@@ -275,8 +279,8 @@ func init() {
 			ctx.SendChain(message.Text("ERROR: ", err))
 			return
 		}
-		k := uint8(kn)
-		if int(k) >= len(styles) {
+		k := int64(kn)
+		if k < 0 || k >= int64(len(styles)) {
 			ctx.SendChain(message.Text("ERROR: 未找到签到设定: ", key))
 			return
 		}
@@ -320,24 +324,6 @@ func getrank(count int) int {
 		}
 	}
 	return -1
-}
-
-func initPic(picFile string, uid int64) (avatar []byte, err error) {
-	defer process.SleepAbout1sTo2s()
-	avatar, err = web.GetData("https://q4.qlogo.cn/g?b=qq&nk=" + strconv.FormatInt(uid, 10) + "&s=640")
-	if err != nil {
-		return
-	}
-	if file.IsExist(picFile) {
-		return
-	}
-	data, err := web.RequestDataWith(web.NewDefaultClient(), backgroundURL, "GET", referer, web.RandUA(), nil)
-	if err == nil {
-		return avatar, os.WriteFile(picFile, data, 0644)
-	}
-	// 获取网络图片失败，使用本地已有的图片
-	log.Error("[score:get online img error]:", err)
-	return avatar, copyImage(picFile)
 }
 
 // 使用"file:"发送图片失败后，改用base64发送
@@ -411,4 +397,20 @@ func copyImage(picFile string) (err error) {
 	}
 
 	return err
+}
+
+func sendSigninImage(ctx *zero.Ctx, a *scdata, style int) error {
+	img, err := styles[style](a)
+	if err != nil {
+		return err
+	}
+	data, err := factory.ToBytes(img)
+	if err != nil {
+		return err
+	}
+	if err = writePicture(a.drawedfile, data); err != nil {
+		return err
+	}
+	trySendImage(a.drawedfile, ctx)
+	return nil
 }

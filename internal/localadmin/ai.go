@@ -17,6 +17,16 @@ import (
 type AIStore struct {
 	repository *chat.ConfigRepository
 	groups     map[string]*ctrl.Control[*zero.Ctx]
+	unified    bool
+}
+
+// NewUnifiedAIStore retains the old parameter namespaces as internal storage,
+// while the plugin catalog and response switches expose only aichat.
+func NewUnifiedAIStore(controls []*ctrl.Control[*zero.Ctx], settings, commands *ctrl.Control[*zero.Ctx]) *AIStore {
+	all := append(append([]*ctrl.Control[*zero.Ctx]{}, controls...), settings, commands)
+	s := NewAIStore(all)
+	s.unified = true
+	return s
 }
 
 var errAIValidation = errors.New("AI 设置无效")
@@ -58,6 +68,9 @@ type AIGroupSettings struct {
 	UseAgent             bool    `json:"useAgent"`
 	VoiceOutput          bool    `json:"voiceOutput"`
 	RespondAt            bool    `json:"respondAt"`
+	Proactive            bool    `json:"proactive"`
+	ProactiveMinutes     int     `json:"proactiveMinutes"`
+	FollowupMinutes      int     `json:"followupMinutes"`
 }
 type AIView struct {
 	Available bool              `json:"available"`
@@ -125,6 +138,9 @@ func (s *AIStore) conversationSettings(gid int64) ([]AIGroupSettings, error) {
 			}
 			stor := chat.Storage(data)
 			setting := AIGroupSettings{Service: service, Revision: revision, Rate: int(stor.Rate()), Temperature: int(ctxext.Storage(data).Get(chat.BitmapTemp)), EffectiveTemperature: stor.Temp(), UseAgent: !stor.NoAgent(), VoiceOutput: !stor.NoRecord(), RespondAt: !stor.NoReplyAt()}
+			if service == "aichatcfg" {
+				setting.Proactive, setting.ProactiveMinutes, setting.FollowupMinutes = stor.Proactive(), stor.ProactiveMinutes(), stor.FollowupMinutes()
+			}
 			if gid < 0 {
 				setting.PrivateID = strconv.FormatInt(-gid, 10)
 			} else {
@@ -200,15 +216,18 @@ func (s *AIStore) Save(update AIUpdate) error {
 }
 
 type AIGroupUpdate struct {
-	Service     string `json:"service"`
-	GroupID     string `json:"groupId"`
-	PrivateID   string `json:"privateId,omitempty"`
-	Revision    string `json:"revision"`
-	Rate        *int   `json:"rate,omitempty"`
-	Temperature *int   `json:"temperature,omitempty"`
-	UseAgent    *bool  `json:"useAgent,omitempty"`
-	VoiceOutput *bool  `json:"voiceOutput,omitempty"`
-	RespondAt   *bool  `json:"respondAt,omitempty"`
+	Service          string `json:"service"`
+	GroupID          string `json:"groupId"`
+	PrivateID        string `json:"privateId,omitempty"`
+	Revision         string `json:"revision"`
+	Rate             *int   `json:"rate,omitempty"`
+	Temperature      *int   `json:"temperature,omitempty"`
+	UseAgent         *bool  `json:"useAgent,omitempty"`
+	VoiceOutput      *bool  `json:"voiceOutput,omitempty"`
+	RespondAt        *bool  `json:"respondAt,omitempty"`
+	Proactive        *bool  `json:"proactive,omitempty"`
+	ProactiveMinutes *int   `json:"proactiveMinutes,omitempty"`
+	FollowupMinutes  *int   `json:"followupMinutes,omitempty"`
 }
 
 func aiConversationID(group, private string) (int64, error) {
@@ -234,8 +253,19 @@ func (s *AIStore) SaveGroup(update AIGroupUpdate) error {
 	if c == nil {
 		return invalidAI("当前程序未编译此 AI 插件")
 	}
-	if update.Service == "llm" && (update.Rate != nil || update.UseAgent != nil || update.VoiceOutput != nil || update.RespondAt != nil) {
+	if update.Service == "llm" && (update.Rate != nil || update.UseAgent != nil || update.VoiceOutput != nil || update.RespondAt != nil || update.Proactive != nil || update.ProactiveMinutes != nil || update.FollowupMinutes != nil) {
 		return invalidAI("GPT/群总结仅支持温度设置")
+	}
+	if update.Proactive != nil || update.ProactiveMinutes != nil || update.FollowupMinutes != nil {
+		if gid < 0 {
+			return invalidAI("主动接话仅支持群聊")
+		}
+		if update.ProactiveMinutes != nil && (*update.ProactiveMinutes < 1 || *update.ProactiveMinutes > 1440) {
+			return invalidAI("主动接话间隔须为1～1440分钟")
+		}
+		if update.FollowupMinutes != nil && (*update.FollowupMinutes < 1 || *update.FollowupMinutes > 30) {
+			return invalidAI("相关话题续聊窗口须为1～30分钟")
+		}
 	}
 	for _, n := range []*int{update.Rate, update.Temperature} {
 		if n != nil && (*n < 0 || *n > 100) {
@@ -244,6 +274,19 @@ func (s *AIStore) SaveGroup(update AIGroupUpdate) error {
 	}
 	_, err = c.UpdateData(gid, update.Revision, func(old int64) (int64, error) {
 		stor := ctxext.Storage(old)
+		if update.Proactive != nil {
+			v := int64(0)
+			if *update.Proactive {
+				v = 1
+			}
+			stor = stor.Set(v, chat.BitmapProactive)
+		}
+		if update.ProactiveMinutes != nil {
+			stor = stor.Set(int64(*update.ProactiveMinutes), chat.BitmapProactiveMinutes)
+		}
+		if update.FollowupMinutes != nil {
+			stor = stor.Set(int64(*update.FollowupMinutes), chat.BitmapFollowupMinutes)
+		}
 		if update.Rate != nil {
 			stor = stor.Set(int64(*update.Rate), chat.BitmapRate)
 		}

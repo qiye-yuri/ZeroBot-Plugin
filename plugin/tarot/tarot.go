@@ -2,6 +2,7 @@
 package tarot
 
 import (
+	"context"
 	"encoding/json"
 	"math/rand"
 	"net/http"
@@ -11,13 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FloatTech/floatbox/binary"
 	fcext "github.com/FloatTech/floatbox/ctxext"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/chat"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/ctxext"
-	"github.com/FloatTech/zbputils/img/text"
 	"github.com/fumiama/deepinfra"
 	"github.com/fumiama/deepinfra/model"
 	"github.com/pkg/errors"
@@ -71,7 +70,7 @@ func init() {
 		Help: "- 抽[塔罗牌|大阿卡纳|小阿卡纳] [询问的事情]\n" +
 			"- 抽n张[塔罗牌|大阿卡纳|小阿卡纳]\n" +
 			"- 解塔罗牌[牌名]\n" +
-			"- [塔罗|大阿卡纳|小阿卡纳|混合]牌阵[圣三角|时间之流|四要素|五牌阵|吉普赛十字|马蹄|六芒星] [询问的事情]",
+			"- [塔罗|大阿卡纳|小阿卡纳|混合]牌阵[圣三角|时间之流|四要素|五牌阵|吉普赛十字|马蹄|六芒星] [询问的事情]\n- 合并结果由机器人发送；牌图等待最多8秒，缺图仍返回牌义。",
 		PublicDataFolder: "Tarot",
 	}).ApplySingle(ctxext.DefaultSingle)
 
@@ -95,7 +94,10 @@ func init() {
 		}
 	}
 	getTarot := fcext.DoOnceOnSuccess(func(ctx *zero.Ctx) bool {
-		data, err := engine.GetLazyData("tarots.json", true)
+		data, err := os.ReadFile(path.Join(engine.DataFolder(), "tarots.json"))
+		if err != nil {
+			data, err = engine.GetLazyData("tarots.json", true)
+		}
 		if err != nil {
 			ctx.SendChain(message.Text("ERROR: ", err))
 			return false
@@ -112,7 +114,10 @@ func init() {
 			majorArcanaName = append(majorArcanaName, cardMap[strconv.Itoa(i)].Name)
 		}
 		logrus.Infof("[tarot]读取%d张塔罗牌", len(cardMap))
-		formation, err := engine.GetLazyData("formation.json", true)
+		formation, err := os.ReadFile(path.Join(engine.DataFolder(), "formation.json"))
+		if err != nil {
+			formation, err = engine.GetLazyData("formation.json", true)
+		}
 		if err != nil {
 			ctx.SendChain(message.Text("ERROR: ", err))
 			return false
@@ -128,7 +133,9 @@ func init() {
 		logrus.Infof("[tarot]读取%d组塔罗牌阵", len(formationMap))
 		return true
 	})
-	engine.OnRegex(`^抽(\d{1,2}张)?((塔罗牌|大阿(尔)?卡纳)|小阿(尔)?卡纳)\s?(.*)$`, getTarot).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
+	engine.OnRegex(`^抽(\d{1,2}张)?((塔罗牌|大阿(尔)?卡纳)|小阿(尔)?卡纳)\s?(.*)$`, getTarot).SetBlock(true).Limit(tarotLimit, tarotLimitNotice).Handle(func(ctx *zero.Ctx) {
+		imageContext, cancelImages := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancelImages()
 		match := ctx.State["regex_matched"].([]string)[1]
 		cardType := ctx.State["regex_matched"].([]string)[2]
 		question := strings.TrimSpace(ctx.State["regex_matched"].([]string)[6])
@@ -156,7 +163,7 @@ func init() {
 		}
 		if strings.Contains(cardType, "小") {
 			start = 22
-			length = 55
+			length = 56
 		}
 		if n == 1 {
 			i := rand.Intn(length) + start
@@ -168,7 +175,7 @@ func init() {
 				description = card.ReverseDescription
 			}
 			imgurl := reverse[p] + card.ImgURL
-			data, err := engine.GetLazyData(imgurl, true)
+			data, err := loadCardImage(imageContext, engine.DataFolder(), imgurl)
 			if err != nil {
 				// ctx.SendChain(message.Text("ERROR: ", err))
 				logrus.Infof("[tarot]获取图片失败: %v", err)
@@ -208,8 +215,8 @@ func init() {
 			}
 			if id := ctx.Send(makeNodeMessage(
 				reply,
-				ctx.CardOrNickName(ctx.Event.UserID),
-				ctx.Event.UserID,
+				ctxext.BotName(),
+				ctx.Event.SelfID,
 			)).ID(); id == 0 {
 				ctx.SendChain(message.Text("ERROR: 可能被风控了"))
 			}
@@ -236,33 +243,37 @@ func init() {
 			tarotmsg := message.Message{message.Text(reasons[rand.Intn(len(reasons))], position[p], "的『", name, "』\n")}
 			var imgmsg message.Segment
 			var err error
-			data, err := engine.GetLazyData(imgurl, true)
+			data, err := loadCardImage(imageContext, engine.DataFolder(), imgurl)
 			if err != nil {
 				// ctx.SendChain(message.Text("ERROR: ", err))
 				logrus.Infof("[tarot]获取图片失败: %v", err)
+				tarotmsg = append(tarotmsg, message.Text("（牌图暂时不可用，以下为文字结果）\n"))
 				// return
 			} else {
 				imgmsg = message.ImageBytes(data)
 				tarotmsg = append(tarotmsg, imgmsg)
 			}
 			tarotmsg = append(tarotmsg, message.Text("\n其释义为: ", description))
-			msg[i] = ctxext.FakeSenderForwardNode(ctx, tarotmsg...)
+			msg[i] = ctxext.BotForwardNode(ctx, tarotmsg...)
 		}
 		if id := ctx.Send(msg).ID(); id == 0 {
 			ctx.SendChain(message.Text("ERROR: 可能被风控了"))
 		}
 	})
 
-	engine.OnRegex(`^解塔罗牌\s?(.*)`, getTarot).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
-		match := ctx.State["regex_matched"].([]string)[1]
+	engine.OnRegex(`^解塔罗牌\s?(.*)`, getTarot).SetBlock(true).Limit(tarotLimit, tarotLimitNotice).Handle(func(ctx *zero.Ctx) {
+		imageContext, cancelImages := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancelImages()
+		match := strings.TrimSpace(ctx.State["regex_matched"].([]string)[1])
 		info, ok := infoMap[match]
 		if ok {
 			imgurl := info.ImgURL
 			var tarotmsg message.Message
-			data, err := engine.GetLazyData(imgurl, true)
+			data, err := loadCardImage(imageContext, engine.DataFolder(), imgurl)
 			if err != nil {
 				// ctx.SendChain(message.Text("ERROR: ", err))
 				logrus.Infof("[tarot]获取图片失败: %v", err)
+				tarotmsg = append(tarotmsg, message.Text("（牌图暂时不可用，以下为文字结果）\n"))
 				// return
 			} else {
 				imgmsg := message.ImageBytes(data)
@@ -283,14 +294,11 @@ func init() {
 		build.WriteString(strings.Join(majorArcanaName[14:22], " "))
 		build.WriteString("\n小阿尔卡纳:\n[圣杯|星币|宝剑|权杖] [0-10|侍从|骑士|王后|国王]")
 		txt := build.String()
-		cardList, err := text.RenderToBase64(txt, text.FontFile, 420, 20)
-		if err != nil {
-			ctx.SendChain(message.Text("ERROR: ", err))
-			return
-		}
-		ctx.SendChain(message.Text("没有找到", match, "噢~"), message.Image("base64://"+binary.BytesToString(cardList)))
+		ctx.SendChain(message.Text("没有找到", match, "噢~\n", txt))
 	})
-	engine.OnRegex(`^((塔罗|大阿(尔)?卡纳)|小阿(尔)?卡纳|混合)牌阵\s?(.*)`, getTarot).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
+	engine.OnRegex(`^((塔罗|大阿(尔)?卡纳)|小阿(尔)?卡纳|混合)牌阵\s?(.*)`, getTarot).SetBlock(true).Limit(tarotLimit, tarotLimitNotice).Handle(func(ctx *zero.Ctx) {
+		imageContext, cancelImages := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancelImages()
 		cardType := ctx.State["regex_matched"].([]string)[1]
 		rawMatch := strings.TrimSpace(ctx.State["regex_matched"].([]string)[5])
 		var match string
@@ -307,15 +315,15 @@ func init() {
 		start, length := 0, 22
 		if strings.Contains(cardType, "小") {
 			start = 22
-			length = 55
+			length = 56
 		} else if cardType == "混合" {
 			start = 0
-			length = 77
+			length = 78
 		}
 		if ok {
-			ctx.SendChain(message.Text("少女祈祷中..."))
+
 			var build strings.Builder
-			build.WriteString(ctx.CardOrNickName(ctx.Event.UserID))
+			build.WriteString("塔罗牌阵")
 			build.WriteString("---")
 			build.WriteString(match)
 			build.WriteString("\n")
@@ -337,14 +345,15 @@ func init() {
 				if p == 1 {
 					description = card.ReverseDescription
 				}
-				var tarotmsg message.Message
+				tarotmsg := message.Message{message.Text(info.Represent[0][i], ": ", position[p], name, "\n", description)}
 				imgurl := reverse[p] + card.ImgURL
 				var imgmsg message.Segment
 				var err error
-				data, err := engine.GetLazyData(imgurl, true)
+				data, err := loadCardImage(imageContext, engine.DataFolder(), imgurl)
 				if err != nil {
 					// ctx.SendChain(message.Text("ERROR: ", err))
 					logrus.Infof("[tarot]获取图片失败: %v", err)
+					tarotmsg = append(tarotmsg, message.Text("（牌图暂时不可用，以下为文字结果）\n"))
 					// return
 				} else {
 					imgmsg = message.ImageBytes(data)
@@ -364,15 +373,10 @@ func init() {
 					Description: description,
 					Represent:   info.Represent[0][i],
 				})
-				msg[i] = ctxext.FakeSenderForwardNode(ctx, tarotmsg...)
+				msg[i] = ctxext.BotForwardNode(ctx, tarotmsg...)
 			}
 			txt := build.String()
-			formation, err := text.RenderToBase64(txt, text.FontFile, 420, 20)
-			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
-			}
-			msg[info.CardsNum] = ctxext.FakeSenderForwardNode(ctx, message.Message{message.Image("base64://" + binary.BytesToString(formation))}...)
+			msg[info.CardsNum] = ctxext.BotForwardNode(ctx, message.Text(txt))
 			if id := ctx.Send(msg).ID(); id == 0 {
 				ctx.SendChain(message.Text("ERROR: 可能被风控了"))
 			}
@@ -405,8 +409,8 @@ func init() {
 			}
 			if id := ctx.Send(makeNodeMessage(
 				reply,
-				ctx.CardOrNickName(ctx.Event.UserID),
-				ctx.Event.UserID,
+				ctxext.BotName(),
+				ctx.Event.SelfID,
 			)).ID(); id == 0 {
 				ctx.SendChain(message.Text("ERROR: 可能被风控了"))
 			}

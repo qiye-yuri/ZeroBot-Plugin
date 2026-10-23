@@ -154,7 +154,7 @@ func init() {
 				ctx.SendChain(message.Text("[ERROR]:", err))
 			}
 			// 请大家吃席
-			ctx.SendChain(
+			sendWithAvatarFallback(ctx,
 				message.Text(sendtext[0][rand.Intn(len(sendtext[0]))]),
 				message.At(uid),
 				message.Text(choicetext),
@@ -240,7 +240,7 @@ func init() {
 				ctx.SendChain(message.Text("[ERROR]:", err))
 			}
 			// 输出结果
-			ctx.SendChain(
+			sendWithAvatarFallback(ctx,
 				message.Text(sendtext[2][rand.Intn(len(sendtext[2]))]),
 				message.At(uid),
 				message.Text("今天你的群"+choicetext+"是"),
@@ -304,7 +304,7 @@ func init() {
 				ctx.SendChain(message.Text("[ERROR]:", err))
 			}
 			// 请大家吃席
-			ctx.SendChain(
+			sendWithAvatarFallback(ctx,
 				message.At(uid),
 				message.Text("恭喜你成功撮合了一对CP\n\n"),
 				message.At(gayOne),

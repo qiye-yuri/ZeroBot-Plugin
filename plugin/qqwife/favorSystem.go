@@ -21,7 +21,7 @@ import (
 	"github.com/FloatTech/zbputils/img/text"
 
 	// 货币系统
-	"github.com/FloatTech/AnimeAPI/wallet"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/wallet"
 )
 
 // 好感度系统
@@ -128,6 +128,10 @@ func init() {
 		Handle(func(ctx *zero.Ctx) {
 			uid := ctx.Event.UserID
 			fianceeInfo, err := 民政局.getGroupFavorability(uid)
+			if errors.Is(err, sql.ErrNullResult) || (err == nil && len(fianceeInfo) == 0) {
+				ctx.SendChain(message.Text("你还没有好感度记录哦"))
+				return
+			}
 			if err != nil {
 				ctx.SendChain(message.Text("[ERROR]:ERROR: ", err))
 				return

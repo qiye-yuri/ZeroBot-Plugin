@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/FloatTech/AnimeAPI/tl"
+	tl "github.com/FloatTech/ZeroBot-Plugin/internal/texttranslate"
+	"github.com/FloatTech/ZeroBot-Plugin/plugin/wordle/internal/gameflow"
+	"github.com/FloatTech/ZeroBot-Plugin/plugin/wordle/internal/handou"
 	"github.com/FloatTech/gg/factory"
 
 	"github.com/FloatTech/floatbox/binary"
@@ -62,15 +64,16 @@ var words = make(dictionary)
 func init() {
 	en := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
-		Brief:            "猜单词",
-		Help: "- 个人猜单词\n" +
+		Brief:            "猜词游戏：中文成语与英文单词",
+		Help: "- 个人/团队猜词 中文；个人/团队猜词 英文\n- 个人猜成语；团队猜成语\n- 结束猜词（发起者；团队模式管理员也可结束）\n- 个人猜单词\n" +
 			"- 团队猜单词\n" +
 			"- 团队六阶猜单词\n" +
 			"- 团队七阶猜单词",
 		PublicDataFolder: "Wordle",
 	}).ApplySingle(ctxext.NewGroupSingle("已经有正在进行的游戏..."))
 
-	en.OnRegex(`^(个人|团队)(五阶|六阶|七阶)?猜单词$`, zero.OnlyGroup, fcext.DoOnceOnSuccess(
+	handou.Register(en)
+	en.OnRegex(`^(个人|团队)(五阶|六阶|七阶)?(?:猜单词|猜词 英文)$`, zero.OnlyGroup, fcext.DoOnceOnSuccess(
 		func(ctx *zero.Ctx) bool {
 			var errcnt uint32
 			var wg sync.WaitGroup
@@ -79,12 +82,12 @@ func init() {
 				wg.Add(2)
 				go func(i int) {
 					defer wg.Done()
-					dc, err := en.GetLazyData(fmt.Sprintf("cet-4_%d.txt", i), true)
+					dc, err := gameflow.LoadData(en.DataFolder() + fmt.Sprintf("cet-4_%d.txt", i))
 					if err != nil {
 						atomic.AddUint32(&errcnt, 1)
 						return
 					}
-					c := strings.Split(binary.BytesToString(dc), "\n")
+					c := gameflow.Words(binary.BytesToString(dc), i)
 					sort.Strings(c)
 					mu.Lock()
 					tmp := words[i]
@@ -94,12 +97,12 @@ func init() {
 				}(i)
 				go func(i int) {
 					defer wg.Done()
-					dd, err := en.GetLazyData(fmt.Sprintf("dict_%d.txt", i), true)
+					dd, err := gameflow.LoadData(en.DataFolder() + fmt.Sprintf("dict_%d.txt", i))
 					if err != nil {
 						atomic.AddUint32(&errcnt, 1)
 						return
 					}
-					d := strings.Split(binary.BytesToString(dd), "\n")
+					d := gameflow.Words(binary.BytesToString(dd), i)
 					sort.Strings(d)
 					mu.Lock()
 					tmp := words[i]
@@ -109,6 +112,11 @@ func init() {
 				}(i)
 			}
 			wg.Wait()
+			for i := 5; i <= 7; i++ {
+				if len(words[i].dict) == 0 || len(words[i].cet4) == 0 {
+					errcnt++
+				}
+			}
 			if errcnt > 0 {
 				ctx.SendChain(message.Text("ERROR: 下载字典时发生", errcnt, "个错误"))
 				return false
@@ -121,30 +129,32 @@ func init() {
 			target := words[class].cet4[rand.Intn(len(words[class].cet4))]
 			tt, err := tl.Translate(target)
 			if err != nil {
-				ctx.SendChain(message.Text("ERROR: ", err))
-				return
+				tt = "释义暂不可用"
 			}
 			game := newWordleGame(target)
 			_, img, _ := game("")
+
+			var next *zero.FutureEvent
+			if ctx.State["regex_matched"].([]string)[1] == "个人" {
+				next = zero.NewFutureEvent("message", ctx.GetMatcher().Priority-1, true, gameflow.AnswerRule(ctx, fmt.Sprintf(`^([A-Z]|[a-z]){%d}$`, class)),
+					zero.OnlyGroup, ctx.CheckSession())
+			} else {
+				next = zero.NewFutureEvent("message", ctx.GetMatcher().Priority-1, true, gameflow.AnswerRule(ctx, fmt.Sprintf(`^([A-Z]|[a-z]){%d}$`, class)),
+					zero.OnlyGroup, zero.CheckGroup(ctx.Event.GroupID))
+			}
+			var win bool
+			recv, cancel := next.Repeat()
+			defer cancel()
 			ctx.Send(
 				message.ReplyWithMessage(ctx.Event.MessageID,
 					message.ImageBytes(img),
 					message.Text("你有", class+1, "次机会猜出单词，单词长度为", class, "，请发送单词"),
 				),
 			)
-			var next *zero.FutureEvent
-			if ctx.State["regex_matched"].([]string)[1] == "个人" {
-				next = zero.NewFutureEvent("message", 999, false, zero.RegexRule(fmt.Sprintf(`^([A-Z]|[a-z]){%d}$`, class)),
-					zero.OnlyGroup, ctx.CheckSession())
-			} else {
-				next = zero.NewFutureEvent("message", 999, false, zero.RegexRule(fmt.Sprintf(`^([A-Z]|[a-z]){%d}$`, class)),
-					zero.OnlyGroup, zero.CheckGroup(ctx.Event.GroupID))
-			}
-			var win bool
-			recv, cancel := next.Repeat()
-			defer cancel()
 			tick := time.NewTimer(105 * time.Second)
 			after := time.NewTimer(120 * time.Second)
+			defer tick.Stop()
+			defer after.Stop()
 			for {
 				select {
 				case <-tick.C:
@@ -157,6 +167,10 @@ func init() {
 					)
 					return
 				case c := <-recv:
+					if c.ExtractPlainText() == "结束猜词" {
+						ctx.SendChain(message.Text("猜单词已结束。"))
+						return
+					}
 					tick.Reset(105 * time.Second)
 					after.Reset(120 * time.Second)
 					win, img, err = game(c.Event.Message.String())

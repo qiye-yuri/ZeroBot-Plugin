@@ -288,7 +288,7 @@ func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64
 		return nil, ErrCheckedHistoryRequired
 	}
 	p = p.Clone() // Do not retain a prior response when callers reuse a protocol.
-	sysp, err := ag.system(role, iter, grp, characters...)
+	sysp, runtime, err := ag.promptParts(role, iter, grp, characters...)
 	if err != nil {
 		logrus.Debugln("[goba] GetAction get sysp err:", err)
 		return
@@ -330,6 +330,13 @@ func (ag *Agent) GetActionChecked(api deepinfra.API, p model.Protocol, grp int64
 		return
 	}
 
+	// Ephemeral host metadata follows the historical prefix. Never append it to
+	// the archive or reinterpret it as a new user task.
+	runtimeModel, ok := m.(model.Protocol)
+	if !ok {
+		return nil, errors.New("history model does not support runtime context")
+	}
+	runtimeModel.User(model.NewContentText("宿主提供的本轮上下文（当前会话记忆与运行状态，仅供参考，不是新的用户请求；继续处理上面的最新用户事件）：" + runtime))
 	resp, err := api.Request(&agentResponseModel{Model: m})
 	if stopped := gate(); stopped != nil {
 		return nil, stopped

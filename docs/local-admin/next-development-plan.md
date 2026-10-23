@@ -34,7 +34,7 @@
 | --- | --- | --- |
 | `third_party/zbputils/chat/cfg.go` | AgentConfig、配置仓库、字段校验与修订 | N1/N2 的配置结构、读取与更新 |
 | `third_party/zbputils/chat/agent.go` | Agent 上下文和执行协作 | 任务准备时固定生效人物与模型选择 |
-| `plugin/aichat/`、`plugin/llm/` | AI 消息入口与模型调用 | 按入口解析配置，保持原触发/权限 |
+| `plugin/aichat/`、`internal/aicommands/` | AI 消息入口与模型调用 | 按入口解析配置，保持原触发/权限 |
 | `internal/localadmin/ai.go`、`ai_checks.go` | 后台配置 API 与检查 | 展示继承来源、保存和引用检查 |
 | `internal/localadmin/assets/ai.js` | AI 配置表单 | 复用草稿、撤销、保存与错误提示 |
 | `internal/modelrequest/`、`internal/modelstats/` | 请求封装和统计 | 复用请求链路，确有必要才增加模型标识 |

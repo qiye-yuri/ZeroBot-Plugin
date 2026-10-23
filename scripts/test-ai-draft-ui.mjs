@@ -37,6 +37,27 @@ async function harness(t){
 const dirty=page=>page.evaluate(()=>aiDrafts());
 const waitIdle=page=>page.waitForFunction(()=>!aiBusy);
 
+test('proactive group options save, discard, and stay out of private settings',async t=>{
+  const page=await harness(t);
+  assert.equal(await page.locator('#ai-field-proactiveMinutes-aichatcfg').inputValue(),'10');
+  assert.equal(await page.locator('#ai-field-followupMinutes-aichatcfg').inputValue(),'2');
+  await page.locator('#ai-field-proactive-aichatcfg').check();
+  await page.locator('#ai-field-proactiveMinutes-aichatcfg').fill('15');
+  await page.locator('#ai-field-followupMinutes-aichatcfg').fill('4');
+  assert.deepEqual(await dirty(page),['aichatcfg']);
+  const saved=fixture();Object.assign(saved.groups[0],{proactive:true,proactiveMinutes:15,followupMinutes:4});
+  await page.evaluate(value=>replies.push(value),saved);
+  await page.locator('[data-service=aichatcfg] button[type=submit]').click();await waitIdle(page);
+  const body=await page.evaluate(()=>requests.at(-1).body);
+  assert.equal(body.proactive,true);assert.equal(body.proactiveMinutes,15);assert.equal(body.followupMinutes,4);
+  await page.locator('#ai-field-proactiveMinutes-aichatcfg').fill('20');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#discard-ai-aichatcfg').click();
+  assert.equal(await page.locator('#ai-field-proactiveMinutes-aichatcfg').inputValue(),'15');
+  await page.evaluate(value=>renderAIGroups(value.groups.map(g=>({...g,groupId:'',privateId:'123456789'}))),saved);
+  assert.equal(await page.locator('#ai-field-proactive-aichatcfg').count(),0);
+});
+
 const modelsFixture={named:false,revision:'e'.repeat(64),parameterDefaults:{maxN:4096,topP:.9,reasoningEffort:'high'},profiles:[{id:'first',name:'聊天模型',type:0,model:'chat',api:'https://chat.invalid',keyConfigured:true},{id:'second',name:'Agent 模型',type:1,model:'agent',api:'http://localhost:11434',keyConfigured:false}],routes:{chat:'first',gpt:'',summary:'',agent:'second',image:''}};
 
 test('GPT and summary routes inherit chat or save independent selections and guard deletion',async t=>{
