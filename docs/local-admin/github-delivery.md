@@ -94,3 +94,6 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 
 
 2026-10-24 PR #14已按使用者授权静态审查并合并至master，合并提交[13031b53](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/13031b534d9e2e73e650decd93f822d097c1c356)。锁定PR提交0b38fcfc，合并树与审查提交一致；无待处理审查意见，GitHub未配置CI检查，未声称CI通过。此次没有运行新测试、发起付费验证或重新部署。待验收和暂缓项保持不动，之前“尚未合并”仅为上传时状态。
+
+
+2026-10-24 R8 已完成并上传：功能提交 `737b6b4c`，分支 `codex/conversation-search-shortcut`，创建[中文 PR #15](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/15)，目标为已合入插件整合的 master。23项专项、170项离线Chrome、最终程序及17步要求（静态资源补齐后续跑）通过，完整冒烟151项检查标记通过；11份使用/开发文档783个本地引用检查通过。使用方法见[联网搜索](web-search.md)，失败及复验说明见[验收记录](self-test.md#r8-会话搜索快捷入口验收)。本批未合并、部署或调用真实模型/QQ，配置与运行数据未上传。
