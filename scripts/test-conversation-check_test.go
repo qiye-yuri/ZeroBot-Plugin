@@ -115,6 +115,13 @@ func TestConversationCheckIsolatedRuntime(t *testing.T) {
 	if other["persona"].(map[string]any)["mode"] != "inherit" || other["search"].(map[string]any)["policy"].(map[string]any)["enabled"] != false {
 		t.Fatal("private scope leaked to group")
 	}
+	// R8 follows the summary scope through the existing read-only search endpoint.
+	for _, scope := range []string{"private", "group"} {
+		form := api("GET", "/api/ai-search?botId=87654321&type="+scope+"&id=12345678", nil)
+		if form["botId"] != "87654321" || form["type"] != scope || form["id"] != "12345678" || form["policy"].(map[string]any)["enabled"] != (scope == "private") {
+			t.Fatal("search shortcut scope mismatch", scope)
+		}
+	}
 	afterDB, _ := os.ReadFile(filepath.Join(out, "data/control/plugins.db"))
 	afterBackups, _ := os.ReadDir(filepath.Join(h.AdminDir, "backups"))
 	if !bytes.Equal(beforeDB, afterDB) || len(beforeBackups) != len(afterBackups) || calls.Load() != 0 {

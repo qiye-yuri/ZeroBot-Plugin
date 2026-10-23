@@ -286,6 +286,6 @@ async function loadConversationCheck() {
 $("conversation-check-load").addEventListener("click",loadConversationCheck);
 $("conversation-check-persona").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"persona");});
 $("conversation-check-parameters").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"parameters");});
-$("conversation-check-ai").addEventListener("click",()=>showWorkspaceView("ai"));
+$("conversation-check-ai").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationSearch({...agentScope});});
 $("conversation-check-plugins").addEventListener("click",()=>showWorkspaceView("plugins"));
 agentControls();
