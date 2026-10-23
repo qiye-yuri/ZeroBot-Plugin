@@ -1,5 +1,10 @@
 "use strict";
+let aiSearchReading=false;
+function showAISearch(visible) {
+  if(!visible&&aiSearchReading){aiGeneration++;aiSearchReading=false;aiBusyState(false);}
+}
 function resetAISearch() {
+  aiSearchReading=false;
   aiBaselines.delete("search");
   $("ai-search-form").replaceChildren(); $("ai-search-form").hidden=true;
   $("ai-search-bot").value=""; $("ai-search-id").value=""; $("ai-search-type").value="group";
@@ -33,13 +38,22 @@ function renderAISearch(value) {
     finally{if(generation===aiGeneration)aiBusyState(false);}
   };
 }
-async function loadAISearch(scope) {
+async function openConversationSearch({botId,type,id}) {
+  const scope={botId,type,id};
   if(!authenticated||aiBusy)return;
-  if(aiDrafts().includes("search")&&!window.confirm("重新读取将放弃搜索表单未保存的更改，是否继续？"))return;
+  if(aiDrafts().includes("search")&&!window.confirm("进入此会话搜索设置将放弃搜索表单未保存的更改，是否继续？"))return;
+  if(!showWorkspaceView("ai",{autoLoadAI:false}))return;
+  $("ai-search-bot").value=scope.botId;$("ai-search-type").value=scope.type;$("ai-search-id").value=scope.id;
+  $("ai-search-scope").scrollIntoView({block:"start"});
+  await loadAISearch(scope,{confirmed:true});
+}
+async function loadAISearch(scope,{confirmed=false}={}) {
+  if(!authenticated||aiBusy)return;
+  if(!confirmed&&aiDrafts().includes("search")&&!window.confirm("重新读取将放弃搜索表单未保存的更改，是否继续？"))return;
   if(!/^[1-9][0-9]{0,18}$/.test(scope.botId)||!/^[1-9][0-9]{0,18}$/.test(scope.id)){showError("ai-error",new Error("机器人及会话 QQ 须为正整数。"));return;}
-  const generation=aiGeneration;aiBusyState(true);$("ai-error").hidden=true;aiBaselines.delete("search");$("ai-search-form").replaceChildren();$("ai-search-form").hidden=true;
+  const generation=aiGeneration;aiSearchReading=true;aiBusyState(true);$("ai-error").hidden=true;aiBaselines.delete("search");$("ai-search-form").replaceChildren();$("ai-search-form").hidden=true;
   try{const value=await api("/api/ai-search?"+new URLSearchParams(scope));if(generation!==aiGeneration||!authenticated)return;renderAISearch(value);}
   catch(error){if(generation===aiGeneration&&authenticated)showError("ai-error",error);}
-  finally{if(generation===aiGeneration)aiBusyState(false);}
+  finally{if(generation===aiGeneration){aiSearchReading=false;aiBusyState(false);}}
 }
 $("ai-search-scope").addEventListener("submit",event=>{event.preventDefault();loadAISearch({botId:$("ai-search-bot").value.trim(),type:$("ai-search-type").value,id:$("ai-search-id").value.trim()});});

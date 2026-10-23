@@ -586,6 +586,7 @@ function showWorkspaceView(name, {autoLoadAI=true}={}) {
   if (typeof connectionAddCanLeave === "function" && !connectionAddCanLeave()) return;
   if (typeof agentMemoryCanLeave === "function" && !agentMemoryCanLeave()) return;
   if (typeof securityCanLeave === "function" && !securityCanLeave()) return;
+  if (typeof showAISearch === "function") showAISearch(name === "ai");
   document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("active", item === button));
   for (const view of ["overview", "plugins", "connections", "ai", "logs", "backups", "security", "agent", "updatewatch"]) $(view + "-view").hidden = button.dataset.view !== view;
   renderPluginCatalogControls();
