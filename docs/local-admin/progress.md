@@ -854,3 +854,6 @@ P095答对分支此前仅隔离通过。本次核对现有答题格式、结束�
 
 
 R8 上传完成：见[PR #15](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/15)，目标 master，尚未合并或部署；下一开发批次为 R9。
+
+
+2026-10-24 01:16（北京时间）：[PR #15](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/15)已合并 master，合并提交 `ccde9466`，R8 已部署。使用同一份验收程序，SHA256 `A78A45AE489CE465420CA8C8C14A480A4FB51E5563170BAEE4BDD255F25E56F2`。 部署后实际后台快捷入口与范围隔离通过；1200份备份、979份数据/辅助文件、221张控制表和26个数据库检查通过。OneBot与原配置数据保持，详见[部署验收](self-test.md#r8-合并部署验收)。R9/R10尚未开发。
