@@ -166,9 +166,12 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 
 ## R15 后续规划交付
 
-2026-10-24：完成[R16开发计划](post-r15-development-plan.md)，同步导航、前序计划、进度及验收记录。分支codex/post-r15-development-plan，目标为用户origin的master，仅交付6份公开文档；R16尚未实现。最新FTB部署和实机结论保持，本机data及既有两份测试文件改动不纳入。154份文档、1649个本地引用及425个锚点检查通过；规划提交d4a02b16已推送origin，创建[中文PR #27](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/27)，目标master，尚未合并。本记录随同一分支补充上传。
+2026-10-24：完成[R16开发计划](post-r15-development-plan.md)，同步导航、前序计划、进度及验收记录。分支codex/post-r15-development-plan，目标为用户origin的master，仅交付6份公开文档；R16尚未实现。最新FTB部署和实机结论保持，本机data及既有两份测试文件改动不纳入。154份文档、1649个本地引用及425个锚点检查通过；规划提交d4a02b16已推送origin，创建[中文PR #27](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/27)，目标master；已随PR #28合并。本记录随同一分支补充上传。
 
 
 ## R16 任务状态刷新交付
 
-2026-10-24：分支codex/ftb-status-refresh-r16，目标用户origin/master，包含前置规划PR #27。交付页面实现、专项回归和使用/开发记录，无新增依赖或接口。当前尚未合并部署，运行仍为e7a0ac58；8项浏览器专项、FTB核心与后台Go回归、主程序构建及嵌入资源核对通过；154份文档、1654个本地引用、430个锚点检查零错误。实现提交b60f1a89已推送origin，创建[中文PR #28](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/28)，包含前置规划PR #27，尚未合并；本记录随同一分支补充上传。R16-05检查与上传完成。本机data、既有两份测试文件改动和私有截图/构建产物不纳入提交。
+2026-10-24：分支codex/ftb-status-refresh-r16，目标用户origin/master，包含前置规划PR #27。交付页面实现、专项回归和使用/开发记录，无新增依赖或接口。现已合并部署，运行master d36bee1d；8项浏览器专项、FTB核心与后台Go回归、主程序构建及嵌入资源核对通过；154份文档、1654个本地引用、430个锚点检查零错误。实现提交b60f1a89已推送origin，创建[中文PR #28](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/28)，包含前置规划PR #27，两项已合并；本记录随同一分支补充上传。R16-05检查与上传完成。本机data、既有两份测试文件改动和私有截图/构建产物不纳入提交。
+
+
+2026-10-24：R16 PR #28已合并，合并提交d36bee1df56146c5af1a79b5e91ec6a046bdd180，锁定复核头adbc885f且合并树一致；PR #27规划同时合并。8项浏览器专项、FTB核心与后台Go回归、全量文档及最终二进制隔离整机通过。已部署同一验收程序，SHA256 FEB3ADCEF696A6120A416E6E18E48EEA2EC8E1E6ADE0169DDA14850F1B933E1C。部署后实际资源与源码一致，8项实际资源配合合成API的页面回归、认证边界、进程/OneBot连接及配置保留检查通过；GitHub无CI检查项，不记作CI通过。仅重启ZeroBot，未发起真实QQ测试、FTB下载或付费模型调用。
