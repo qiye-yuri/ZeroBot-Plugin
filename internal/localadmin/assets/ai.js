@@ -1,5 +1,6 @@
 "use strict";
 let aiState = null, aiBusy = false, aiGroup = "0", aiPrivate = "", aiGeneration = 0;
+let aiModelShortcutActive = false;
 const aiFields = [
   ["Type","聊天接口类型","type"], ["ModelName","聊天模型名","text"], ["API","聊天接口地址","text"],
   ["MaxN","最大输出长度（0 为默认 4096）","number",0,131072], ["TopP","TopP（0 为默认 0.9）","number",0,1],
@@ -11,6 +12,7 @@ const aiFields = [
 ];
 const aiKeys = [["Key","聊天密钥"],["ImageKey","识图密钥"],["AgentKey","Agent 密钥"]];
 const aiBaselines = new Map();
+const aiDraftNames={search:"联网搜索设置",models:"命名模型配置",persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"};
 function aiFormSnapshot(form) {
   return JSON.stringify([...form.querySelectorAll("input,select,textarea")].map(input=>[input.id,input.type==="checkbox" ? input.checked : input.value]));
 }
@@ -20,7 +22,7 @@ function aiDrafts() {
 function renderAIDrafts() {
   const drafts=aiDrafts();
   renderAIDraftFields(drafts);
-  $("ai-draft-status").textContent=drafts.length ? "未保存更改："+drafts.map(name=>({search:"联网搜索设置",models:"命名模型配置",persona:"会话人物覆盖",global:"全局模型与人物设定",aichatcfg:"聊天会话参数",llm:"GPT / 群总结温度"}[name])).join("、")+"。请分别保存；切换后台页面会保留草稿。" : aiState ? "当前 AI 表单没有未保存的更改。" : "读取设置后可编辑；草稿仅保留在当前页面。";
+  $("ai-draft-status").textContent=drafts.length ? "未保存更改："+drafts.map(name=>aiDraftNames[name]).join("、")+"。请分别保存；切换后台页面会保留草稿。" : aiState ? "当前 AI 表单没有未保存的更改。" : "读取设置后可编辑；草稿仅保留在当前页面。";
   for (const button of document.querySelectorAll("[data-ai-discard]")) button.disabled = !authenticated || aiBusy || !drafts.includes(button.dataset.aiDiscard);
 }
 function discardAIForm(name) {
@@ -91,10 +93,12 @@ function rememberAIForm(name,form,scope=null) {
 }
 function confirmAIDiscard(action) {
   if (aiBusy) { window.alert("AI 设置请求尚未结束，请等待结果后再"+action+"。"); return false; }
-  return !aiDrafts().length || window.confirm("AI 设置有未保存的更改。"+action+"将放弃这些更改，是否继续？");
+  const drafts=aiDrafts();
+  return !drafts.length || window.confirm("AI 设置有未保存的更改："+drafts.map(name=>aiDraftNames[name]).join("、")+"。"+action+"将放弃这些更改，是否继续？");
 }
 
 function resetAI() {
+  aiModelShortcutActive=false;
   if(typeof resetAIProbe==="function")resetAIProbe();
   if(typeof resetAISearch==="function")resetAISearch();
   aiGeneration++; aiState = null; aiGroup = "0"; aiPrivate = "";
@@ -387,10 +391,35 @@ function renderAIModels(value) {
     finally{if(generation===aiGeneration)aiBusyState(false);}
   };
 }
-$("ai-models-load").addEventListener("click",async()=>{
-  if(aiBusy||!authenticated)return;if(aiDrafts().includes("models")&&!window.confirm("重新读取将放弃命名模型表单的未保存更改，是否继续？"))return;
+async function loadAIModels({confirmed=false}={}){
+  if(aiBusy||!authenticated)return false;if(!confirmed&&aiDrafts().includes("models")&&!window.confirm("重新读取将放弃命名模型表单的未保存更改，是否继续？"))return false;
   const generation=aiGeneration;aiBusyState(true);$("ai-error").hidden=true;
-  try{const value=await api("/api/ai-models");if(generation!==aiGeneration||!authenticated)return;renderAIModels(value);}
+  try{const value=await api("/api/ai-models");if(generation!==aiGeneration||!authenticated)return false;renderAIModels(value);return true;}
   catch(error){if(generation===aiGeneration&&authenticated)showError("ai-error",error);}
   finally{if(generation===aiGeneration)aiBusyState(false);}
-});
+  return false;
+}
+$("ai-models-load").addEventListener("click",()=>loadAIModels());
+
+function showAIModelShortcut(visible){
+  if(!visible&&aiModelShortcutActive)resetAI();
+}
+async function openGlobalModels(scope){
+  if(!authenticated||aiBusy||!confirmAIDiscard("读取全局模型配置"))return;
+  if(!showWorkspaceView("ai",{autoLoadAI:false}))return;
+  resetAI();
+  aiModelShortcutActive=true;
+  const generation=aiGeneration+1; // loadAI advances the existing request generation.
+  try{
+    await loadAI("0","",{confirmed:true});
+    if(generation!==aiGeneration||!authenticated||!aiState?.available||$("ai-view").hidden)return;
+    let target=$("ai-global-form");
+    if(aiState.global.namedModels){
+      if(!await loadAIModels({confirmed:true}))return;
+      target=$("ai-models-form");
+    }
+    if(generation!==aiGeneration||!authenticated||$("ai-view").hidden)return;
+    $("ai-status").textContent="来自机器人 "+scope.botId+" / "+(scope.type==="group"?"群 ":"私聊 ")+scope.id+" 的配置核对。模型配置由本实例共享，修改会影响使用该配置的所有会话；此入口不创建会话模型覆盖。请显式保存后返回会话手动核对。";
+    target.scrollIntoView({block:"start"});
+  }finally{if(generation===aiGeneration)aiModelShortcutActive=false;}
+}

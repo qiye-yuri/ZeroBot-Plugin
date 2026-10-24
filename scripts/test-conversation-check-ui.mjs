@@ -113,6 +113,7 @@ test('duplicate clicks issue one request, failure clears old result and manual r
  await page.evaluate(()=>pending.shift()({ok:false,status:500,json:async()=>({error:'读取失败'})}));await idle(page);
  assert.match(await page.locator('#conversation-check-status').textContent(),/核对失败/);assert.equal(await page.locator('#conversation-check-links').isHidden(),true);
  await read(page,{...settings,models:{named:true,error:'入口引用无效，请重新选择',entries:[]}});
+ assert.equal(await page.locator('#conversation-check-models').isVisible(),true);assert.equal(await page.locator('#conversation-check-models').isEnabled(),true);
  assert.match(await page.locator('#conversation-check-result').textContent(),/入口引用无效/);assert.match(await page.locator('#conversation-check-result').textContent(),/当前机器人会话自定义/);
 });
 

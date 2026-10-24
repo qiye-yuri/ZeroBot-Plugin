@@ -108,3 +108,9 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 2026-10-24 R10 上传完成：功能提交 `3d60aa4b` 已推送用户 origin 分支 `codex/config-summary-readability`，创建[中文 PR #17](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/17)，目标为已部署R9的master。20项专项/快捷入口、183项离线Chrome、统一18步及完整冒烟151项标记通过；9份使用/开发文档824个本地引用检查通过。使用见[会话摘要](conversation-check.md#摘要名称问题和完整修订r10)，范围见[验收](self-test.md#r10-配置摘要可读性验收)。本批尚未合并部署，未调用真实模型/Search或发送QQ测试消息；配置、运行数据、截图及原始证据未上传。本条链接作为后续文档提交同步。
 
 2026-10-24 11:53（北京时间）：[PR #17](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/17)已合并 master，合并提交 `2afc4e95`，R10 已部署。运行程序与通过统一18步验收的程序一致，SHA256 `41FFDEE338AE55D34F7A22FEECA9CCEC7A32B46BF511D0959B32E82633AFC6F4`。 部署后实际页面、配置数据保留与数据库检查通过，见[部署验收](self-test.md#r10-合并部署验收)。使用说明、维护说明和计划状态已同步；私有备份、身份、截图和运行证据不上传。R8～R10计划已完成，既有插件未验收事项保持。
+
+
+2026-10-24 R10后续规划：基于master `43445948` 核对会话摘要、AI读取与草稿、模型及搜索诊断代码，完成[详细计划](post-r10-development-plan.md)。R11为P1全局模型配置快捷入口，R12为P2诊断结果读法，明确工作包、请求边界、验收矩阵及独立交付步骤；两项尚未实现。本批只交付公开文档，配置与运行数据保持，不重启或发起真实测试。10份Markdown、691个本地引用、2处相关锚点及格式检查通过。规划提交 `c9e3cd7a` 已推送用户origin，并创建[中文文档PR #18](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/18)，目标master，尚未合并。
+
+
+2026-10-24 R11上传完成：功能提交 `ea677103` 已推送用户origin，创建[中文PR #19](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/19)，目标master，包含PR #18后续规划文档。27项专项、190项离线Chrome、统一18步及最终隔离整机通过；12份功能/使用文档919个本地引用与12处R11锚点检查通过。使用见[全局模型入口](conversation-check.md#设置全局模型r11)，验收限制见[自测](self-test.md#r11-全局模型配置快捷入口验收)。尚未合并部署，未调用真实付费服务或发送QQ消息；本机配置、数据与私有证据不上传。
