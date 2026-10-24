@@ -5,7 +5,7 @@ function clearAgentSearchContinue() {
   agentSearchContinue=null;$("agent-search-continue").hidden=true;$("agent-search-continue").disabled=true;
 }
 function agentControls() {
-  for(const id of ["conversation-check-load","conversation-check-persona","conversation-check-parameters","conversation-check-ai","conversation-check-plugins"])$(id).disabled=!authenticated||!agentVisible||agentBusy||!agentScope;
+  for(const id of ["conversation-check-load","conversation-check-persona","conversation-check-parameters","conversation-check-ai","conversation-check-models","conversation-check-plugins"])$(id).disabled=!authenticated||!agentVisible||agentBusy||!agentScope;
   for(const id of ["agent-open-persona","agent-open-ai"])$(id).disabled=!authenticated||!agentVisible||agentBusy||!agentScope;
   $("agent-search-continue").hidden=!agentSearchContinue;
   $("agent-search-continue").disabled=agentBusy||!agentSearchContinue;
@@ -300,5 +300,6 @@ $("conversation-check-load").addEventListener("click",loadConversationCheck);
 $("conversation-check-persona").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"persona");});
 $("conversation-check-parameters").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"parameters");});
 $("conversation-check-ai").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationSearch({...agentScope});});
+$("conversation-check-models").addEventListener("click",()=>{if(!agentBusy&&agentScope)openGlobalModels({...agentScope});});
 $("conversation-check-plugins").addEventListener("click",()=>showWorkspaceView("plugins"));
 agentControls();
