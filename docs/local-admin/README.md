@@ -6,7 +6,7 @@
 
 状态核对日期：2026-10-24（Asia/Shanghai）。R1～R13及N1～N3已按各批记录合并部署，最新功能部署为R13会话插件范围入口，见[使用方法](conversation-check.md#设置会话对应的插件范围r13)与[部署验收](self-test.md#r13-合并部署验收)。开发批次编号不是仓库发布版本。
 
-R14文档导航整理已完成，上传及合并状态见[交付记录](github-delivery.md#r14-文档导航整理交付)；本批仅改文档，无程序部署。[R13与R14计划](post-r12-development-plan.md)保留已完成工作包；下一阶段为[R15文档校验工具](post-r14-development-plan.md)，目前仅完成规划，尚未实现。
+R14文档导航整理已完成，上传及合并状态见[交付记录](github-delivery.md#r14-文档导航整理交付)；本批仅改文档，无程序部署。[R13与R14计划](post-r12-development-plan.md)保留已完成工作包；下一阶段为[R15文档校验工具](post-r14-development-plan.md)，工具与专项测试已实现，使用见[文档链接检查](document-check.md)，上传与合并状态见[交付记录](github-delivery.md#r15-文档校验工具交付)。
 
 待验收与暂缓统一查阅[当前剩余验收条件](remaining-acceptance.md)：已确认通过的项目不重新列为待验收，钓鱼、真实好友申请与入群邀请等仍按原条件保留；P010本地AI画图及定时整合继续暂缓。插件去留以[现行清单](feature-plugin-inventory.md)为准，历史数量不作为当前状态。
 
@@ -59,6 +59,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 | 当前工作包与开发约定 | [R15开发计划](post-r14-development-plan.md)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
+| 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
 | 提交文件边界及上传流程 | [GitHub交付](github-delivery.md) |
 
 每次功能更新同步使用说明。自动化通过、真实QQ验收、上传、合并和部署分别记录；缺少外部条件不等于无法修复。
