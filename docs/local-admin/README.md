@@ -22,7 +22,7 @@ MC查询与手动订阅见[服务器监控说明](minecraft-monitor.md)；钓鱼
 
 R7 使用入口：[核对会话配置](conversation-check.md)。登录后台读取 Agent 会话后，可手动核对响应、实际插件、共享参数、模型、人物来源及搜索配置；已合并 master 并部署，部署验收见[自测](self-test.md#r7-合并与日常部署验证)。
 
-当前开发入口：[R7 完成后的开发方向与计划](post-r7-development-plan.md)：R8 搜索设置快捷入口、R9 搜索凭据诊断、R10 摘要可读性，其中 R8 已合并部署，使用方法见[联网搜索](web-search.md)；R9 已合并部署[已保存搜索密钥诊断](search-probe.md)，一次实际诊断通过；R10 已实现[配置摘要可读性与问题提示](conversation-check.md#摘要名称问题和完整修订r10)，尚未合并部署。验证与限制见[自测](self-test.md)。
+当前开发入口：[R7 完成后的开发方向与计划](post-r7-development-plan.md)：R8 搜索设置快捷入口、R9 搜索凭据诊断、R10 摘要可读性，其中 R8 已合并部署，使用方法见[联网搜索](web-search.md)；R9 已合并部署[已保存搜索密钥诊断](search-probe.md)，一次实际诊断通过；R10 已合并部署[配置摘要可读性与问题提示](conversation-check.md#摘要名称问题和完整修订r10)。验证与限制见[自测](self-test.md)。
 
 # 本地机器人管理后台：使用与开发文档
 

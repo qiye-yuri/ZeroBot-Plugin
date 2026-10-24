@@ -106,3 +106,5 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 2026-10-24 10:35（北京时间）：[PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)已合并 master，合并提交 `5ddbe18b`，R9 已部署。运行同一份通过18步验收的程序，SHA256 `F0BDF552F2AE542D7B8C2E370463EA19F04A7A112FD4849445B6572A0BDCBBEA`。 锁定22d14eec合并，合并树与验收源码一致；按使用者授权部署并完成自动及实际页面验收。1200份备份、979份数据/辅助文件、221张控制表、26个数据库检查通过，真实Search仅1次，实际费用未知，未发送QQ测试消息。仅同步公开部署与使用说明，私有证据和运行数据不上传。
 
 2026-10-24 R10 上传完成：功能提交 `3d60aa4b` 已推送用户 origin 分支 `codex/config-summary-readability`，创建[中文 PR #17](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/17)，目标为已部署R9的master。20项专项/快捷入口、183项离线Chrome、统一18步及完整冒烟151项标记通过；9份使用/开发文档824个本地引用检查通过。使用见[会话摘要](conversation-check.md#摘要名称问题和完整修订r10)，范围见[验收](self-test.md#r10-配置摘要可读性验收)。本批尚未合并部署，未调用真实模型/Search或发送QQ测试消息；配置、运行数据、截图及原始证据未上传。本条链接作为后续文档提交同步。
+
+2026-10-24 11:53（北京时间）：[PR #17](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/17)已合并 master，合并提交 `2afc4e95`，R10 已部署。运行程序与通过统一18步验收的程序一致，SHA256 `41FFDEE338AE55D34F7A22FEECA9CCEC7A32B46BF511D0959B32E82633AFC6F4`。 部署后实际页面、配置数据保留与数据库检查通过，见[部署验收](self-test.md#r10-合并部署验收)。使用说明、维护说明和计划状态已同步；私有备份、身份、截图和运行证据不上传。R8～R10计划已完成，既有插件未验收事项保持。

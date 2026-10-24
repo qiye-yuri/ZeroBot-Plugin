@@ -873,3 +873,6 @@ R9 上传完成：[PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)�
 R10验收完成：20项专项、183项页面用例、统一18步和151项完整冒烟检查通过；详见[验收记录](self-test.md#r10-配置摘要可读性验收)。本批尚未合并部署。
 
 R10已上传：[PR #17](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/17)，功能提交3d60aa4b；尚未合并部署，原R9日常服务保持。
+
+
+2026-10-24 11:53（北京时间）：[PR #17](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/17)已合并 master，合并提交 `2afc4e95`，R10 已部署。运行程序与通过统一18步验收的程序一致，SHA256 `41FFDEE338AE55D34F7A22FEECA9CCEC7A32B46BF511D0959B32E82633AFC6F4`。 部署后实际页面、配置数据保留与数据库检查通过，见[部署验收](self-test.md#r10-合并部署验收)。使用说明、维护说明和计划状态已同步；私有备份、身份、截图和运行证据不上传。R8～R10计划已完成，既有插件未验收事项保持。
