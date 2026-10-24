@@ -139,4 +139,7 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 
 ## R14 文档导航整理交付
 
-2026-10-24：完成[文档首页](README.md)与[旧首页历史归档](index-history.md)，同步进度、计划、使用入口和文档验收记录。仅交付公开文档，日常服务和配置保持；分支为 codex/document-navigation-r14。148份管理文档、1569个本地引用、407个锚点引用及全仓库334处入站引用检查通过，旧首页归档完整，状态一致。文档提交 `6d738b33` 已推送用户origin，并创建[中文PR #23](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/23)，目标master，尚未合并。本批无需程序部署。
+2026-10-24：完成[文档首页](README.md)与[旧首页历史归档](index-history.md)，同步进度、计划、使用入口和文档验收记录。仅交付公开文档，日常服务和配置保持；分支为 codex/document-navigation-r14。148份管理文档、1569个本地引用、407个锚点引用及全仓库334处入站引用检查通过，旧首页归档完整，状态一致。文档提交 `6d738b33` 已推送用户origin，并创建[中文PR #23](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/23)，目标master；已于2026-10-24 16:07（北京时间）合并，合并提交 `4de8cf75`。本批无需程序部署。
+
+
+2026-10-24 16:07（北京时间）：R14 [PR #23](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/23)已合并master，合并提交 `4de8cf750d29b16dded0cb3b55279cb5a78c3cb0`。 锁定并复核PR头 `b4bebef315014beebc0940f9c4a764a5119e00bd`，合并树与审查树一致。8份文档变更无阻断问题，无未处理审查意见；GitHub未配置CI检查项，不记为CI通过。本次只合并文档并同步验收记录，未重启或部署服务，原配置、运行数据及既有待验收状态保持。
