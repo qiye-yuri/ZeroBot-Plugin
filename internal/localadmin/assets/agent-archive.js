@@ -251,25 +251,38 @@ function clearConversationCheck() {
 }
 function renderConversationCheck(value) {
   const result=$("conversation-check-result"),on=value=>value?"开启":"关闭";
+  const mode=value=>({inherit:"继承",enabled:"启用",disabled:"停用"}[value]||"未知（"+value+"）");
+  const protocol=value=>({0:"OpenAI",1:"OLLaMA",2:"GenAI"}[value]||"未知（"+value+"）");
   const source=value=>({global:"全局",group:"会话覆盖",conversation:"会话响应",default:"插件默认",none:"均未开启"}[value]||value);
   const section=(title,text)=>{const heading=document.createElement("h3"),body=document.createElement("p");heading.textContent=title;body.className="agent-record";body.textContent=text;result.append(heading,body);};
   const scope=value.scope;
-  $("conversation-check-status").textContent="机器人 "+scope.botId+" / "+(scope.type==="group"?"群 ":"私聊 ")+scope.id+" · 读取时间 "+value.observedAt+" · AI 修订 "+value.revision+"。仅为本次读取，各存储不是原子快照；更改后请手动重读。";
+  $("conversation-check-status").textContent="机器人 "+scope.botId+" / "+(scope.type==="group"?"群 ":"私聊 ")+scope.id+" · 读取时间 "+value.observedAt+"。仅为本次读取，各存储不是原子快照；更改后请手动重读。";
   section("响应（实例共享）","全局："+on(value.response.globalEnabled)+"；当前会话："+on(value.response.conversationEnabled)+"；全局或当前会话任一开启："+on(value.response.effectiveEnabled)+"；来源："+source(value.response.source)+"。不包含发言者封禁、动作权限、实际消息 @ 或触发概率结果。");
   const names={aichat:"普通聊天 / Agent",aichatcfg:"普通聊天 / Agent 参数",llm:"GPT / 群总结"};
-  section("相关插件（实例共享）",value.plugins.map(p=>names[p.service]+"："+(!p.registered?"未注册":on(p.state.effectiveEnabled)+"；来源 "+source(p.state.source)+"；全局 "+p.state.globalMode+" / 会话 "+p.state.groupMode+"；修订 "+p.state.revision)).join("\n")+(scope.type==="private"?"\n现有插件设置页只编辑全局和群，不能编辑私聊覆盖。":""));
-  section("AI 会话参数（各机器人共享）",value.conversation.length?value.conversation.map(p=>names[p.service]+"：温度 "+p.effectiveTemperature+(p.service==="aichatcfg"?"；概率 "+p.rate+"%；Agent "+on(p.useAgent)+"；响应 @ "+on(p.respondAt)+"；语音 "+on(p.voiceOutput):"（GPT / 群总结共用）")+"；修订 "+p.revision).join("\n"):"没有已注册的会话参数插件。");
+  section("相关插件（实例共享）",value.plugins.map(p=>names[p.service]+"："+(!p.registered?"未注册":on(p.state.effectiveEnabled)+"；来源 "+source(p.state.source)+"；全局 "+mode(p.state.globalMode)+" / 会话 "+mode(p.state.groupMode))).join("\n")+(scope.type==="private"?"\n现有插件设置页只编辑全局和群，不能编辑私聊覆盖。":""));
+  section("AI 会话参数（各机器人共享）",value.conversation.length?value.conversation.map(p=>names[p.service]+"：温度 "+p.effectiveTemperature+(p.service==="aichatcfg"?"；概率 "+p.rate+"%；Agent "+on(p.useAgent)+"；响应 @ "+on(p.respondAt)+"；语音 "+on(p.voiceOutput):"（GPT / 群总结共用）")).join("\n"):"没有已注册的会话参数插件。");
   const models=value.models;
   section("模型（"+(models.named?"命名模式":"旧字段模式")+"）",models.error||"仅检查本地字段，连通性请在 AI 设置显式测试。");
   const entryNames={chat:"普通聊天",gpt:"GPT",summary:"群总结",agent:"Agent",image:"识图"};
   for(const row of models.entries){
     const status=!row.applicable?"此会话不适用":!row.enabled?"入口停用":row.check.complete?"本地字段完整":"本地字段不完整";
+    const check=row.check,issues=[];
+    if(row.applicable&&row.enabled&&!check.complete){
+      if(!check.typeValid)issues.push("接口类型无效");
+      if(!check.addressConfigured)issues.push("缺少接口地址");else if(!check.addressValid)issues.push("接口地址无效");
+      if(check.modelRequired&&!check.modelConfigured)issues.push("缺少必要模型");
+      if(check.keyRequired&&!check.keyConfigured)issues.push("缺少必要密钥");
+    }
     const origin=value=>value==="model"?"模型覆盖":"全局";
-    section(entryNames[row.entry],status+"；"+(row.inherited?"继承聊天入口；":"")+(row.enabled?"模型 "+row.model+"；配置 "+row.name+"（"+row.profileId+"）；协议 "+row.type:"")+"\n最大输出长度 "+row.parameters.maxN+"（"+origin(row.parameterSources.maxN)+"）；TopP "+row.parameters.topP+"（"+origin(row.parameterSources.topP)+"）；推理 "+(row.parameters.reasoningEffort||"协议默认")+"（"+origin(row.parameterSources.reasoningEffort)+"）");
+    section(entryNames[row.entry],status+(issues.length?"；需处理："+issues.join("、"):"")+"；"+(row.inherited?"继承聊天入口；":"")+(row.enabled?"模型 "+row.model+"；配置 "+row.name+"（"+row.profileId+"）；协议 "+protocol(row.type):"")+"\n最大输出长度 "+row.parameters.maxN+"（"+origin(row.parameterSources.maxN)+"）；TopP "+row.parameters.topP+"（"+origin(row.parameterSources.topP)+"）；推理 "+(row.parameters.reasoningEffort||"协议默认")+"（"+origin(row.parameterSources.reasoningEffort)+"）");
   }
   section("人物来源（按机器人隔离）",value.persona.mode==="custom"?"当前机器人会话自定义；不展开人物正文。":"继承全局人物；不展开人物正文。");
   const search=value.search,roles={owner:"主人",admin:"管理员",user:"普通成员"};
   section("搜索（按机器人隔离）","全局 "+on(search.enabled)+"；当前会话 "+on(search.policy.enabled)+"；密钥 "+(search.keyConfigured?"已配置":"未配置")+"；允许角色："+(search.policy.roles.map(role=>roles[role]||role).join("、")||"无")+"。这是保存的策略，不能据此确定某个发言者的实际权限；未调用 Search。");
+  const versions=document.createElement("details"),summary=document.createElement("summary"),body=document.createElement("p");
+  summary.textContent="完整配置修订（展开核对或复制）";body.className="agent-record";
+  body.textContent=["AI 配置："+value.revision,...value.plugins.filter(p=>p.registered).map(p=>"插件 · "+names[p.service]+"："+p.state.revision),...value.conversation.map(p=>"会话参数 · "+names[p.service]+"："+p.revision)].join("\n");
+  versions.append(summary,body);result.append(versions);
   $("conversation-check-links").hidden=false;
 }
 async function loadConversationCheck() {
