@@ -25,6 +25,29 @@ async function fixture(t){
 }
 const idle=page=>page.waitForFunction(()=>!aiProbeBusy);
 
+test('R12 model outcomes remain visible outside collapsed revisions for every entry',async t=>{
+ const page=await fixture(t);
+ for(const entry of ['chat','gpt','summary','agent'])for(const success of [true,false]){
+  const value={...result,entry,success,httpStatus:success?200:0,message:success?'本次基础调用通过':'网络请求未完成'};
+  await page.evaluate(v=>replies.push(v),value);await page.locator('#ai-probe-'+entry).click();await idle(page);
+  const text=await page.locator('#ai-probe-result').innerText();assert.match(text,success?/基础调用通过/:/本次测试失败/);assert.ok(text.includes(value.message));assert.ok(text.includes(value.checkedAt));assert.match(text,/21 ms/);assert.doesNotMatch(text,/配置版本：/);assert.equal(text.includes('HTTP'),success);
+  assert.equal(await page.locator('#ai-probe-result details').getAttribute('open'),null);assert.equal(await page.locator('#ai-probe-version-state').isVisible(),true);
+ }
+ assert.equal(await page.evaluate(()=>requests.length),8);
+});
+
+test('R12 model revision opens by keyboard, survives controls and resets for a new result',async t=>{
+ const page=await fixture(t);await page.evaluate(v=>replies.push(v),result);await page.locator('#ai-probe-chat').click();await idle(page);
+ const summary=page.locator('#ai-probe-result summary');await summary.focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#ai-probe-result details').getAttribute('open'),'');
+ assert.equal(await page.locator('#ai-probe-result details p').innerText(),'配置版本：'+result.revision);
+ assert.equal(await page.locator('#ai-probe-result details p').evaluate(e=>{const range=document.createRange();range.selectNodeContents(e);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);return selection.toString();}),'配置版本：'+result.revision);
+ await page.evaluate(()=>{aiState.global.revision='b'.repeat(64);renderAIProbeControls();});assert.equal(await page.locator('#ai-probe-result details').getAttribute('open'),'');assert.match(await page.locator('#ai-probe-version-state').innerText(),/历史结果/);
+ await summary.press('Enter');assert.equal(await page.locator('#ai-probe-version-state').isVisible(),true);assert.equal(await page.evaluate(()=>requests.length),1);
+ await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await page.setViewportSize({width:320,height:800});await fs.mkdir('.local/r12-ui',{recursive:true});
+ for(const theme of ['light','dark'])for(const expanded of [false,true]){if((await page.locator('#ai-probe-result details').getAttribute('open')!==null)!==expanded)await summary.press('Enter');await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.locator('#ai-probe-result').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await page.screenshot({path:'.local/r12-ui/model-'+theme+'-'+expanded+'.png'});}
+ await page.evaluate(v=>replies.push(v),{...result,revision:'b'.repeat(64)});await page.locator('#ai-probe-chat').click();await idle(page);assert.equal(await page.locator('#ai-probe-result details').getAttribute('open'),null);assert.equal(await page.evaluate(()=>requests.length),2);
+});
+
 test('GPT and summary diagnostics use their saved entries and the shared in-flight gate',async t=>{
  const page=await fixture(t);
  for(const entry of ['gpt','summary']){
