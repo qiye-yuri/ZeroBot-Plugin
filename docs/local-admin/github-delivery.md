@@ -100,3 +100,5 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 
 
 2026-10-24 01:16（北京时间）：[PR #15](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/15)已合并 master，合并提交 `ccde9466`，R8 已部署。使用同一份验收程序，SHA256 `A78A45AE489CE465420CA8C8C14A480A4FB51E5563170BAEE4BDD255F25E56F2`。 锁定 PR 头 `edb5af81` 合并，合并树与已验收PR一致；GitHub无CI检查项，不记为CI通过。部署后测试和数据保持验证通过，见[部署验收](self-test.md#r8-合并部署验收)。本次仅同步公开维护与验收文档，未上传本机备份、截图、配置或运行数据。
+
+2026-10-24 R9 上传完成：功能提交 `a24e885d` 已推送用户 origin 分支 `codex/saved-search-key-probe`，创建[中文 PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)，目标 master。统一18步、178项离线Chrome、R9最终程序诊断及完整冒烟151项标记通过，11份功能/使用文档815个本地引用检查通过。使用见[搜索密钥诊断](search-probe.md)，验证限制与失败复验见[自测](self-test.md#r9-已保存搜索密钥诊断验收)。本批尚未合并部署，未调用真实付费服务或发送真实QQ测试消息；原配置、运行数据和日常程序保持，私有证据不上传。本条交付链接作为后续文档提交同步。

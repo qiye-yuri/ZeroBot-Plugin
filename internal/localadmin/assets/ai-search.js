@@ -27,6 +27,7 @@ function renderAISearch(value) {
   for(const [role,title] of [["owner","机器人主人"],["admin","群主 / 群管理员"],["user","普通成员 / 私聊用户"]])roles[role]=aiInput(fields,"search-role-"+role,"允许角色："+title,"checkbox",value.policy.roles.includes(role));
   const save=document.createElement("button"),discard=document.createElement("button");save.type="submit";save.className="primary";save.textContent="备份并保存搜索设置";discard.type="button";discard.className="secondary";discard.dataset.aiDiscard="search";discard.textContent="放弃此表单更改";discard.onclick=()=>discardAIForm("search");fields.append(save,discard);form.append(fields);
   rememberAIForm("search",form,{botId:value.botId,type:value.type,id:value.id});aiBaselines.get("search").search=structuredClone(value);
+  if(typeof renderAISearchProbe==="function")renderAISearchProbe(form);
   form.onsubmit=async event=>{
     event.preventDefault();if(!authenticated||aiBusy)return;
     const body={botId:value.botId,type:value.type,id:value.id,revision:value.revision,enabled:enabled.checked,key:{action:action.value},policy:{enabled:scopeEnabled.checked,roles:Object.entries(roles).filter(([,input])=>input.checked).map(([role])=>role)}};

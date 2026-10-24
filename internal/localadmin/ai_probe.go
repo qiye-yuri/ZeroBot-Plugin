@@ -68,15 +68,10 @@ func (s *Server) testAIModel(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, "该入口未启用或配置不完整，请核对已保存的类型、模型、地址及密钥")
 		return
 	}
-	s.mu.Lock()
-	if s.probeActive {
-		s.mu.Unlock()
-		apiError(w, 429, "已有模型测试进行中，请等待结束后重试")
+	if !s.beginAIProbe(w) {
 		return
 	}
-	s.probeActive = true
-	s.mu.Unlock()
-	defer func() { s.mu.Lock(); s.probeActive = false; s.mu.Unlock() }()
+	defer s.endAIProbe()
 	// Other APIs keep the server's 10s write deadline. A diagnostic may wait 30s.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(35 * time.Second))
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -157,3 +152,15 @@ func (t *probeTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	resp.ContentLength = int64(len(raw))
 	return resp, nil
 }
+
+func (s *Server) beginAIProbe(w http.ResponseWriter) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.probeActive {
+		apiError(w, 429, "已有模型或搜索测试进行中，请等待结束后重试")
+		return false
+	}
+	s.probeActive = true
+	return true
+}
+func (s *Server) endAIProbe() { s.mu.Lock(); s.probeActive = false; s.mu.Unlock() }
