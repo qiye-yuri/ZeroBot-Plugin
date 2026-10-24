@@ -20,14 +20,19 @@ function renderAIProbeControls(){
     $("ai-probe-version-state").textContent=aiProbeResult.revision===aiState?.global?.revision?"基于当前已读取的保存版本；未保存草稿不参与测试。":"历史结果：已读取配置版本发生变化，请按需重新测试。";
   }
 }
+function probeRevisionDetails(revision){
+  const details=document.createElement("details"),summary=document.createElement("summary"),body=document.createElement("p");
+  summary.textContent="完整测试配置修订（展开核对或复制）";
+  body.textContent="配置版本："+revision;body.className="agent-record";
+  details.append(summary,body);return details;
+}
 function renderAIProbeResult(value){
   aiProbeResult=value;
-  const heading=document.createElement("h3"),detail=document.createElement("p"),version=document.createElement("p"),status=document.createElement("p"),scope=document.createElement("p");
+  const heading=document.createElement("h3"),detail=document.createElement("p"),status=document.createElement("p"),scope=document.createElement("p");
   heading.textContent=aiProbeNames[value.entry]+"模型 · "+(value.success?"基础调用通过":"本次测试失败");
   detail.textContent="模型："+value.model+"；测试时间："+value.checkedAt+"；耗时："+value.milliseconds+" ms"+(value.httpStatus?"；HTTP "+value.httpStatus:"");
-  version.textContent="配置版本："+value.revision;version.className="field-help";
   status.textContent=value.message;scope.id="ai-probe-version-state";scope.className="field-help";
-  $("ai-probe-result").replaceChildren(heading,detail,version,status,scope);renderAIProbeControls();
+  $("ai-probe-result").replaceChildren(heading,status,detail,scope,probeRevisionDetails(value.revision));renderAIProbeControls();
 }
 async function testSavedAIModel(entry){
   if(!authenticated||!aiState?.available||aiBusy||aiProbeBusy)return;
@@ -56,11 +61,11 @@ function renderAISearchProbe(form){
 }
 function renderAISearchProbeResult(value){
   aiSearchProbeResult=value;if(!$("ai-search-probe-result"))return;
-  const heading=document.createElement("h3"),detail=document.createElement("p"),message=document.createElement("p"),revision=document.createElement("p"),version=document.createElement("p");
+  const heading=document.createElement("h3"),detail=document.createElement("p"),message=document.createElement("p"),version=document.createElement("p");
   heading.textContent="搜索密钥 · "+({success:"基础调用通过",empty:"调用完成，无匹配结果"}[value.category]||"本次测试失败");
   detail.textContent="测试时间："+value.checkedAt+"；耗时："+value.milliseconds+" ms；合法结果："+value.resultCount+" 条"+(value.httpStatus?"；HTTP "+value.httpStatus:"");
-  message.textContent=value.message;revision.textContent="配置版本："+value.revision;revision.className="field-help";version.id="ai-search-probe-version";version.className="field-help";
-  $("ai-search-probe-result").replaceChildren(heading,detail,message,revision,version);renderAIProbeControls();
+  message.textContent=value.message;version.id="ai-search-probe-version";version.className="field-help";
+  $("ai-search-probe-result").replaceChildren(heading,message,detail,version,probeRevisionDetails(value.revision));renderAIProbeControls();
 }
 async function testSavedSearchKey(){
   const saved=aiBaselines.get("search")?.search;

@@ -21,6 +21,26 @@ async function fixture(t){
 const idle=page=>page.waitForFunction(()=>!aiProbeBusy);
 const result={revision:'a'.repeat(64),checkedAt:'2026-10-24T00:00:00Z',milliseconds:20,category:'success',httpStatus:200,resultCount:5,message:'本次搜索基础调用通过；不代表已启用会话搜索'};
 
+test('R12 search outcomes and scope remain visible while full revisions start collapsed',async t=>{
+ const page=await fixture(t);
+ for(const [category,status,count,title] of [['success',200,5,'基础调用通过'],['empty',200,0,'调用完成，无匹配结果'],['http_error',401,0,'本次测试失败'],['network_error',0,0,'本次测试失败']]){
+  const value={...result,category,httpStatus:status,resultCount:count,message:'服务端说明：'+category};await page.evaluate(v=>replies.push(v),value);await page.locator('#ai-search-probe').click();await idle(page);
+  const text=await page.locator('#ai-search-probe-result').innerText();assert.ok(text.includes(title));assert.ok(text.includes(value.message));assert.ok(text.includes(value.checkedAt));assert.ok(text.includes('合法结果：'+count+' 条'));assert.equal(text.includes('HTTP'),status!==0);assert.doesNotMatch(text,/配置版本：/);assert.equal(await page.locator('#ai-search-probe-version').isVisible(),true);assert.equal(await page.locator('#ai-search-probe-result details').getAttribute('open'),null);
+ }
+ assert.equal(await page.evaluate(()=>requests.length),4);
+});
+
+test('R12 search disclosure keeps full selectable revision and independent model result',async t=>{
+ const page=await fixture(t);await page.evaluate(v=>{renderAIProbeResult({entry:'agent',success:true,model:'fixture',message:'模型通过',revision:v.revision,checkedAt:v.checkedAt,milliseconds:1});replies.push(v);},result);await page.locator('#ai-search-probe').click();await idle(page);
+ const summary=page.locator('#ai-search-probe-result summary');await summary.focus();await page.keyboard.press('Enter');
+ assert.equal(await page.locator('#ai-search-probe-result details p').evaluate(e=>{const range=document.createRange();range.selectNodeContents(e);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);return selection.toString();}),'配置版本：'+result.revision);
+ await page.evaluate(()=>{aiBaselines.get('search').search.revision='b'.repeat(64);renderAIProbeControls();});assert.equal(await page.locator('#ai-search-probe-result details').getAttribute('open'),'');assert.match(await page.locator('#ai-search-probe-version').innerText(),/历史结果/);assert.match(await page.locator('#ai-probe-result').innerText(),/模型通过/);assert.equal(await page.locator('#ai-probe-result details').getAttribute('open'),null);
+ await summary.press('Enter');assert.equal(await page.locator('#ai-search-probe-version').isVisible(),true);assert.equal(await page.evaluate(()=>requests.length),1);
+ await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await page.setViewportSize({width:320,height:800});await fs.mkdir('.local/r12-ui',{recursive:true});
+ for(const theme of ['light','dark'])for(const expanded of [false,true]){if((await page.locator('#ai-search-probe-result details').getAttribute('open')!==null)!==expanded)await summary.press('Enter');await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.locator('#ai-search-probe-result').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await page.screenshot({path:'.local/r12-ui/search-'+theme+'-'+expanded+'.png'});}
+ await page.evaluate(v=>replies.push(v),{...result,revision:'b'.repeat(64)});await page.locator('#ai-search-probe').click();await idle(page);assert.equal(await page.locator('#ai-search-probe-result details').getAttribute('open'),null);assert.equal(await page.evaluate(()=>requests.length),2);
+});
+
 test('saved search key test preserves replacement and enablement drafts and sends only revision',async t=>{
  const page=await fixture(t);assert.equal(await page.evaluate(()=>requests.length),0);
  await page.selectOption('#ai-search-key-action','replace');await page.locator('#ai-search-key').fill('UNSAVED_SECRET');await page.locator('#ai-field-search-enabled').check();

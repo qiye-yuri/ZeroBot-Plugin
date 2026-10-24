@@ -1,4 +1,4 @@
-当前开发计划见[R10 完成后的开发方向与执行计划](post-r10-development-plan.md)：R8～R10已合并部署；R11已合并部署[全局模型配置快捷入口](conversation-check.md#设置全局模型r11)；R12诊断结果读法为P2，尚未实现。既有插件条件性验收及暂缓状态保持。
+当前开发计划见[R10 完成后的开发方向与执行计划](post-r10-development-plan.md)：R8～R10已合并部署；R11已合并部署[全局模型配置快捷入口](conversation-check.md#设置全局模型r11)；R12已实现[诊断结果读法及修订展开](model-probe.md#诊断结果读法r12)，尚未合并部署。既有插件条件性验收及暂缓状态保持。
 
 违禁词维护及检测范围见[本地违禁词说明](antiabuse.md)，群管入口见[群管说明](group-management.md)。
 
