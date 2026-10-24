@@ -2,7 +2,7 @@
 
 本分支增加本机管理后台，支持连接、插件、AI、日志与配置备份。仅监听本机回环地址，默认端口为3010。
 
-[使用指南](docs/local-admin/user-guide.md) · [第一版说明](docs/local-admin/release-v0.1.md) · [开发与验证](docs/local-admin/self-test.md)
+[文档导航](docs/local-admin/README.md) · [使用指南](docs/local-admin/user-guide.md) · [第一版说明](docs/local-admin/release-v0.1.md) · [开发与验证](docs/local-admin/self-test.md)
 
 ---
 
