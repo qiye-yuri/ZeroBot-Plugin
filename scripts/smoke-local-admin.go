@@ -1828,7 +1828,11 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 		return fmt.Errorf("FTB settings read failed")
 	}
 	ctbConfig := ctbSettings["config"].(map[string]any)
-	ctbConfig["executable"], _ = os.Executable()
+	ctbExecutable := filepath.Join(filepath.Dir(dataDir), "ctb-config-fixture.exe")
+	if err := os.WriteFile(ctbExecutable, []byte("disabled configuration fixture"), 0600); err != nil {
+		return err
+	}
+	ctbConfig["executable"] = ctbExecutable
 	ctbConfig["outputDir"] = filepath.Join(os.TempDir(), "ctb-smoke-downloads")
 	ctbConfig["groupAccess"] = "all"
 	ctbConfig["groupDelivery"] = "group"

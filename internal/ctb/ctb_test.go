@@ -64,7 +64,12 @@ func TestRunAndSettings(t *testing.T) {
 	exe, _ := os.Executable()
 	s := &Service{Path: filepath.Join(t.TempDir(), "config.json")}
 	c := Defaults()
-	c.Executable = exe
+	// Config validation targets a Windows exe, while the injected runner below
+	// executes this platform's test binary (which has no .exe suffix on Unix).
+	c.Executable = filepath.Join(t.TempDir(), "fixture.exe")
+	if e := os.WriteFile(c.Executable, []byte("configuration fixture"), 0600); e != nil {
+		t.Fatal(e)
+	}
 	c.OutputDir = filepath.Join(t.TempDir(), "downloads")
 	if e := core.Save(s.Path, c); e != nil {
 		t.Fatal(e)
