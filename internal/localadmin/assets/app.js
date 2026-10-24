@@ -34,6 +34,7 @@ async function api(path, body, signal) {
 }
 function showError(id, error) { $(id).textContent = error.message; $(id).hidden = false; }
 function showAuth() {
+ if(typeof resetCTB==="function")resetCTB();
   if (typeof resetUpdateWatch === "function") resetUpdateWatch();
   closePluginUsage();
   if (typeof resetAgentArchive === "function") resetAgentArchive();
@@ -84,6 +85,7 @@ async function showWorkspace() {
   if (currentView === "connections") loadConnections();
   if (currentView === "ai") loadAI();
   if (currentView === "updatewatch") loadUpdateWatch();
+ if(currentView === "ctb")loadCTB();
 }
 function duration(seconds) {
   if (seconds >= 86400) return Math.floor(seconds / 86400) + " 天";
@@ -614,10 +616,11 @@ function showWorkspaceView(name, {autoLoadAI=true,autoLoadPlugins=true}={}) {
   if (typeof showAISearch === "function") showAISearch(name === "ai");
   if (typeof showAIModelShortcut === "function") showAIModelShortcut(name === "ai");
   document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("active", item === button));
-  for (const view of ["overview", "plugins", "connections", "ai", "logs", "backups", "security", "agent", "updatewatch"]) $(view + "-view").hidden = button.dataset.view !== view;
+  for (const view of ["overview", "plugins", "connections", "ai", "logs", "backups", "security", "agent", "updatewatch", "ctb"]) $(view + "-view").hidden = button.dataset.view !== view;
   renderPluginCatalogControls();
-  $("breadcrumb").textContent = "工作空间 / " + ({ overview:"运行概览", plugins:"插件列表", connections:"连接设置", ai:"AI 设置", updatewatch:"更新监控", agent:"Agent 会话", logs:"运行日志", backups:"备份恢复", security:"后台安全" }[button.dataset.view]);
+  $("breadcrumb").textContent = "工作空间 / " + ({ overview:"运行概览", plugins:"插件列表", connections:"连接设置", ai:"AI 设置", updatewatch:"更新监控",ctb:"FTB工具", agent:"Agent 会话", logs:"运行日志", backups:"备份恢复", security:"后台安全" }[button.dataset.view]);
   showOverview(button.dataset.view === "overview");
+  if(button.dataset.view === "ctb" && !ctbState)loadCTB();
   if (button.dataset.view === "updatewatch" && !updateWatchState) loadUpdateWatch();
   if (button.dataset.view === "plugins" && autoLoadPlugins) ensurePluginList();
   if (button.dataset.view === "connections" && !connectionSettings) loadConnections();

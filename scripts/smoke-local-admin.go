@@ -711,6 +711,7 @@ func run() error {
 		return err
 	}
 	result := map[string]any{"passed": true, "isolated": true, "realQQMessagesSent": false, "helpTextResponse": true, "helpWhitespaceResponse": true, "serviceListForwardUsagePassed": true, "adminAuthPassed": true, "adminActualRegistryPassed": true, "adminEnabledCommandRepliesPassed": true, "adminConnectionsSaveBackupPassed": true, "adminPluginSwitchPassed": true, "chatWebSharedStatePassed": true, "pluginMessageGatePassed": true, "nonOwnerGlobalCommandRejected": true, "completedAt": time.Now().Format(time.RFC3339)}
+	result["ctbOwnerCommandsAndBoundariesPassed"] = true
 	result["groupResponseMentionRequiredPassed"] = true
 	result["groupSilenceMentionRequiredPassed"] = true
 	result["groupResponsePermissionsPassed"] = true
@@ -1809,6 +1810,53 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 	}
 	if text, err := sendControl(12345678, "/响应"); err != nil || !strings.Contains(text, "工作") {
 		return fmt.Errorf("synthetic response permission setup failed: %v", err)
+	}
+	if reply, err := sendControl(12345678, "FTB工具状态"); err != nil || !strings.Contains(reply, "false") {
+		return fmt.Errorf("FTB owner status failed: %q %v", reply, err)
+	}
+	if reply, err := sendControl(12345678, "FTB查询 135;calc"); err != nil || !strings.Contains(reply, "正整数") {
+		return fmt.Errorf("FTB invalid ID rejection failed: %q %v", reply, err)
+	}
+	if reply, err := sendControl(23456789, "FTB工具状态"); err != nil || reply != "" {
+		return fmt.Errorf("FTB non-owner boundary failed: %q %v", reply, err)
+	}
+	if reply, err := sendGroup(12345678, 101, "owner", "FTB工具状态", true); err != nil || reply != "" {
+		return fmt.Errorf("FTB group boundary failed: %q %v", reply, err)
+	}
+	ctbStatus, ctbSettings, err := do("GET", "/api/ctb", nil, "")
+	if err != nil || ctbStatus != 200 {
+		return fmt.Errorf("FTB settings read failed")
+	}
+	ctbConfig := ctbSettings["config"].(map[string]any)
+	ctbExecutable := filepath.Join(filepath.Dir(dataDir), "ctb-config-fixture.exe")
+	if err := os.WriteFile(ctbExecutable, []byte("disabled configuration fixture"), 0600); err != nil {
+		return err
+	}
+	ctbConfig["executable"] = ctbExecutable
+	ctbConfig["outputDir"] = filepath.Join(os.TempDir(), "ctb-smoke-downloads")
+	ctbConfig["groupAccess"] = "all"
+	ctbConfig["groupDelivery"] = "group"
+	ctbConfig["groupDailyLimit"] = 5
+	ctbStatus, ctbSaved, err := do("POST", "/api/ctb", map[string]any{"revision": ctbSettings["revision"], "config": ctbConfig}, csrf)
+	if err != nil || ctbStatus != 200 {
+		return fmt.Errorf("FTB group config save failed: %v", err)
+	}
+	if reply, err := sendGroup(12345678, 909090, "owner", "/响应", true); err != nil || !strings.Contains(reply, "工作") {
+		return fmt.Errorf("FTB group fixture response failed: %q %v", reply, err)
+	}
+	if reply, err := sendGroup(23456789, 909090, "member", "FTB工具状态", true); err != nil || !strings.Contains(reply, "all") || !strings.Contains(reply, "5次") {
+		return fmt.Errorf("FTB member group status failed: %q %v", reply, err)
+	}
+	if reply, err := sendGroup(23456789, 909090, "member", "FTB下载 135 latest light", true); err != nil || !strings.Contains(reply, "未启用") || !strings.Contains(reply, "下一步") {
+		return fmt.Errorf("FTB member download routing failed: %q %v", reply, err)
+	}
+	if reply, err := sendGroup(23456789, 909090, "member", "FTB工具状态", false); err != nil || reply != "" {
+		return fmt.Errorf("FTB unmentioned group boundary failed: %q %v", reply, err)
+	}
+	ctbConfig["groupAccess"] = "disabled"
+	ctbStatus, _, err = do("POST", "/api/ctb", map[string]any{"revision": ctbSaved["revision"], "config": ctbConfig}, csrf)
+	if err != nil || ctbStatus != 200 {
+		return fmt.Errorf("FTB config restore failed")
 	}
 	if _, err := setPlugin("0", "disabled"); err != nil {
 		return err

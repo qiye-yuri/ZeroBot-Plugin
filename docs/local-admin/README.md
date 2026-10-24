@@ -21,6 +21,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 | 备份和恢复配置 | [配置备份](backup-restore-2026-10-02.md) |
 | 核对日志、模型用量和回复 | [联合观察](combined-observation.md)、[模型请求统计](model-request-statistics.md)、[用量与缓存](model-cache-plan.md)、[日志说明](log-summary.md) |
 | 管理开发更新与设备提醒 | [更新监控](updatewatch.md)、[电量提醒](battery-hub.md) |
+| 搜索、查询和下载FTB整合包 | [FTB工具](ctb.md) |
 
 ### AI配置与诊断
 

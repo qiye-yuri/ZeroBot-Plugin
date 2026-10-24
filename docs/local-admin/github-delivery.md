@@ -1,5 +1,7 @@
 # GitHub交付记录
 
+2026-10-24 FTB工具交付：功能提交[d14e1741](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/d14e1741912c40045264fc810b315a324c7b042f)已推送用户origin分支 `codex/ftb-tools-20261024`，远端提交已核对一致；创建[中文PR #26](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/26)，目标master，尚未合并。范围为本地v0.7.1接入、后台配置、群聊下载/文件投递、每日群额度、编码及ZIP路径修复、使用文档和测试结果。最终源码Go测试及构建通过，浏览器/隔离OneBot和真实群文件验收记录见[FTB工具](ctb.md)，用户已确认修复包PCL安装及启动正常。GitHub当前未返回CI检查项，不记作CI通过。全新安装不内置开发者程序路径；已有配置保持。本机配置、QQ身份、整合包、二进制和私有证据未上传，data及两处无关测试改动保留本地；本次未合并、发标签或重新部署服务。
+
 当前功能与计划见[文档首页](README.md#当前版本与计划)。下方保留各批次原记录，按记录日期与阶段解读；旧的“待开发”“尚未合并部署”和失败不能覆盖后来的完成记录。上传、合并、部署和真实验收分别判定，当前实机缺口见[剩余验收条件](remaining-acceptance.md)。
 
 R7后续规划上传结果：规划提交 `a5123f18` 已推送用户origin并核对远端一致，创建[中文文档 PR #13](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/13)，目标master，当前尚未合并。随后仅同步本条交付入口，R8～R10功能状态仍为未实现。

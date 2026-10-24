@@ -74,6 +74,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/aifalse"           // 服务器监控
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/aiimage"           // AI画图
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/bilibiliparse"     // b站相关
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/ctb"               // FTB整合包工具
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/event"             // 好友申请群聊邀请事件处理
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/mcfish"            // 钓鱼模拟器
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/minecraftobserver" // Minecraft服务器监控&订阅
