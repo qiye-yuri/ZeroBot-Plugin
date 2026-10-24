@@ -143,3 +143,13 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 
 
 2026-10-24 16:07（北京时间）：R14 [PR #23](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/23)已合并master，合并提交 `4de8cf750d29b16dded0cb3b55279cb5a78c3cb0`。 锁定并复核PR头 `b4bebef315014beebc0940f9c4a764a5119e00bd`，合并树与审查树一致。8份文档变更无阻断问题，无未处理审查意见；GitHub未配置CI检查项，不记为CI通过。本次只合并文档并同步验收记录，未重启或部署服务，原配置、运行数据及既有待验收状态保持。
+
+
+## R14 后续规划交付
+
+2026-10-24：完成[R15详细开发计划](post-r14-development-plan.md)，同步当前导航、前序计划与进度、自测记录。分支 codex/post-r14-development-plan，目标为用户origin的master。本批仅交付6份公开文档，R15尚未实现，不部署或重启服务；本机data及两份既有测试文件改动不纳入提交。149份管理文档、1587个本地行内引用、413个锚点引用及318处入站引用检查通过。规划提交113671d1已推送用户origin，并创建[中文PR #24](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/24)，目标master，尚未合并；本记录随同一分支补充上传。
+
+
+## R15 文档校验工具交付
+
+2026-10-24：分支 codex/document-link-check-r15，目标用户origin的master，包含前置规划PR #24。交付独立检查脚本、专项测试与公开使用/开发文档；检查器读取工作区和Git跟踪清单，不启动服务或修改配置。16项专项及全量152份文档、1615个本地引用、418个锚点检查通过，实现提交7fb9361b已推送origin，创建[中文PR #25](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/25)，目标master，包含前置PR #24规划文档；尚未合并。R15-05检查与上传完成，本记录随同一分支补充上传；不纳入data、既有测试文件改动或私有报告。R13仍为最新功能部署，本批无需部署或重启。
