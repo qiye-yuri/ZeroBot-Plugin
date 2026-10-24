@@ -866,3 +866,10 @@ R9 上传完成：[PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)�
 
 
 2026-10-24 10:35（北京时间）：[PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)已合并 master，合并提交 `5ddbe18b`，R9 已部署。运行同一份通过18步验收的程序，SHA256 `F0BDF552F2AE542D7B8C2E370463EA19F04A7A112FD4849445B6572A0BDCBBEA`。 部署后实际一次搜索诊断通过（HTTP 200、5条结果），配置和数据保持，详见[验收](self-test.md#r9-合并部署与真实诊断验收)。R10仍待开发，既有插件未验收事项保持。
+
+
+2026-10-24 R10：完成会话摘要协议/插件模式名称、现有字段缺项提示及完整修订折叠区，使用方法见[会话核对](conversation-check.md#摘要名称问题和完整修订r10)。仅调整渲染，沿用API、范围冻结、参数来源和错误路径，无新增诊断层、存储或请求。尚未合并部署；验收范围见[自测](self-test.md)。
+
+R10验收完成：20项专项、183项页面用例、统一18步和151项完整冒烟检查通过；详见[验收记录](self-test.md#r10-配置摘要可读性验收)。本批尚未合并部署。
+
+R10已上传：[PR #17](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/17)，功能提交3d60aa4b；尚未合并部署，原R9日常服务保持。
