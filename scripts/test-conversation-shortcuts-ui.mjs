@@ -207,3 +207,113 @@ test('unloaded busy and changed scope disable shortcuts; layout fits 320px',asyn
  await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await page.setViewportSize({width:320,height:800});await fs.mkdir('.local/conversation-shortcuts-ui',{recursive:true});
  for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.locator('#agent-open-ai').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await page.screenshot({path:'.local/conversation-shortcuts-ui/'+theme+'.png'});}
 });
+
+function pluginFixture(){return {controlAvailable:true,plugins:[{name:'fixture-plugin',brief:'示例插件',usage:'示例命令',defaultEnabledAtStartup:true,state:{effectiveEnabled:true,defaultEnabled:true,globalMode:'inherit',groupMode:'inherit',source:'default',revision:'f'.repeat(64)}}]};}
+async function pluginLink(page,scope={botId:bot,type:'group',id}){
+ await searchLink(page,scope);
+ await page.evaluate(scope=>renderConversationCheck({scope,observedAt:'2026-10-24T00:00:00Z',revision:'a'.repeat(64),response:{globalEnabled:true,conversationEnabled:false,effectiveEnabled:true,source:'global'},plugins:[],conversation:[],models:{named:false,entries:[]},persona:{mode:'inherit'},search:{enabled:false,keyConfigured:false,policy:{enabled:false,roles:[]}}}),scope);
+}
+const pluginIdle=page=>page.waitForFunction(()=>!pluginScopeBusy);
+async function seedPlugins(page,group='123'){
+ await page.evaluate(({value,group})=>{plugins=value.plugins;pluginControlAvailable=true;pluginGroup=group;pluginCatalogReadAt='2026-10-24T00:00:00Z';pluginDrafts.set('fixture-plugin',{mode:'disabled',revision:'f'.repeat(64)});renderPluginScope();renderPlugins();},{value:pluginFixture(),group});
+}
+
+test('R13 loaded group and private scopes route precisely across bots with one GET',async t=>{
+ const page=await harness(t);
+ for(const account of [bot,'87654321'])for(const type of ['group','private']){
+  await pluginLink(page,{botId:account,type,id});
+  assert.equal(await page.locator('#conversation-check-plugins').innerText(),type==='group'?'设置此群插件':'设置全局插件');
+  assert.match(await page.locator('#conversation-check-plugin-scope').innerText(),type==='group'?/各机器人共享/:/不能编辑私聊覆盖/);
+  await page.evaluate(value=>{requests.length=0;replies.push(value);document.getElementById('agent-id').value='42';document.getElementById('agent-type').value='private';pluginReloadAfterRestore=true;},pluginFixture());
+  await page.locator('#conversation-check-plugins').focus();await page.keyboard.press('Enter');await pluginIdle(page);
+  const target=type==='group'?id:'0';assert.deepEqual(await page.evaluate(()=>requests),[{url:'/api/plugins?group='+target,body:null}]);
+  assert.equal(await page.evaluate(()=>pluginGroup),target);assert.match(await page.locator('#plugin-save-state').innerText(),new RegExp(account));
+  assert.equal(await page.evaluate(()=>pluginReloadAfterRestore),false);
+ }
+});
+
+test('R13 confirms plugin drafts once, keeps them on cancellation and clears only after success',async t=>{
+ const page=await harness(t);await seedPlugins(page);await pluginLink(page);
+ await page.evaluate(value=>{aiState=value;renderAIGlobal(value);document.getElementById('ai-field-AgentChar').value='unrelated draft';},aiFixture());
+ let dialogs=0;const cancel=d=>{dialogs++;d.dismiss();};page.on('dialog',cancel);
+ await page.locator('#conversation-check-plugins').click();page.off('dialog',cancel);
+ assert.equal(dialogs,1);assert.equal(await page.evaluate(()=>requests.length),0);assert.equal(await page.locator('#agent-view').isVisible(),true);
+ assert.equal(await page.evaluate(()=>pluginDrafts.size),1);assert.equal(await page.evaluate(()=>pluginGroup),'123');
+ page.once('dialog',d=>{dialogs++;d.accept();});await page.locator('#conversation-check-plugins').click();await page.waitForFunction(()=>pending.length===1);
+ assert.equal(await page.evaluate(()=>pluginDrafts.size),1);assert.equal(await page.locator('#apply-plugin-scope').isDisabled(),true);
+ await page.evaluate(value=>pending.shift()({ok:true,json:async()=>value}),pluginFixture());await pluginIdle(page);
+ assert.equal(dialogs,2);assert.equal(await page.evaluate(()=>pluginDrafts.size),0);assert.equal(await page.locator('#ai-field-AgentChar').inputValue(),'unrelated draft');
+ assert.equal(await page.evaluate(()=>requests.length),1);
+});
+
+test('R13 failure keeps old group and drafts; explicit scope retry then save targets the loaded group',async t=>{
+ const page=await harness(t);await seedPlugins(page);await pluginLink(page);page.on('dialog',d=>d.accept());
+ await page.evaluate(()=>replies.push({error:'target read failed',status:503}));await page.locator('#conversation-check-plugins').click();await pluginIdle(page);
+ assert.equal(await page.evaluate(()=>pluginGroup),'123');assert.equal(await page.evaluate(()=>pluginDrafts.size),1);
+ assert.match(await page.locator('#plugin-save-state').innerText(),new RegExp(id+'.*原范围（群 123）'));assert.match(await page.locator('#plugin-error').innerText(),/target read failed/);
+ await page.locator('#plugin-group').fill(id);await page.evaluate(value=>replies.push(value),pluginFixture());await page.locator('#apply-plugin-scope').click();await pluginIdle(page);
+ assert.equal(await page.evaluate(()=>pluginGroup),id);assert.equal(await page.evaluate(()=>pluginDrafts.size),0);
+ await page.locator('.plugin-controls select').selectOption('disabled');await page.evaluate(value=>replies.push({state:{...value.plugins[0].state,groupMode:'disabled',effectiveEnabled:false}}),pluginFixture());
+ await page.locator('.plugin-controls button').click();await page.waitForFunction(()=>!pluginSaving);
+ assert.deepEqual(await page.evaluate(()=>requests.at(-1)),{url:'/api/plugin-switch',body:{name:'fixture-plugin',groupId:id,mode:'disabled',revision:'f'.repeat(64)}});
+ await page.evaluate(value=>replies.push(value),pluginFixture());await page.locator('#reload-plugins').click();await pluginIdle(page);
+ assert.equal(await page.evaluate(()=>requests.at(-1).url),'/api/plugins?group='+id);
+});
+
+test('R13 no prior list failure and unavailable or empty plugin responses remain explicit',async t=>{
+ const page=await harness(t);await pluginLink(page);await page.evaluate(()=>replies.push({error:'offline',status:503}));
+ await page.locator('#conversation-check-plugins').click();await pluginIdle(page);assert.match(await page.locator('#plugin-save-state').innerText(),/尚未成功加载/);assert.equal(await page.locator('.plugin-controls button').count(),0);
+ for(const value of [{controlAvailable:false,plugins:pluginFixture().plugins},{controlAvailable:true,plugins:[]}]){
+  await pluginLink(page);await page.evaluate(value=>replies.push(value),value);await page.locator('#conversation-check-plugins').click();await pluginIdle(page);
+  assert.equal(await page.locator('.plugin-controls button').count(),0);
+  if(!value.plugins.length)assert.equal(await page.locator('#plugin-empty').isVisible(),true);
+ }
+});
+
+test('R13 guards reject missing summary, busy state and cancelled memory navigation without GET',async t=>{
+ const page=await harness(t);await pluginLink(page);
+ await page.evaluate(()=>{window.agentMemoryCanLeave=()=>false;});await page.locator('#conversation-check-plugins').click();assert.equal(await page.evaluate(()=>requests.length),0);
+ await page.evaluate(()=>{window.agentMemoryCanLeave=()=>true;});
+ for(const state of [{scope:null,busy:false,auth:true,hidden:false},{scope:{botId:bot,type:'group',id},busy:true,auth:true,hidden:false},{scope:{botId:bot,type:'group',id},busy:false,auth:false,hidden:false},{scope:{botId:bot,type:'group',id},busy:false,auth:true,hidden:true}]){
+  await page.evaluate(s=>{agentScope=s.scope;agentBusy=s.busy;authenticated=s.auth;document.getElementById('conversation-check-links').hidden=s.hidden;document.getElementById('conversation-check-plugins').dispatchEvent(new Event('click'));},state);
+ }
+ assert.equal(await page.evaluate(()=>requests.length),0);
+});
+
+test('R13 repeated clicks send once and leaving discards stale success or failure after a newer read',async t=>{
+ const page=await harness(t);
+ for(const failed of [false,true]){
+  await pluginLink(page);await page.locator('#conversation-check-plugins').click();await page.waitForFunction(()=>pending.length===1);
+  await page.evaluate(()=>document.getElementById('conversation-check-plugins').dispatchEvent(new Event('click')));assert.equal(await page.evaluate(()=>pending.length),1);
+  await page.evaluate(()=>showWorkspaceView('agent'));
+  assert.equal(await page.evaluate(()=>pluginScopeBusy),false);
+  await pluginLink(page,{botId:bot,type:'group',id:'456'});await page.evaluate(value=>replies.push(value),pluginFixture());await page.locator('#conversation-check-plugins').click();await pluginIdle(page);
+  await page.evaluate(({failed,value})=>pending.shift()({ok:!failed,status:failed?503:200,json:async()=>failed?{error:'late failure'}:value}),{failed,value:pluginFixture()});
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+  assert.equal(await page.evaluate(()=>pluginGroup),'456');assert.equal(await page.locator('#plugin-error').isHidden(),true);assert.match(await page.locator('#plugin-save-state').innerText(),/已读取群 456/);
+ }
+});
+
+test('R13 logout invalidates the pending target',async t=>{
+ const page=await harness(t);await pluginLink(page);await page.locator('#conversation-check-plugins').click();await page.waitForFunction(()=>pending.length===1);
+ await page.evaluate(()=>{authenticated=false;showAuth();});await page.evaluate(value=>pending.shift()({ok:true,json:async()=>value}),pluginFixture());
+ await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+ assert.equal(await page.evaluate(()=>pluginGroup),'0');assert.equal(await page.evaluate(()=>plugins.length),0);assert.equal(await page.evaluate(()=>pluginScopeBusy),false);assert.equal(await page.evaluate(()=>pluginShortcutRequest),null);
+});
+
+test('R13 invalid group zero does not turn manual group input into global',async t=>{
+ const page=await harness(t);await page.evaluate(()=>showWorkspaceView('plugins'));
+ await page.locator('#plugin-scope').selectOption('group');await page.locator('#plugin-group').fill('0');await page.locator('#plugin-scope-form').dispatchEvent('submit');
+ assert.equal(await page.evaluate(()=>requests.length),0);assert.equal(await page.locator('#plugin-error').isVisible(),true);
+});
+
+test('R13 group and private labels and target pages fit 320px in both themes',async t=>{
+ const page=await harness(t);await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await page.setViewportSize({width:320,height:800});await fs.mkdir('.local/conversation-shortcuts-ui',{recursive:true});
+ for(const type of ['group','private'])for(const theme of ['light','dark']){
+  await pluginLink(page,{botId:bot,type,id});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  await page.locator('#conversation-check-plugins').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+  await page.evaluate(value=>replies.push(value),pluginFixture());await page.locator('#conversation-check-plugins').focus();await page.keyboard.press('Enter');await pluginIdle(page);
+  await page.locator('#plugin-save-state').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+  await page.screenshot({path:'.local/conversation-shortcuts-ui/plugins-'+type+'-'+theme+'.png'});
+ }
+});

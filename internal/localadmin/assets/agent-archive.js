@@ -283,6 +283,8 @@ function renderConversationCheck(value) {
   summary.textContent="完整配置修订（展开核对或复制）";body.className="agent-record";
   body.textContent=["AI 配置："+value.revision,...value.plugins.filter(p=>p.registered).map(p=>"插件 · "+names[p.service]+"："+p.state.revision),...value.conversation.map(p=>"会话参数 · "+names[p.service]+"："+p.revision)].join("\n");
   versions.append(summary,body);result.append(versions);
+  $("conversation-check-plugins").textContent=scope.type==="group"?"设置此群插件":"设置全局插件";
+  $("conversation-check-plugin-scope").textContent=scope.type==="group"?"此群插件规则由本实例各机器人共享；显式全局设置优先。":"此页不能编辑私聊覆盖；全局设置会影响所有群和私聊。";
   $("conversation-check-links").hidden=false;
 }
 async function loadConversationCheck() {
@@ -301,5 +303,9 @@ $("conversation-check-persona").addEventListener("click",()=>{if(!agentBusy&&age
 $("conversation-check-parameters").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationAI({...agentScope},"parameters");});
 $("conversation-check-ai").addEventListener("click",()=>{if(!agentBusy&&agentScope)openConversationSearch({...agentScope});});
 $("conversation-check-models").addEventListener("click",()=>{if(!agentBusy&&agentScope)openGlobalModels({...agentScope});});
-$("conversation-check-plugins").addEventListener("click",()=>showWorkspaceView("plugins"));
+$("conversation-check-plugins").addEventListener("click",()=>{
+  if(!authenticated||!agentVisible||agentBusy||!agentScope||$("conversation-check-links").hidden)return;
+  const scope={...agentScope};
+  readPluginScope(scope.type==="group"?scope.id:"0",scope);
+});
 agentControls();
