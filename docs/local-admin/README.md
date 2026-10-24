@@ -1,4 +1,4 @@
-当前后续开发见[R12后续计划](post-r12-development-plan.md)：R11、R12已合并部署；R13已在开发分支实现[会话插件范围入口](conversation-check.md#设置会话对应的插件范围r13)，尚未合并部署；R14文档导航整理待实施。既有条件性验收及暂缓状态保持。
+当前后续开发见[R12后续计划](post-r12-development-plan.md)：R11、R12已合并部署；R13已合并部署[会话插件范围入口](conversation-check.md#设置会话对应的插件范围r13)；R14文档导航整理待实施。既有条件性验收及暂缓状态保持。
 
 违禁词维护及检测范围见[本地违禁词说明](antiabuse.md)，群管入口见[群管说明](group-management.md)。
 

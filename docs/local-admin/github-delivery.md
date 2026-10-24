@@ -128,3 +128,6 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 2026-10-24 R12后续规划：完成[开发设计与详细计划](post-r12-development-plan.md)，R13为会话插件范围入口，R14为文档当前状态与历史记录分层。仅交付公开规划、索引及验证摘要；功能尚未实施，未合并部署。规划提交 `edc8e7a4` 已推送用户origin分支 `codex/post-r12-development-plan`，创建[中文PR #21](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/21)，目标master，尚未合并。6份Markdown、541个本地引用及本次锚点、源码落点和格式检查通过。既有本地测试文件和data改动不纳入本批。
 
 2026-10-24 R13开发完成：实现[会话插件范围入口](conversation-check.md#设置会话对应的插件范围r13)，同步使用指南、索引、计划与验证记录。分支为 codex/conversation-plugin-shortcut，包含前置PR #21规划文档，目标master。专项48项、统一19步（含225项离线页面）及最终隔离整机通过，7份文档697个本地引用和8处R13锚点检查通过。功能提交 `79b1cb99` 已推送用户origin，创建[中文PR #22](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/22)，目标master，包含前置规划PR #21。本批未合并部署；配置、运行数据及私有证据未上传。
+
+
+2026-10-24 15:53（北京时间）：[PR #22](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/22)已合并master，合并提交 `26d2cd6f`，R13已部署。运行通过统一19步验收的同一程序，SHA256 `701B69763D10587713DC0221EC5D29AFA7C637B3C82536A527CC152F2FD1743F`。 锁定PR头 `7f254dab` 合并，合并树与审查树一致；无未处理审查意见，GitHub无CI检查项。部署后36项资源页面回归及数据保留检查通过，详见[验收](self-test.md#r13-合并部署验收)。仅上传公开使用和维护记录，私有备份、截图、身份和运行证据不上传。
