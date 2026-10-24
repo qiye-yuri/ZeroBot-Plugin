@@ -4,7 +4,7 @@
 
 ## 当前版本与计划
 
-状态核对日期：2026-10-24（Asia/Shanghai）。R1～R13及N1～N3已按各批记录合并部署，最新功能部署为R13会话插件范围入口，见[使用方法](conversation-check.md#设置会话对应的插件范围r13)与[部署验收](self-test.md#r13-合并部署验收)。开发批次编号不是仓库发布版本。
+状态核对日期：2026-10-24（Asia/Shanghai）。最新部署为PR #26合并后的master `e7a0ac58`，包含FTB工具、群聊下载及路径修复；部署后真实查询、下载和群文件接口/列表核对通过，见[FTB工具与验证范围](ctb.md)及[运行维护](operations.md)。R1～R13及N1～N3已按各批记录合并部署，R13会话插件范围入口见[使用方法](conversation-check.md#设置会话对应的插件范围r13)与[部署验收](self-test.md#r13-合并部署验收)。开发批次编号不是仓库发布版本。
 
 R14文档导航整理已完成，上传及合并状态见[交付记录](github-delivery.md#r14-文档导航整理交付)；本批仅改文档，无程序部署。[R13与R14计划](post-r12-development-plan.md)保留已完成工作包；[R15文档校验工具](post-r14-development-plan.md)与专项测试已实现并合并，使用见[文档链接检查](document-check.md)，上传与合并状态见[交付记录](github-delivery.md#r15-文档校验工具交付)。
 

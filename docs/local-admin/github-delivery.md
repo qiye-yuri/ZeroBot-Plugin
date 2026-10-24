@@ -1,5 +1,7 @@
 # GitHub交付记录
 
+2026-10-24 FTB合并后部署完成：用户授权后，将master `e7a0ac58`构建、完整隔离回归通过并于21:16部署至日常ZeroBot；原OneBot进程及QQ登录、配置保持。21:19完成真实FTB查询、标准客户端包下载及路径修复、QQ群文件回执和列表核对，详情与范围见[FTB工具](ctb.md)。本轮部署状态文档同步至master；下方“未重新部署”是此前合并阶段的历史记录，不能覆盖本条。私有备份、群身份和原始运行证据均留在本机忽略目录。
+
 2026-10-24 FTB工具合并完成：已审查[PR #26](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/26)，修正测试夹具对Windows测试程序后缀的依赖后，以最终提交 `0892ee15` 完成回归，于北京时间20:52合并至用户仓库master，合并提交[d072e20b](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/d072e20b627c48e6a41a0fc70621eb6e4359964a)。合并源码树与审查提交一致，无待处理审查评论。Windows Go测试、构建、5项浏览器测试、完整隔离OneBot回归及文档链接检查通过；GitHub未提供CI检查项，不记作CI通过。使用说明、进度和交付状态同步更新；此前用户确认群文件可下载、修复包可在PCL安装并启动的记录保留。本轮不发送真实QQ消息、不调用付费模型，不发标签、不重新部署；本机配置、data和无关测试改动保持。下条为合并前上传阶段记录。
 
 2026-10-24 FTB工具交付：功能提交[d14e1741](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/d14e1741912c40045264fc810b315a324c7b042f)已推送用户origin分支 `codex/ftb-tools-20261024`，远端提交已核对一致；创建[中文PR #26](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/26)，目标master，尚未合并。范围为本地v0.7.1接入、后台配置、群聊下载/文件投递、每日群额度、编码及ZIP路径修复、使用文档和测试结果。最终源码Go测试及构建通过，浏览器/隔离OneBot和真实群文件验收记录见[FTB工具](ctb.md)，用户已确认修复包PCL安装及启动正常。GitHub当前未返回CI检查项，不记作CI通过。全新安装不内置开发者程序路径；已有配置保持。本机配置、QQ身份、整合包、二进制和私有证据未上传，data及两处无关测试改动保留本地；本次未合并、发标签或重新部署服务。
