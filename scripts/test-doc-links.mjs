@@ -134,3 +134,16 @@ test('inline code preserves literal underscores in headings and exact backtick d
   assert(headingIds('# `a_b_c` and a_b_c').has('a_b_c-and-a_b_c'));
   assert.deepEqual(parseMarkdown('`` `[x](bad)` `` [x](ok.md)').links.map(x => x.target), ['ok.md']);
 });
+
+test('colon reference labels retain their complete target', () => {
+  const result = parseMarkdown('[x][a:b]\n\n[a:b]: README.md');
+  assert.deepEqual(result.issues, []);
+  assert.deepEqual(result.links.map(x => x.target), ['README.md']);
+});
+
+test('heading links with parentheses use rendered text for anchor validation', t => {
+  const r = repository(t, { 'README.md': '# [标题](a(b).md)\n[x](#标题)', 'a(b).md': '# Destination' });
+  assert.deepEqual(checkRepository(r.root).errors, []);
+  assert.equal(r.run().status, 0);
+  assert(headingIds('# [标题](<a(b).md> "说明")').has('标题'));
+});

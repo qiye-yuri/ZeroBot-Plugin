@@ -63,7 +63,7 @@ export function parseMarkdown(source) {
   const blocks = withoutBlocks(source);
   const definitions = new Map(), links = [], issues = [];
   let text = blocks.replace(/^ {0,3}\[([^\]\n]+)\]:[^\n]*$/gm, (line, label, offset) => {
-    const value = destination(line, line.indexOf(':') + 1, false);
+    const value = destination(line, line.indexOf(']:') + 2, false);
     if (!value) issues.push({ offset, target: line.trim(), reason: '不支持的引用定义，请使用同一行目标与标题' });
     else if (!definitions.has(labelKey(label))) definitions.set(labelKey(label), value.target);
     return blank(line);
@@ -99,7 +99,13 @@ export function parseMarkdown(source) {
 export function headingIds(source) {
   const text = withoutBlocks(source), ids = new Set(), generated = new Set();
   const add = heading => {
-    let title = heading.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/<[^>]*>/g, '');
+    let title = heading;
+    // Use the same balanced destination parser as body links.
+    for (const match of [...withoutCode(heading).matchAll(/!?\[([^\]]*)\]\(/g)].reverse()) {
+      const value = destination(heading, match.index + match[0].length, true);
+      if (value) title = title.slice(0, match.index) + heading.slice(match.index + (match[0].startsWith('!') ? 2 : 1), match.index + match[0].length - 2) + title.slice(value.end);
+    }
+    title = title.replace(/<[^>]*>/g, '');
     title = title.split(/((?<!`)(`+)(?!`).*?(?<!`)\2(?!`))/g).filter((_, i) => i % 3 !== 2).map(part => {
       if (part.startsWith('`') && part.endsWith('`')) return part.replace(/^`+|`+$/g, '');
       return part.replace(/(\*\*|~~|\*)(.*?)\1/g, '$2').replace(/(?<![\p{L}\p{N}])(__|_)(.*?)\1(?![\p{L}\p{N}])/gu, '$2');
