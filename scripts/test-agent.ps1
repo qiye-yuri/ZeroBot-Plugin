@@ -47,10 +47,10 @@ try {
     Invoke-AgentCheck 'backend' $repoRoot 'go' @('test', './internal/localadmin', './plugin/aichat', './internal/aicommands', './internal/modelrequest', './internal/modelstats', './internal/replystats', './internal/adminqa', './internal/batteryhub', '-count=1', '-timeout=180s')
     Invoke-AgentCheck 'smoke-tests' $repoRoot 'go' @('test', 'scripts/smoke-local-admin.go', 'scripts/smoke-local-admin_test.go', '-count=1', '-timeout=120s')
     Invoke-AgentCheck 'model-provider-tests' $repoRoot 'go' @('test', 'scripts/test-real-model.go', 'scripts/test-real-model_test.go', '-count=1', '-timeout=120s')
-    foreach ($asset in @('agent-archive', 'agent-memory', 'agent-tasks', 'ai', 'ai-search', 'ai-probe')) {
+    foreach ($asset in @('app', 'agent-archive', 'agent-memory', 'agent-tasks', 'ai', 'ai-search', 'ai-probe')) {
         Invoke-AgentCheck ('syntax-' + $asset) $repoRoot 'node' @('--check', "internal/localadmin/assets/$asset.js")
     }
-    Invoke-AgentCheck 'browser' $repoRoot 'node' @('--test', 'scripts/test-agent-archive-ui.mjs', 'scripts/test-agent-memory-ui.mjs', 'scripts/test-agent-tasks-ui.mjs', 'scripts/test-ai-draft-ui.mjs', 'scripts/test-conversation-shortcuts-ui.mjs', 'scripts/test-conversation-check-ui.mjs', 'scripts/test-ai-probe-ui.mjs', 'scripts/test-ai-check-ui.mjs', 'scripts/test-ai-search-ui.mjs', 'scripts/test-search-probe-ui.mjs')
+    Invoke-AgentCheck 'browser' $repoRoot 'node' @('--test', 'scripts/test-agent-archive-ui.mjs', 'scripts/test-agent-memory-ui.mjs', 'scripts/test-agent-tasks-ui.mjs', 'scripts/test-ai-draft-ui.mjs', 'scripts/test-conversation-shortcuts-ui.mjs', 'scripts/test-conversation-check-ui.mjs', 'scripts/test-ai-probe-ui.mjs', 'scripts/test-ai-check-ui.mjs', 'scripts/test-ai-search-ui.mjs', 'scripts/test-search-probe-ui.mjs', 'scripts/test-plugin-save-all-ui.mjs', 'scripts/test-plugin-discard-one-ui.mjs', 'scripts/test-plugin-catalog-ui.mjs', 'scripts/test-restore-plugin-ui.mjs')
     New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot '.local/bin') | Out-Null
     Invoke-AgentCheck 'build' $repoRoot 'go' @('build', '-trimpath', '-o', $report.binary, '.')
     $report.binarySHA256 = (Get-FileHash -LiteralPath (Join-Path $repoRoot $report.binary) -Algorithm SHA256).Hash

@@ -13,6 +13,7 @@ let pluginResponse = null, pluginResponseLoaded = false;
 let pluginUsage = null;
 let pluginCatalogReadAt=null, pluginCatalogStateAt=null, pluginCatalogReadFailed=false, pluginCatalogLoading=null;
 let pluginReloadAfterRestore=false;
+let pluginShortcutRequest=null;
 
 async function api(path, body, signal) {
   const requestToken = csrf;
@@ -45,7 +46,7 @@ function showAuth() {
   pluginDrafts.clear(); pluginListRequest++; pluginGeneration++; plugins = [];
   pluginBatch = null; $("plugin-batch-status").textContent = "";
   pluginResponse = null; pluginResponseLoaded = false;
-  pluginReloadAfterRestore = false;
+  pluginReloadAfterRestore = false; pluginShortcutRequest = null;
   pluginGroup = "0"; pluginControlAvailable = false; pluginSaving = false; pluginScopeBusy = false;
   resetPluginCatalog();
   $("plugin-scope").value = "global"; $("plugin-group").value = "";
@@ -430,19 +431,38 @@ async function savePlugin(plugin, mode) {
   finally { if (generation === pluginGeneration) { pluginSaving = false; renderPluginBusy(); renderPlugins(); } }
 }
 $("plugin-scope").addEventListener("change", renderPluginBusy);
-$("plugin-scope-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); if (pluginSaving || pluginScopeBusy || !authenticated) return;
-  const group = $("plugin-scope").value === "global" ? "0" : $("plugin-group").value.trim();
-  if ($("plugin-scope").value === "group" && !/^[1-9][0-9]{0,18}$/.test(group)) { showError("plugin-error",new Error("请填写有效的群号。")); return; }
+async function readPluginScope(group, source=null) {
+  if (!authenticated || pluginSaving || pluginScopeBusy) return;
+  if (group !== "0" && !/^[1-9][0-9]{0,18}$/.test(group)) { showError("plugin-error",new Error("请填写有效的群号。")); return; }
   if (!confirmPluginDiscard("读取插件范围")) { renderPluginScope(); renderPluginBusy(); return; }
+  if (source && !showWorkspaceView("plugins", {autoLoadPlugins:false})) return;
   $("plugin-error").hidden = true;
-  const generation = pluginGeneration;
+  const generation = pluginGeneration, request = pluginListRequest + 1;
+  const target = group === "0" ? "全局" : "群 " + group;
+  const origin = source ? "来自机器人 " + source.botId + " / " + (source.type === "group" ? "群 " : "私聊 ") + source.id + "。" : "";
+  const scopeNote = source ? (source.type === "group" ? "此群插件规则由本实例各机器人共享；显式全局设置优先。" : "此页不能编辑私聊覆盖；全局设置会影响所有群和私聊。") : "";
+  if (source) pluginShortcutRequest = request;
   pluginScopeBusy = true; renderPluginBusy(); renderPlugins();
+  $("plugin-save-state").textContent = origin + "正在读取" + target + "插件设置。" + scopeNote;
+  const current = () => authenticated && generation === pluginGeneration && request === pluginListRequest;
   try {
     if (!await loadPluginList(group, true)) return;
-    $("plugin-save-state").textContent = "";
-  } catch (error) { if (generation === pluginGeneration && authenticated) { renderPluginScope(); showError("plugin-error",error); } }
-  finally { if (generation === pluginGeneration) { pluginScopeBusy = false; renderPluginBusy(); renderPlugins(); } }
+    $("plugin-save-state").textContent = source ? origin + "已读取" + target + "插件设置。" + scopeNote + "修改后请显式保存。" : "";
+  } catch (error) {
+    if (current()) {
+      renderPluginScope(); showError("plugin-error",error);
+      $("plugin-save-state").textContent = "目标范围（" + target + "）读取失败；" + (pluginCatalogReadAt ? "当前仍为原范围（" + (pluginGroup === "0" ? "全局" : "群 " + pluginGroup) + "），原列表和草稿保留。" : "尚未成功加载插件列表。") + "请重新选择目标范围并读取。";
+    }
+  } finally {
+    if (current()) { pluginShortcutRequest = null; pluginScopeBusy = false; renderPluginBusy(); renderPlugins(); }
+  }
+}
+$("plugin-scope-form").addEventListener("submit", event => {
+  event.preventDefault();
+  const group = $("plugin-scope").value === "global" ? "0" : $("plugin-group").value.trim();
+  // A group input of zero must not silently select global settings.
+  if ($("plugin-scope").value === "group" && group === "0") { showError("plugin-error",new Error("请填写有效的群号。")); return; }
+  readPluginScope(group);
 });
 $("reload-plugins").addEventListener("click", async () => {
   if (!authenticated || !confirmPluginDiscard("刷新插件状态")) return;
@@ -580,12 +600,17 @@ $("copy-plugin-usage").addEventListener("click", copyPluginUsage);
 $("download-plugin-usage").addEventListener("click", downloadPluginUsage);
 $("download-plugin-catalog").addEventListener("click", downloadPluginCatalog);
 document.addEventListener("visibilitychange",renderPluginCatalogControls);
-function showWorkspaceView(name, {autoLoadAI=true}={}) {
+function showWorkspaceView(name, {autoLoadAI=true,autoLoadPlugins=true}={}) {
   const button=document.querySelector('[data-view="'+name+'"]');
   if (typeof connectionDeleteCanLeave === "function" && !connectionDeleteCanLeave()) return;
   if (typeof connectionAddCanLeave === "function" && !connectionAddCanLeave()) return;
   if (typeof agentMemoryCanLeave === "function" && !agentMemoryCanLeave()) return;
   if (typeof securityCanLeave === "function" && !securityCanLeave()) return;
+  if (name !== "plugins" && pluginShortcutRequest !== null) {
+    pluginListRequest++; pluginShortcutRequest=null; pluginScopeBusy=false; pluginCatalogLoading=null;
+    $("plugin-save-state").textContent="已离开插件页，本次范围读取不再应用；请按需重新读取。";
+    renderPluginBusy(); renderPlugins();
+  }
   if (typeof showAISearch === "function") showAISearch(name === "ai");
   if (typeof showAIModelShortcut === "function") showAIModelShortcut(name === "ai");
   document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("active", item === button));
@@ -594,7 +619,7 @@ function showWorkspaceView(name, {autoLoadAI=true}={}) {
   $("breadcrumb").textContent = "工作空间 / " + ({ overview:"运行概览", plugins:"插件列表", connections:"连接设置", ai:"AI 设置", updatewatch:"更新监控", agent:"Agent 会话", logs:"运行日志", backups:"备份恢复", security:"后台安全" }[button.dataset.view]);
   showOverview(button.dataset.view === "overview");
   if (button.dataset.view === "updatewatch" && !updateWatchState) loadUpdateWatch();
-  if (button.dataset.view === "plugins") ensurePluginList();
+  if (button.dataset.view === "plugins" && autoLoadPlugins) ensurePluginList();
   if (button.dataset.view === "connections" && !connectionSettings) loadConnections();
   if (button.dataset.view === "ai" && !aiState && autoLoadAI) loadAI();
   if (typeof showLogs === "function") showLogs(button.dataset.view === "logs");
