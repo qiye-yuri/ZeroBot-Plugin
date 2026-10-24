@@ -114,3 +114,6 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 
 
 2026-10-24 R11上传完成：功能提交 `ea677103` 已推送用户origin，创建[中文PR #19](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/19)，目标master，包含PR #18后续规划文档。27项专项、190项离线Chrome、统一18步及最终隔离整机通过；12份功能/使用文档919个本地引用与12处R11锚点检查通过。使用见[全局模型入口](conversation-check.md#设置全局模型r11)，验收限制见[自测](self-test.md#r11-全局模型配置快捷入口验收)。尚未合并部署，未调用真实付费服务或发送QQ消息；本机配置、数据与私有证据不上传。
+
+
+2026-10-24 15:04（北京时间）：[PR #19](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/19)已合并master，合并提交 `3c0ca3c1`，R11已部署。运行通过统一18步验收的同一程序，SHA256 `847BF0FC95072B4D2B87C42AD71800F37EC133E074CD6DF21B15EE3418EEEB4E`。 配置与数据保留、实际页面及部署后检查通过，见[部署验收](self-test.md#r11-合并部署验收)。使用说明和计划状态同步；R12仍待开发，既有插件条件性验收保持。
