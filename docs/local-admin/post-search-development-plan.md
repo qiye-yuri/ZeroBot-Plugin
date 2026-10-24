@@ -1,4 +1,4 @@
-当前开发计划见[R10 完成后的开发方向与执行计划](post-r10-development-plan.md)：R8～R10已合并部署；R11已合并部署[全局模型配置快捷入口](conversation-check.md#设置全局模型r11)；R12已实现[诊断结果读法及修订展开](model-probe.md#诊断结果读法r12)，尚未合并部署。既有插件条件性验收及暂缓状态保持。
+当前开发计划见[R10 完成后的开发方向与执行计划](post-r10-development-plan.md)：R8～R10已合并部署；R11已合并部署[全局模型配置快捷入口](conversation-check.md#设置全局模型r11)；R12已合并部署[诊断结果读法及修订展开](model-probe.md#诊断结果读法r12)。既有插件条件性验收及暂缓状态保持。
 
 R7 已结项并部署。新的后续方向见[R7 完成后的开发计划](post-r7-development-plan.md)，R8～R10均已合并部署；本文保留R7原设计及实施落点。
 
