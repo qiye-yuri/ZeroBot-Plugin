@@ -863,3 +863,6 @@ R8 上传完成：见[PR #15](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/1
 
 
 R9 上传完成：[PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)，功能提交 a24e885d，统一18步和178项页面测试通过；尚未合并部署，下一开发项为 R10。
+
+
+2026-10-24 10:35（北京时间）：[PR #16](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/16)已合并 master，合并提交 `5ddbe18b`，R9 已部署。运行同一份通过18步验收的程序，SHA256 `F0BDF552F2AE542D7B8C2E370463EA19F04A7A112FD4849445B6572A0BDCBBEA`。 部署后实际一次搜索诊断通过（HTTP 200、5条结果），配置和数据保持，详见[验收](self-test.md#r9-合并部署与真实诊断验收)。R10仍待开发，既有插件未验收事项保持。
