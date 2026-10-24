@@ -8,6 +8,8 @@
 
 R14文档导航整理已完成，上传及合并状态见[交付记录](github-delivery.md#r14-文档导航整理交付)；本批仅改文档，无程序部署。[R13与R14计划](post-r12-development-plan.md)保留已完成工作包；[R15文档校验工具](post-r14-development-plan.md)与专项测试已实现并合并，使用见[文档链接检查](document-check.md)，上传与合并状态见[交付记录](github-delivery.md#r15-文档校验工具交付)。
 
+下一阶段为[R16 FTB任务状态独立刷新](post-r15-development-plan.md)，已实现并完成专项验证，使用见[独立刷新任务状态](ctb.md#独立刷新任务状态r16)；上传与合并状态见[交付记录](github-delivery.md#r16-任务状态刷新交付)，尚未部署。
+
 待验收与暂缓统一查阅[当前剩余验收条件](remaining-acceptance.md)：已确认通过的项目不重新列为待验收，钓鱼、真实好友申请与入群邀请等仍按原条件保留；P010本地AI画图及定时整合继续暂缓。插件去留以[现行清单](feature-plugin-inventory.md)为准，历史数量不作为当前状态。
 
 ## 按操作查找
@@ -57,7 +59,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 | 查阅内容 | 入口 |
 | --- | --- |
-| 当前工作包与开发约定 | [R15开发计划](post-r14-development-plan.md)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
+| 当前工作包与开发约定 | [R16开发计划](post-r15-development-plan.md)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
 | 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
@@ -70,6 +72,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 - [原首页归档与记录去向](index-history.md)：保留R14整理前的公开记录、旧入口和阶段数量。
 - [开发进度](progress.md)、[交付沿革](github-delivery.md)、[自测记录](self-test.md)：查某批次当时的实现、上传及验收情况。
 - [第一版说明](release-v0.1.md)、[AI与Agent交付](release-ai-agent.md)、[M1～M3设计](ai-agent-development.md)：已完成阶段的范围。
+- [R15文档校验计划](post-r14-development-plan.md)：已完成阶段的设计与合并记录。
 - [R13与R14计划](post-r12-development-plan.md)：已完成阶段的工作包与验收契约。
 - [早期开发计划](next-development-plan.md)、[R1～R4计划](next-stage-development.md)、[R7计划](post-search-development-plan.md)、[R8～R10计划](post-r7-development-plan.md)、[R11～R12计划](post-r10-development-plan.md)：原设计契约与后续完成记录。
 - [插件删除沿革](removed-plugins.md)、[问题判定记录](unresolved-features.md)、[上游评估](upstream-review.md)：历史故障与去留依据，不替代当前可用功能清单。
