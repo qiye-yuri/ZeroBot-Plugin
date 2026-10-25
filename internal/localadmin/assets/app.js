@@ -613,6 +613,7 @@ function showWorkspaceView(name, {autoLoadAI=true,autoLoadPlugins=true}={}) {
     $("plugin-save-state").textContent="已离开插件页，本次范围读取不再应用；请按需重新读取。";
     renderPluginBusy(); renderPlugins();
   }
+  if (name !== "updatewatch" && typeof leaveUpdateWatchRuntime === "function") leaveUpdateWatchRuntime();
   if (name !== "ctb" && typeof leaveCTBStatus === "function") leaveCTBStatus();
   if (typeof showAISearch === "function") showAISearch(name === "ai");
   if (typeof showAIModelShortcut === "function") showAIModelShortcut(name === "ai");
