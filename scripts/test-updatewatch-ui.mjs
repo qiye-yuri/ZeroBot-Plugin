@@ -28,7 +28,7 @@ test('busy requests gated and logout invalidates delayed response',async t=>{
  await p.evaluate(()=>{authenticated=false;resetUpdateWatch();authenticated=true;csrf='new-session';});await p.evaluate(value=>pending[0]({ok:true,status:200,json:async()=>value}),state);await p.waitForTimeout(25);assert.equal(await p.evaluate(()=>updateWatchState),null);assert.equal(await p.locator('#uw-interval').isDisabled(),true);assert.equal(await p.locator('#uw-reload').isEnabled(),true);
 });
 test('responsive light/dark layout',async t=>{
- const p=await fixture(t);await p.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await fs.mkdir('.local/updatewatch-admin-ui',{recursive:true});
+ const p=await fixture(t);await p.evaluate(prefix=>{for(const e of document.querySelectorAll('#'+prefix+'-form input, #'+prefix+'-form select, #'+prefix+'-form textarea')){if(e.type==='checkbox')e.checked=!e.checked;else if(e.tagName==='SELECT')e.selectedIndex=(e.selectedIndex+1)%e.options.length;else e.value=e.type==='time'?'03:21':'99';e.dispatchEvent(new Event('input',{bubbles:true}));}},'uw');await p.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await fs.mkdir('.local/updatewatch-admin-ui',{recursive:true});
  for(const width of [1280,320]){await p.setViewportSize({width,height:900});for(const theme of ['light','dark']){await p.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await p.screenshot({path:`.local/updatewatch-admin-ui/${width}-${theme}.png`,fullPage:true});}}
  assert.equal(await p.locator('#uw-save').isEnabled(),true);
 });
@@ -81,4 +81,72 @@ test('logout resets runtime and late response cannot restore previous session',a
  const p=await fixture(t);await p.evaluate(()=>{window.oldRefresh=refreshUpdateWatchRuntime()});await p.waitForFunction(()=>pending.length===1);
  await p.evaluate(()=>{authenticated=false;resetUpdateWatch();refreshUpdateWatchRuntime();authenticated=true});await settle(p,{...state,lastError:'旧会话'});await p.evaluate(()=>oldRefresh);
  assert.equal(await p.evaluate(()=>requests.length),1);assert.equal(await p.evaluate(()=>updateWatchState),null);assert.equal(await p.locator('#uw-runtime').textContent(),'尚未读取。');assert.equal(await p.locator('#uw-runtime-refresh').isDisabled(),true);
+});
+
+// R18: observable draft behavior with synthetic APIs only.
+test('R18 every field changes and reverts, labels only, fixed order',async t=>{
+ const p=await fixture(t);assert.match(await p.locator('#uw-draft').textContent(),/无未保存/);
+ assert.equal(await p.locator('#uw-undo').isDisabled(),true);
+ const fields=["uw-enabled","uw-daily","uw-interval","uw-model","uw-owner","uw-bot","uw-cf","uw-ftb","uw-github","uw-repos","uw-announcements"];
+ const original=await p.evaluate(ids=>ids.map(id=>{const e=document.getElementById(id);return e.type==='checkbox'?e.checked:e.value}),fields);
+ for(let i=0;i<fields.length;i++){
+  await p.evaluate(id=>{const e=document.getElementById(id);if(e.type==='checkbox')e.checked=!e.checked;else if(e.tagName==='SELECT')e.selectedIndex=(e.selectedIndex+1)%e.options.length;else e.value=e.type==='number'?'99':e.type==='time'?'03:21':' private-value <b>secret</b> ';e.dispatchEvent(new Event('input',{bubbles:true}));},fields[i]);
+  assert.match(await p.locator('#uw-draft').textContent(),new RegExp('：'+(i+1)+'项'));
+ }
+ const summary=await p.locator('#uw-draft').textContent();assert.doesNotMatch(summary,/private-value|secret|99/);assert.equal(await p.locator('#uw-draft b').count(),0);
+ for(let i=fields.length-1;i>=0;i--){
+  await p.evaluate(({id,value})=>{const e=document.getElementById(id);if(e.type==='checkbox')e.checked=value;else e.value=value;e.dispatchEvent(new Event('change',{bubbles:true}));},{id:fields[i],value:original[i]});
+  assert.match(await p.locator('#uw-draft').textContent(),i?new RegExp('：'+i+'项'):/无未保存/);
+ }
+ assert.equal(await p.locator('#uw-undo').isDisabled(),true);
+});
+test('R18 local undo after refreshed revision keeps runtime and conflict with zero requests',async t=>{
+ const p=await fixture(t);const original=await draft(p);
+ await p.locator('#uw-interval').fill('7');
+ await p.evaluate(value=>replies.push({...value,revision:'b'.repeat(64),last:'新结果',pending:7}),state);
+ await p.evaluate(()=>refreshUpdateWatchRuntime());
+ const runtime=await p.locator('#uw-runtime').textContent();
+ await p.evaluate(()=>showError('uw-error',new Error('旧修订冲突')));
+ const count=await p.evaluate(()=>requests.length);
+ await p.locator('#uw-undo').focus();await p.keyboard.press('Enter');
+ assert.deepEqual(await draft(p),original);assert.equal(await p.evaluate(()=>requests.length),count);
+ assert.equal(await p.locator('#uw-runtime').textContent(),runtime);assert.match(await p.locator('#uw-error').textContent(),/旧修订/);
+ await p.evaluate(()=>replies.push({error:'仍需重新读取',status:409}));await p.locator('#uw-save').click();await p.waitForFunction(()=>!updateWatchBusy);
+ assert.equal(await p.evaluate(()=>requests.at(-1).body.revision),state.revision);assert.match(await p.locator('#uw-error').textContent(),/重新读取/);
+});
+test('R18 baseline lifecycle preserves failed reads and saves, accepts server values',async t=>{
+ const p=await fixture(t);const original=await draft(p);await p.locator('#uw-interval').fill('7');
+ for(const action of ['reload','save']){await p.evaluate(()=>replies.push({error:'服务忙碌',status:409}));await p.locator('#uw-'+action).click();await p.waitForFunction(()=>!updateWatchBusy);assert.match(await p.locator('#uw-draft').textContent(),/1项/);}
+ await p.evaluate(async()=>{const saved=fetch;window.fetch=async()=>{throw new Error('offline')};try{await loadUpdateWatch()}finally{window.fetch=saved}});assert.match(await p.locator('#uw-draft').textContent(),/1项/);
+ await p.locator('#uw-undo').click();assert.deepEqual(await draft(p),original);
+ const updated=structuredClone(state);updated.config.intervalHours=9;
+ await p.locator('#uw-interval').fill('8');await p.evaluate(value=>replies.push(value),updated);await p.locator('#uw-save').click();await p.waitForFunction(()=>!updateWatchBusy);
+ assert.equal(await p.locator('#uw-interval').inputValue(),'9');assert.match(await p.locator('#uw-draft').textContent(),/无未保存/);
+ await p.locator('#uw-interval').fill('');await p.locator('#uw-undo').click();assert.equal(await p.locator('#uw-interval').inputValue(),'9');
+ await p.evaluate(value=>replies.push(value),state);await p.locator('#uw-reload').click();await p.waitForFunction(()=>!updateWatchBusy);assert.deepEqual(await draft(p),original);
+});
+test('R18 in-flight edits, direct undo guard and reset reject late config',async t=>{
+ const p=await fixture(t);await p.locator('#uw-interval').fill('7');await p.evaluate(()=>{window.refreshPromise=refreshUpdateWatchRuntime()});await p.waitForFunction(()=>pending.length===1);
+ await p.locator('#uw-interval').fill('8');await p.evaluate(()=>undoUpdateWatchDraft());assert.equal(await p.locator('#uw-interval').inputValue(),'8');assert.equal(await p.locator('#uw-undo').isDisabled(),true);assert.match(await p.locator('#uw-draft').textContent(),/1项/);
+ await p.evaluate(value=>pending[0]({ok:true,status:200,json:async()=>value}),state);await p.evaluate(()=>refreshPromise);assert.equal(await p.locator('#uw-undo').isEnabled(),true);
+ await p.evaluate(()=>{window.readPromise=loadUpdateWatch()});await p.waitForFunction(()=>pending.length===2);await p.evaluate(()=>undoUpdateWatchDraft());assert.equal(await p.locator('#uw-interval').inputValue(),'8');
+ await p.evaluate(()=>{authenticated=false;resetUpdateWatch();undoUpdateWatchDraft();authenticated=true});await p.evaluate(value=>pending[1]({ok:true,status:200,json:async()=>value}),state);await p.evaluate(()=>readPromise);
+ assert.equal(await p.evaluate(()=>updateWatchBaseline),null);assert.match(await p.locator('#uw-draft').textContent(),/读取配置后/);assert.equal(await p.locator('#uw-undo').isDisabled(),true);
+ await p.evaluate(()=>replies.push({error:'读取失败',status:500}));await p.evaluate(()=>loadUpdateWatch());assert.equal(await p.evaluate(()=>updateWatchBaseline),null);
+});
+test('R18 defaults and raw whitespace use rendered baseline; pages remain independent',async t=>{
+ const p=await fixture(t);
+ await p.evaluate(value=>renderUpdateWatch({...value,config:{...value.config,botId:0}}),state);
+ assert.equal(await p.locator('#uw-bot').inputValue(),'54321');assert.match(await p.locator('#uw-draft').textContent(),/无未保存/);
+ await p.locator('#uw-repos').fill(' FTBTeam/FTB-Evo-Companion \n');await p.locator('#uw-announcements').fill(' \n');
+ assert.match(await p.locator('#uw-draft').textContent(),/2项 · 关联仓库、公告链接/);
+ const uwDraft=await draft(p),summary=await p.locator('#uw-draft').textContent();
+ await p.addScriptTag({content:await fs.readFile(root+'ctb.js','utf8')});
+ await p.evaluate(()=>{replies.push({revision:'c'.repeat(64),config:{enabled:true,executable:'tool.exe',outputDir:'output',timeoutMinutes:30,threads:4,noProxy:false,upload:false,groupDailyLimit:0},busy:false,last:'idle'});showWorkspaceView('ctb')});await p.waitForFunction(()=>ctbState&&!ctbBusy);
+ assert.equal(await p.locator('#ctb-group-limit').inputValue(),'5');assert.match(await p.locator('#ctb-draft').textContent(),/无未保存/);
+ await p.locator('#ctb-exe').fill(' tool.exe ');assert.match(await p.locator('#ctb-draft').textContent(),/1项 · 程序路径/);
+ const count=await p.evaluate(()=>requests.length);await p.locator('#ctb-undo').click();assert.equal(await p.evaluate(()=>requests.length),count);
+ assert.deepEqual(await draft(p),uwDraft);assert.equal(await p.locator('#uw-draft').textContent(),summary);
+ await p.locator('#ctb-threads').fill('7');await p.evaluate(()=>showWorkspaceView('updatewatch'));await p.locator('#uw-undo').click();assert.equal(await p.locator('#ctb-threads').inputValue(),'7');assert.match(await p.locator('#ctb-draft').textContent(),/1项/);
+ assert.equal(await p.locator('#uw-repos').inputValue(),state.config.repositories[0]);assert.equal(await p.locator('#uw-announcements').inputValue(),'');assert.equal(await p.evaluate(()=>requests.length),count);
 });
