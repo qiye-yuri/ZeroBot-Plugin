@@ -395,3 +395,10 @@ R12只调整模型及搜索诊断结果渲染，已合并部署。安装经验�
 2026-10-24 21:44（北京时间）：R16 PR #28已合并部署，运行master d36bee1d，程序SHA256 FEB3ADCEF696A6120A416E6E18E48EEA2EC8E1E6ADE0169DDA14850F1B933E1C。仅重启ZeroBot，OneBot原进程和登录保持。刷新后台后用原密码重新登录，在FTB最近任务区域点击独立刷新；无需重新保存配置。无API或数据迁移。
 
 备份与校验清单位于本机忽略目录 .local/r16-deployment/，result.json记录本次backupDirectory；保留旧程序、完整data及配置。需要回退时仅停止ZeroBot，恢复该备份中的旧zerobot.exe到日常程序路径再启动核对；保留当前配置与之后产生的数据，不整体恢复旧data覆盖新聊天。
+
+
+## R17 更新监控状态刷新部署与回退
+
+2026-10-25 18:41（北京时间）：R17 PR #30已合并部署，运行master bf1d3931，程序SHA256 FD74687E39AC5E120F3B6BCF7DA04BE8B6C68AF23F9138CCF69EA04156122FC8。仅重启ZeroBot，OneBot原进程与登录保持；刷新后台后按需用原密码登录，在更新监控最近运行状态区域手动刷新。无需重新保存配置，不改变日常调度，忙碌时手动稍后重试。
+
+备份位于本机忽略目录 .local/r17-deployment/，result.json中的backupDirectory指向本次旧程序、完整data和配置备份及哈希清单。回退只停止ZeroBot，恢复备份中的旧zerobot.exe到日常程序路径再启动核对；保留当前监控状态及后续数据，不整体恢复旧队列或data以免回放通知、覆盖新聊天。

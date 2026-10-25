@@ -4,13 +4,13 @@
 
 ## 当前版本与计划
 
-状态核对日期：2026-10-25（Asia/Shanghai）。最新部署为R16 PR #28合并后的master `d36bee1d`，包含FTB独立状态刷新及此前群聊下载、路径修复；本批部署后页面与服务检查通过，FTB真实查询、下载和群文件接口/列表核对保持此前结论，见[FTB工具与验证范围](ctb.md)及[运行维护](operations.md)。R1～R13及N1～N3已按各批记录合并部署，R13会话插件范围入口见[使用方法](conversation-check.md#设置会话对应的插件范围r13)与[部署验收](self-test.md#r13-合并部署验收)。开发批次编号不是仓库发布版本。
+状态核对日期：2026-10-25（Asia/Shanghai）。最新部署为R17 PR #30合并后的master `bf1d3931`，包含更新监控独立状态刷新、FTB独立状态刷新及此前群聊下载、路径修复；本批部署后页面与服务检查通过，FTB真实查询、下载和群文件接口/列表核对保持此前结论，见[FTB工具与验证范围](ctb.md)及[运行维护](operations.md)。R1～R13及N1～N3已按各批记录合并部署，R13会话插件范围入口见[使用方法](conversation-check.md#设置会话对应的插件范围r13)与[部署验收](self-test.md#r13-合并部署验收)。开发批次编号不是仓库发布版本。
 
 R14文档导航整理已完成，上传及合并状态见[交付记录](github-delivery.md#r14-文档导航整理交付)；本批仅改文档，无程序部署。[R13与R14计划](post-r12-development-plan.md)保留已完成工作包；[R15文档校验工具](post-r14-development-plan.md)与专项测试已实现并合并，使用见[文档链接检查](document-check.md)，上传与合并状态见[交付记录](github-delivery.md#r15-文档校验工具交付)。
 
 [R16 FTB任务状态独立刷新](post-r15-development-plan.md)，已合并部署，使用见[独立刷新任务状态](ctb.md#独立刷新任务状态r16)；上传与合并状态见[交付记录](github-delivery.md#r16-任务状态刷新交付)。
 
-下一阶段为[R17更新监控状态独立刷新](post-r16-development-plan.md)，已实现，使用见[独立刷新运行状态](updatewatch.md#独立刷新运行状态r17)，交付见[R17记录](github-delivery.md#r17-运行状态刷新交付)；尚未合并部署。
+[R17更新监控状态独立刷新](post-r16-development-plan.md)，已合并部署，使用见[独立刷新运行状态](updatewatch.md#独立刷新运行状态r17)，交付见[R17记录](github-delivery.md#r17-运行状态刷新交付)。
 
 待验收与暂缓统一查阅[当前剩余验收条件](remaining-acceptance.md)：已确认通过的项目不重新列为待验收，钓鱼、真实好友申请与入群邀请等仍按原条件保留；P010本地AI画图及定时整合继续暂缓。插件去留以[现行清单](feature-plugin-inventory.md)为准，历史数量不作为当前状态。
 
