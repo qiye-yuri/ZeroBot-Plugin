@@ -179,4 +179,4 @@ N3功能提交 `28c5d5bf` 已推送至用户仓库origin，创建[中文 PR #11]
 
 ## R16 后续规划交付
 
-2026-10-25：完成[R17开发计划](post-r16-development-plan.md)，同步导航、前序计划、进度和文档验收。分支codex/post-r16-development-plan，目标用户origin/master，仅交付6份公开文档。R17尚未实现；R16部署、真实验收及条件性清单保持。本机data与两份既有测试文件改动不纳入。检查通过后上传，实际PR随后补记。
+2026-10-25：完成[R17开发计划](post-r16-development-plan.md)，同步导航、前序计划、进度和文档验收。分支codex/post-r16-development-plan，目标用户origin/master，仅交付6份公开文档。R17尚未实现；R16部署、真实验收及条件性清单保持。本机data与两份既有测试文件改动不纳入。155份文档、1669个本地引用及433个锚点检查通过。规划提交0992fabd已推送origin，创建[中文PR #29](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/29)，目标master，尚未合并；本记录随同一分支补充上传。
