@@ -10,8 +10,8 @@ const root='internal/localadmin/assets/';
 const html=(await fs.readFile(root+'index.html','utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link\b[^>]*>/g,'');
 const browser=await chromium.launch({channel:'chrome',headless:true});after(()=>browser.close());
 const state={config:{enabled:true,intervalHours:24,ownerId:12345,botId:54321,modelRole:'Summary',curseForge:true,ftb:true,github:true,repositories:['FTBTeam/FTB-Evo-Companion'],announcements:[]},revision:'a'.repeat(64),owners:[12345,67890],bots:[54321],models:[{role:'Summary',name:'test-summary',ready:true}],lastCheck:'2026-10-18T12:00:00Z',pending:0,baseline:3,sourceErrors:{curseforge:'HTTP 403'}};
-async function fixture(t){
- const context=await browser.newContext();t.after(()=>context.close());await context.route('**/*',r=>r.abort());const page=await context.newPage();await page.setContent(html);
+async function fixture(t,timezoneId="Asia/Shanghai"){
+ const context=await browser.newContext({timezoneId});t.after(()=>context.close());await context.route('**/*',r=>r.abort());const page=await context.newPage();await page.setContent(html);
  for(const file of ['app.js','updatewatch.js'])await page.addScriptTag({content:await fs.readFile(root+file,'utf8')});
  await page.evaluate(value=>{authenticated=true;csrf='synthetic';window.showOverview=()=>{};window.requests=[];window.replies=[];window.pending=[];document.getElementById('auth').hidden=true;document.getElementById('workspace').hidden=false;document.getElementById('overview-view').hidden=true;document.getElementById('updatewatch-view').hidden=false;window.fetch=async(url,options)=>{requests.push({url,body:options.body?JSON.parse(options.body):null});const v=replies.shift();if(v)return {ok:!v.error,status:v.status||200,json:async()=>v};return new Promise(resolve=>pending.push(resolve));};renderUpdateWatch(value);renderUpdateWatchControls();showWorkspaceView("updatewatch");document.getElementById('uw-fields').disabled=false;},state);
  return page;
@@ -28,8 +28,8 @@ test('busy requests gated and logout invalidates delayed response',async t=>{
  await p.evaluate(()=>{authenticated=false;resetUpdateWatch();authenticated=true;csrf='new-session';});await p.evaluate(value=>pending[0]({ok:true,status:200,json:async()=>value}),state);await p.waitForTimeout(25);assert.equal(await p.evaluate(()=>updateWatchState),null);assert.equal(await p.locator('#uw-interval').isDisabled(),true);assert.equal(await p.locator('#uw-reload').isEnabled(),true);
 });
 test('responsive light/dark layout',async t=>{
- const p=await fixture(t);await p.evaluate(prefix=>{for(const e of document.querySelectorAll('#'+prefix+'-form input, #'+prefix+'-form select, #'+prefix+'-form textarea')){if(e.type==='checkbox')e.checked=!e.checked;else if(e.tagName==='SELECT')e.selectedIndex=(e.selectedIndex+1)%e.options.length;else e.value=e.type==='time'?'03:21':'99';e.dispatchEvent(new Event('input',{bubbles:true}));}},'uw');await p.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await fs.mkdir('.local/updatewatch-admin-ui',{recursive:true});
- for(const width of [1280,320]){await p.setViewportSize({width,height:900});for(const theme of ['light','dark']){await p.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await p.screenshot({path:`.local/updatewatch-admin-ui/${width}-${theme}.png`,fullPage:true});}}
+ const p=await fixture(t);await p.evaluate(value=>renderUpdateWatchRuntime({...value,lastError:'读取失败\nhttps://example.test/'+ 'x'.repeat(180),sourceErrors:{github:'第一行\n第二行',ftb:'https://example.test/'+ 'y'.repeat(180),['unknown-'+ 'z'.repeat(80)]:'未知来源错误'}}),state);await p.evaluate(prefix=>{for(const e of document.querySelectorAll('#'+prefix+'-form input, #'+prefix+'-form select, #'+prefix+'-form textarea')){if(e.type==='checkbox')e.checked=!e.checked;else if(e.tagName==='SELECT')e.selectedIndex=(e.selectedIndex+1)%e.options.length;else e.value=e.type==='time'?'03:21':'99';e.dispatchEvent(new Event('input',{bubbles:true}));}},'uw');await p.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await fs.mkdir('.local/updatewatch-admin-ui',{recursive:true});
+ for(const width of [1280,320]){await p.setViewportSize({width,height:900});for(const theme of ['light','dark']){await p.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await p.screenshot({path:`.local/updatewatch-admin-ui/${width}-${theme}.png`,fullPage:true});await p.locator("#uw-runtime").screenshot({path:`.local/updatewatch-admin-ui/runtime-${width}-${theme}.png`});}}
  assert.equal(await p.locator('#uw-save').isEnabled(),true);
 });
 
@@ -42,7 +42,7 @@ test('runtime refresh preserves all drafts, options, revision and config errors'
  await p.evaluate(v=>{showError('uw-error',new Error('配置冲突'));replies.push(v)}, {...state,revision:'b'.repeat(64),config:{},models:[],owners:[],bots:[],pending:2,baseline:4});
  await p.locator('#uw-runtime-refresh').click();await p.waitForFunction(()=>!updateWatchBusy);
  assert.deepEqual(await draft(p),before);assert.equal(await p.locator('#uw-status').textContent(),notice);assert.match(await p.locator('#uw-error').textContent(),/配置冲突/);assert.equal(await p.evaluate(()=>updateWatchState.revision),state.revision);
- assert.deepEqual(await p.evaluate(()=>requests[0]),{url:'/api/updatewatch',body:null});assert.match(await p.locator('#uw-runtime').textContent(),/基线来源：4；待通知：2/);
+ assert.deepEqual(await p.evaluate(()=>requests[0]),{url:'/api/updatewatch',body:null});assert.equal(await p.locator('#uw-baseline-count').textContent(),'4个');assert.equal(await p.locator('#uw-pending-count').textContent(),'2条');
  await p.evaluate(()=>replies.push({error:'旧修订冲突',status:409}));await p.locator('#uw-save').click();await p.waitForFunction(()=>!updateWatchBusy);
  assert.equal(await p.evaluate(()=>requests[1].body.revision),state.revision);assert.deepEqual(await draft(p),before);
 });
@@ -149,4 +149,61 @@ test('R18 defaults and raw whitespace use rendered baseline; pages remain indepe
  assert.deepEqual(await draft(p),uwDraft);assert.equal(await p.locator('#uw-draft').textContent(),summary);
  await p.locator('#ctb-threads').fill('7');await p.evaluate(()=>showWorkspaceView('updatewatch'));await p.locator('#uw-undo').click();assert.equal(await p.locator('#ctb-threads').inputValue(),'7');assert.match(await p.locator('#ctb-draft').textContent(),/1项/);
  assert.equal(await p.locator('#uw-repos').inputValue(),state.config.repositories[0]);assert.equal(await p.locator('#uw-announcements').inputValue(),'');assert.equal(await p.evaluate(()=>requests.length),count);
+});
+
+test('R19 unread, zero and reset states never retain old runtime details',async t=>{
+ const p=await fixture(t);
+ await p.evaluate(()=>resetUpdateWatch());
+ assert.equal(await p.locator('#uw-runtime').textContent(),'尚未读取。');
+ assert.equal(await p.locator('#uw-runtime dl, #uw-runtime li').count(),0);
+ await p.evaluate(()=>replies.push({error:'读取失败',status:500}));await p.evaluate(()=>loadUpdateWatch());
+ assert.equal(await p.locator('#uw-runtime').textContent(),'尚未读取。');
+ for(const sourceErrors of [null,{}]){
+  await p.evaluate(v=>replies.push(v),{...state,lastCheck:'0001-01-01T00:00:00Z',baseline:0,pending:0,lastError:'',sourceErrors});await p.evaluate(()=>loadUpdateWatch());
+  assert.equal(await p.locator('#uw-last-check').textContent(),'尚未检查');assert.equal(await p.locator('#uw-baseline-count').textContent(),'0个');assert.equal(await p.locator('#uw-pending-count').textContent(),'0条');assert.equal(await p.locator('#uw-last-error').textContent(),'未记录最近错误');
+  assert.match(await p.locator('#uw-runtime').textContent(),/未记录来源错误/);assert.doesNotMatch(await p.locator('#uw-runtime').textContent(),/全部正常|全部来源成功/);
+ }
+ await p.evaluate(()=>{authenticated=false;resetUpdateWatch()});assert.equal(await p.locator('#uw-runtime').textContent(),'尚未读取。');
+ await p.evaluate(v=>{authenticated=true;replies.push(v)},state);await p.evaluate(()=>loadUpdateWatch());assert.equal(await p.locator('#uw-source-errors li').count(),1);
+});
+
+test('R19 labels, browser timezone and snapshot counts have explicit semantics',async t=>{
+ for(const [zone,time] of [['UTC','2026/10/18 12:00:00'],['Asia/Shanghai','2026/10/18 20:00:00']]){
+  const p=await fixture(t,zone);
+  assert.equal(await p.locator('#uw-last-check').textContent(),time);
+  assert.deepEqual(await p.locator('#uw-runtime dt').allTextContents(),['最近检查（浏览器本地时间）','已初始化来源数','待发通知']);
+  assert.equal(await p.locator('#uw-runtime dd').count(),3);
+  await p.evaluate(v=>renderUpdateWatchRuntime({...v,baseline:9,pending:2}),state);
+  assert.equal(await p.locator('#uw-baseline-count').textContent(),'9个');assert.equal(await p.locator('#uw-pending-count').textContent(),'2条');
+  assert.equal(await p.locator('#uw-runtime [role="status"], #uw-runtime [aria-live]').count(),0);assert.equal(await p.locator('#uw-runtime-status').getAttribute('role'),'status');
+  assert.equal(await p.evaluate(()=>requests.length),0);
+ }
+});
+
+test('R19 source errors sort and replace without mutating data or interpreting markup',async t=>{
+ const p=await fixture(t);const errors={zeta:'末项',github:'第一行\n第二行',alpha:'https://example.test/'+ 'x'.repeat(180),'<img src=x onerror=alert(1)>':'<script>alert(1)</script>'};
+ const expected=['<img src=x onerror=alert(1)>','alpha','github','zeta'];
+ for(const sourceErrors of [errors,Object.fromEntries(Object.entries(errors).reverse())]){
+  const before=JSON.stringify(sourceErrors);
+  const after=await p.evaluate(v=>{renderUpdateWatchRuntime({...v,lastError:'<b>最近错误</b>\nnext'});return JSON.stringify(v.sourceErrors)}, {...state,sourceErrors});
+  assert.equal(after,before);assert.deepEqual(await p.locator('#uw-source-errors li strong').allTextContents(),expected);
+  assert.deepEqual(await p.locator('#uw-source-errors li p').allTextContents(),expected.map(k=>errors[k]));
+  assert.equal(await p.locator('#uw-last-error').textContent(),'<b>最近错误</b>\nnext');assert.equal(await p.locator('#uw-runtime img, #uw-runtime script, #uw-runtime b, #uw-runtime a').count(),0);
+ }
+ await p.evaluate(v=>replies.push({...v,sourceErrors:{ftb:'仅余此项'}}),state);await p.locator('#uw-runtime-refresh').focus();await p.keyboard.press('Enter');await p.waitForFunction(()=>!updateWatchBusy);
+ assert.equal(await p.locator('#uw-source-errors li').count(),1);assert.equal(await p.locator('#uw-source-errors strong').textContent(),'ftb');
+ await p.evaluate(v=>replies.push({...v,lastError:'',sourceErrors:{}}),state);await p.evaluate(()=>refreshUpdateWatchRuntime());assert.equal(await p.locator('#uw-source-errors li').count(),0);assert.doesNotMatch(await p.locator('#uw-runtime').textContent(),/仅余此项|末项/);
+});
+
+test('R19 full configuration success replaces details; failures preserve whole subtree',async t=>{
+ const p=await fixture(t);let count=0;
+ for(const save of [false,true]){
+  const value={...state,baseline:++count,pending:count+2,lastError:'本轮'+count,sourceErrors:{['source'+count]:'错误'+count}};
+  await p.evaluate(v=>replies.push(v),value);await p.evaluate(save=>loadUpdateWatch(save),save);
+  assert.equal(await p.locator('#uw-baseline-count').textContent(),count+'个');assert.equal(await p.locator('#uw-pending-count').textContent(),(count+2)+'条');assert.equal(await p.locator('#uw-last-error').textContent(),'本轮'+count);assert.equal(await p.locator('#uw-source-errors li').count(),1);
+  const before=await p.locator('#uw-runtime').innerHTML();
+  await p.evaluate(()=>replies.push({error:'冲突',status:409}));await p.evaluate(save=>loadUpdateWatch(save),save);assert.equal(await p.locator('#uw-runtime').innerHTML(),before);
+  await p.evaluate(async()=>{const saved=fetch;window.fetch=async()=>{throw new Error('offline')};try{await loadUpdateWatch()}finally{window.fetch=saved}});assert.equal(await p.locator('#uw-runtime').innerHTML(),before);
+ }
+ assert.deepEqual(await p.locator('#uw-source-errors strong').allTextContents(),['source2']);
 });
