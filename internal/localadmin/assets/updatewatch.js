@@ -26,7 +26,7 @@ function resetUpdateWatch() {
   updateWatchGeneration++; updateWatchState = null; updateWatchBusy = false; updateWatchRefreshing = false;
   $("uw-reload").disabled = false; $("uw-form").reset(); $("uw-fields").disabled = true;
   $("uw-error").hidden = true; $("uw-status").textContent = "进入页面后读取配置。";
-  $("uw-runtime").textContent = "尚未读取。";
+  renderUpdateWatchRuntime();
   $("uw-runtime-status").textContent = ""; renderUpdateWatchControls();
 }
 function renderUpdateWatch(value) {
@@ -56,11 +56,33 @@ function renderUpdateWatch(value) {
   renderUpdateWatchRuntime(value);
 }
 function renderUpdateWatchRuntime(value) {
-  $("uw-runtime-status").textContent = "已刷新运行状态。";
+  const root = $("uw-runtime");
+  if (!value) {root.textContent = "尚未读取。"; return;}
   const last = value.lastCheck.startsWith("0001-") ? "尚未检查" : new Date(value.lastCheck).toLocaleString("zh-CN",{hour12:false});
-  const errors = Object.entries(value.sourceErrors || {}).map(([source,error])=>source+"："+error);
-  $("uw-runtime").textContent = `最近检查：${last}；基线来源：${value.baseline}；待通知：${value.pending}。` + (value.lastError || "") + (errors.length ? " 来源失败："+errors.join("；") : "");
+  const summary = document.createElement("dl");
+  for (const [id,label,text] of [
+    ["uw-last-check","最近检查（浏览器本地时间）",last],
+    ["uw-baseline-count","已初始化来源数",value.baseline+"个"],
+    ["uw-pending-count","待发通知",value.pending+"条"]
+  ]) {
+    const term=document.createElement("dt"), detail=document.createElement("dd");
+    term.textContent=label; detail.id=id; detail.textContent=text;
+    summary.append(term,detail);
+  }
+  const lastHeading=document.createElement("h3"), lastError=document.createElement("p");
+  lastHeading.textContent="最近错误"; lastError.id="uw-last-error";
+  lastError.textContent=value.lastError || "未记录最近错误";
+  const sourceHeading=document.createElement("h3"), sources=document.createElement("ul");
+  sourceHeading.textContent="来源错误"; sources.id="uw-source-errors";
+  for (const source of Object.keys(value.sourceErrors || {}).sort()) {
+    const item=document.createElement("li"), name=document.createElement("strong"), error=document.createElement("p");
+    name.textContent=source; error.textContent=value.sourceErrors[source]; item.append(name,error); sources.append(item);
+  }
+  const empty=document.createElement("p"); empty.textContent="未记录来源错误";
+  root.replaceChildren(summary,lastHeading,lastError,sourceHeading,sources.childElementCount ? sources : empty);
+  $("uw-runtime-status").textContent = "已刷新运行状态。";
 }
+
 async function loadUpdateWatch(save = false) {
   if (!authenticated || updateWatchBusy || (save && !updateWatchState)) return;
   let body;
