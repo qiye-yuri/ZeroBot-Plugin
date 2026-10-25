@@ -125,7 +125,7 @@
             <label for="uw-announcements">FTB 官网公告 / 官方转载（每行一个 HTTPS 链接，最多 10 个）</label><textarea id="uw-announcements" rows="3"></textarea><p class="field-help">仅支持 feed-the-beast.com 的具体文章；不读取 Discord 私有消息或邀请页。新增来源首次静默建立基线。</p>
             <button id="uw-save" class="primary" type="submit">保存监控设置</button>
           </fieldset></form>
-          <section class="panel"><h2>最近运行状态</h2><p id="uw-runtime">尚未读取。</p><p class="field-help">保存无需重启，最迟一分钟读取新设置；每日时间按北京时间执行；未设置时从最近完成检查开始计算间隔。修改每日时间后从下一个时点开始；当天错过检查但之后开机则补查一次。全局及个人插件开关仍需开启。</p></section>
+          <section class="panel"><h2>最近运行状态</h2><button id="uw-runtime-refresh" class="secondary" type="button" disabled>刷新运行状态</button><p id="uw-runtime-status" role="status"></p><p class="field-help">仅读取已记录状态，保留配置草稿，不立即检查来源或发送通知。基线为已初始化来源数，待发为通知条数；零待发不代表收件人已收到。</p><p id="uw-runtime">尚未读取。</p><p class="field-help">保存无需重启，最迟一分钟读取新设置；每日时间按北京时间执行；未设置时从最近完成检查开始计算间隔。修改每日时间后从下一个时点开始；当天错过检查但之后开机则补查一次。全局及个人插件开关仍需开启。</p></section>
         </section>
         <section id="ai-view" hidden>
           <div class="page-heading"><div><p class="eyebrow">AI SETTINGS</p><h1>AI 设置</h1><p class="muted">管理聊天、GPT 与群总结使用的模型，以及指定群的参数。</p></div><button id="reload-ai" class="secondary">重新加载设置</button></div>
