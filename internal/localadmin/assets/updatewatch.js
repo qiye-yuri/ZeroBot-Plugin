@@ -1,6 +1,28 @@
 "use strict";
+let updateWatchBaseline = null;
+const updateWatchDraftFields = [["uw-enabled","启用"],["uw-daily","每日时间"],["uw-interval","间隔"],["uw-model","模型入口"],["uw-owner","主人"],["uw-bot","机器人"],["uw-cf","CurseForge来源"],["uw-ftb","FTB来源"],["uw-github","GitHub来源"],["uw-repos","关联仓库"],["uw-announcements","公告链接"]];
+function captureUpdateWatchDraft() {
+  updateWatchBaseline = updateWatchDraftFields.map(([id]) => $(id).type === 'checkbox' ? $(id).checked : $(id).value);
+  $("uw-draft-feedback").textContent = '';
+  renderUpdateWatchDraft();
+}
+function renderUpdateWatchDraft() {
+  const changed = updateWatchBaseline ? updateWatchDraftFields.filter(([id], i) => ($(id).type === 'checkbox' ? $(id).checked : $(id).value) !== updateWatchBaseline[i]).map(([,label]) => label) : [];
+  $("uw-draft").textContent = !updateWatchBaseline ? '读取配置后可编辑' : changed.length ? '未保存字段：'+changed.length+'项 · '+changed.join('、') : '无未保存更改';
+  $("uw-undo").disabled = !authenticated || !updateWatchBaseline || updateWatchBusy || !changed.length;
+}
+function undoUpdateWatchDraft() {
+  if (!authenticated || !updateWatchBaseline || updateWatchBusy) return;
+  updateWatchDraftFields.forEach(([id], i) => {const el=$(id); if(el.type==='checkbox') el.checked=updateWatchBaseline[i]; else el.value=updateWatchBaseline[i];});
+  renderUpdateWatchDraft();
+  $("uw-draft-feedback").textContent = '已恢复本页最近读取或保存成功的值，未读取或保存服务器。';
+}
+for (const event of ['input','change']) $("uw-form").addEventListener(event, () => {$("uw-draft-feedback").textContent='';renderUpdateWatchDraft();});
+$("uw-undo").addEventListener('click', undoUpdateWatchDraft);
+
 let updateWatchState = null, updateWatchBusy = false, updateWatchGeneration = 0, updateWatchRefreshing = false;
 function resetUpdateWatch() {
+  updateWatchBaseline=null;$("uw-draft-feedback").textContent="";
   updateWatchGeneration++; updateWatchState = null; updateWatchBusy = false; updateWatchRefreshing = false;
   $("uw-reload").disabled = false; $("uw-form").reset(); $("uw-fields").disabled = true;
   $("uw-error").hidden = true; $("uw-status").textContent = "进入页面后读取配置。";
@@ -30,6 +52,7 @@ function renderUpdateWatch(value) {
   $("uw-cf").checked = c.curseForge; $("uw-ftb").checked = c.ftb; $("uw-github").checked = c.github;
   $("uw-repos").value = (c.repositories || []).join("\n");
   $("uw-announcements").value = (c.announcements || []).join("\n");
+  captureUpdateWatchDraft();
   renderUpdateWatchRuntime(value);
 }
 function renderUpdateWatchRuntime(value) {
@@ -61,10 +84,11 @@ async function loadUpdateWatch(save = false) {
   }
 }
 $("uw-form").addEventListener("submit",event=>{event.preventDefault();loadUpdateWatch(true);});
-$("uw-form").addEventListener("input",()=>{$("uw-status").textContent="有未保存更改；切换页面保留草稿。";});
+
 $("uw-reload").addEventListener("click",()=>loadUpdateWatch());
 
 function renderUpdateWatchControls() {
+  renderUpdateWatchDraft();
   $("uw-fields").disabled = !authenticated || !updateWatchState || (updateWatchBusy && !updateWatchRefreshing);
   $("uw-save").disabled = updateWatchBusy;
   $("uw-reload").disabled = updateWatchBusy;

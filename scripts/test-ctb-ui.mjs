@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import {createRequire} from 'node:module';import test,{after} from 'node:test';
 const require=createRequire(import.meta.url);const {chromium}=require(path.join(process.env.USERPROFILE,'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules','playwright'));const root='internal/localadmin/assets/';const html=(await fs.readFile(root+'index.html','utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link\b[^>]*>/g,'');const browser=await chromium.launch({channel:'chrome',headless:true});after(()=>browser.close());const state={revision:'a'.repeat(64),config:{enabled:true,executable:'D:\\tools\\CurseTheBeast.exe',outputDir:'D:\\downloads',timeoutMinutes:30,threads:4,noProxy:false,upload:false,groupAccess:'all',groupDelivery:'group',groupDailyLimit:5},busy:false,last:'已完成测试'};
 async function fixture(t){const c=await browser.newContext();t.after(()=>c.close());await c.route('**/*',r=>r.abort());const p=await c.newPage();await p.setContent(html);for(const f of ['app.js','ctb.js'])await p.addScriptTag({content:await fs.readFile(root+f,'utf8')});await p.evaluate(v=>{authenticated=true;csrf='fixture';window.showOverview=()=>{};window.requests=[];window.replies=[v];window.pending=[];document.getElementById('auth').hidden=true;document.getElementById('workspace').hidden=false;window.fetch=async(url,options)=>{requests.push({url,body:options.body?JSON.parse(options.body):null});const v=replies.shift();return v?{ok:!v.error,status:v.status||200,json:async()=>v}:new Promise(resolve=>pending.push(resolve));};showWorkspaceView('ctb');},state);await p.waitForFunction(()=>!ctbBusy&&ctbState);return p;}
-test('save fields, conflict keeps draft, explicit reload and session isolation',async t=>{const p=await fixture(t);await p.locator('#ctb-threads').fill('8');await p.locator('#ctb-upload').check();await p.locator('#ctb-group-limit').fill('7');await p.locator('#ctb-group-delivery').selectOption('private');await p.evaluate(()=>replies.push({error:'配置已变更',status:409}));await p.locator('#ctb-form button').click();await p.waitForFunction(()=>!ctbBusy);assert.equal(await p.locator('#ctb-threads').inputValue(),'8');const body=await p.evaluate(()=>requests[1].body);assert.equal(body.config.threads,8);assert.equal(body.config.upload,true);assert.equal(body.config.groupDailyLimit,7);assert.equal(body.config.groupDelivery,'private');assert.equal(body.config.groupAccess,'all');await p.evaluate(v=>replies.push(v),state);await p.locator('#ctb-reload').click();await p.waitForFunction(()=>!ctbBusy);assert.equal(await p.locator('#ctb-threads').inputValue(),'4');await p.locator('#ctb-form button').click();await p.waitForFunction(()=>pending.length===1);assert.equal(await p.locator('#ctb-reload').isDisabled(),true);await p.evaluate(()=>{authenticated=false;resetCTB();authenticated=true});await p.evaluate(v=>pending[0]({ok:true,status:200,json:async()=>v}),state);await p.waitForTimeout(30);assert.equal(await p.evaluate(()=>ctbState),null);assert.equal(await p.locator('#ctb-exe').isDisabled(),true)});
-test('desktop/mobile themes wrap',async t=>{const p=await fixture(t);await p.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await fs.mkdir('.local/ctb-ui',{recursive:true});for(const width of [1280,320]){await p.setViewportSize({width,height:900});for(const theme of ['light','dark']){await p.evaluate(v=>document.documentElement.dataset.theme=v,theme);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await p.screenshot({path:`.local/ctb-ui/${width}-${theme}.png`,fullPage:true})}}});
+test('save fields, conflict keeps draft, explicit reload and session isolation',async t=>{const p=await fixture(t);await p.locator('#ctb-threads').fill('8');await p.locator('#ctb-upload').check();await p.locator('#ctb-group-limit').fill('7');await p.locator('#ctb-group-delivery').selectOption('private');await p.evaluate(()=>replies.push({error:'配置已变更',status:409}));await p.locator('#ctb-save').click();await p.waitForFunction(()=>!ctbBusy);assert.equal(await p.locator('#ctb-threads').inputValue(),'8');const body=await p.evaluate(()=>requests[1].body);assert.equal(body.config.threads,8);assert.equal(body.config.upload,true);assert.equal(body.config.groupDailyLimit,7);assert.equal(body.config.groupDelivery,'private');assert.equal(body.config.groupAccess,'all');await p.evaluate(v=>replies.push(v),state);await p.locator('#ctb-reload').click();await p.waitForFunction(()=>!ctbBusy);assert.equal(await p.locator('#ctb-threads').inputValue(),'4');await p.locator('#ctb-save').click();await p.waitForFunction(()=>pending.length===1);assert.equal(await p.locator('#ctb-reload').isDisabled(),true);await p.evaluate(()=>{authenticated=false;resetCTB();authenticated=true});await p.evaluate(v=>pending[0]({ok:true,status:200,json:async()=>v}),state);await p.waitForTimeout(30);assert.equal(await p.evaluate(()=>ctbState),null);assert.equal(await p.locator('#ctb-exe').isDisabled(),true)});
+test('desktop/mobile themes wrap',async t=>{const p=await fixture(t);await p.evaluate(prefix=>{for(const e of document.querySelectorAll('#'+prefix+'-form input, #'+prefix+'-form select, #'+prefix+'-form textarea')){if(e.type==='checkbox')e.checked=!e.checked;else if(e.tagName==='SELECT')e.selectedIndex=(e.selectedIndex+1)%e.options.length;else e.value=e.type==='time'?'03:21':'99';e.dispatchEvent(new Event('input',{bubbles:true}));}},'ctb');await p.addStyleTag({content:await fs.readFile(root+'style.css','utf8')+'\n'+await fs.readFile(root+'appearance.css','utf8')});await fs.mkdir('.local/ctb-ui',{recursive:true});for(const width of [1280,320]){await p.setViewportSize({width,height:900});for(const theme of ['light','dark']){await p.evaluate(v=>document.documentElement.dataset.theme=v,theme);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);await p.screenshot({path:`.local/ctb-ui/${width}-${theme}.png`,fullPage:true})}}});
 
 async function draft(p){return p.locator('#ctb-form').evaluate(form=>Array.from(form.elements).filter(x=>x.matches('input,select')).map(x=>[x.id,x.value,x.checked]));}
 async function resolveStatus(p,value,index=0){await p.evaluate(({value,index})=>pending[index]({ok:!value.error,status:value.status||200,json:async()=>value}),{value,index});}
@@ -70,4 +70,56 @@ test('network rejection retains last result and enables retry',async t=>{
  assert.equal(await p.locator('#ctb-task-refresh').isDisabled(),false);
  await p.evaluate(v=>{window.fetch=originalFetch;replies.push(v)},state);await p.locator('#ctb-task-refresh').click();await p.waitForFunction(()=>!ctbBusy);
  assert.match(await p.locator('#ctb-task-status').textContent(),/已刷新/);
+});
+
+// R18: observable draft behavior with synthetic APIs only.
+test('R18 every field changes and reverts, labels only, fixed order',async t=>{
+ const p=await fixture(t);assert.match(await p.locator('#ctb-draft').textContent(),/无未保存/);
+ assert.equal(await p.locator('#ctb-undo').isDisabled(),true);
+ const fields=["ctb-enabled","ctb-group-access","ctb-group-delivery","ctb-group-limit","ctb-exe","ctb-dir","ctb-timeout","ctb-threads","ctb-no-proxy","ctb-upload"];
+ const original=await p.evaluate(ids=>ids.map(id=>{const e=document.getElementById(id);return e.type==='checkbox'?e.checked:e.value}),fields);
+ for(let i=0;i<fields.length;i++){
+  await p.evaluate(id=>{const e=document.getElementById(id);if(e.type==='checkbox')e.checked=!e.checked;else if(e.tagName==='SELECT')e.selectedIndex=(e.selectedIndex+1)%e.options.length;else e.value=e.type==='number'?'99':e.type==='time'?'03:21':' private-value <b>secret</b> ';e.dispatchEvent(new Event('input',{bubbles:true}));},fields[i]);
+  assert.match(await p.locator('#ctb-draft').textContent(),new RegExp('：'+(i+1)+'项'));
+ }
+ const summary=await p.locator('#ctb-draft').textContent();assert.doesNotMatch(summary,/private-value|secret|99/);assert.equal(await p.locator('#ctb-draft b').count(),0);
+ for(let i=fields.length-1;i>=0;i--){
+  await p.evaluate(({id,value})=>{const e=document.getElementById(id);if(e.type==='checkbox')e.checked=value;else e.value=value;e.dispatchEvent(new Event('change',{bubbles:true}));},{id:fields[i],value:original[i]});
+  assert.match(await p.locator('#ctb-draft').textContent(),i?new RegExp('：'+i+'项'):/无未保存/);
+ }
+ assert.equal(await p.locator('#ctb-undo').isDisabled(),true);
+});
+test('R18 local undo after refreshed revision keeps runtime and conflict with zero requests',async t=>{
+ const p=await fixture(t);const original=await draft(p);
+ await p.locator('#ctb-threads').fill('7');
+ await p.evaluate(value=>replies.push({...value,revision:'b'.repeat(64),last:'新结果',pending:7}),state);
+ await p.evaluate(()=>refreshCTBStatus());
+ const runtime=await p.locator('#ctb-last').textContent();
+ await p.evaluate(()=>showError('ctb-error',new Error('旧修订冲突')));
+ const count=await p.evaluate(()=>requests.length);
+ await p.locator('#ctb-undo').focus();await p.keyboard.press('Enter');
+ assert.deepEqual(await draft(p),original);assert.equal(await p.evaluate(()=>requests.length),count);
+ assert.equal(await p.locator('#ctb-last').textContent(),runtime);assert.match(await p.locator('#ctb-error').textContent(),/旧修订/);
+ await p.evaluate(()=>replies.push({error:'仍需重新读取',status:409}));await p.locator('#ctb-save').click();await p.waitForFunction(()=>!ctbBusy);
+ assert.equal(await p.evaluate(()=>requests.at(-1).body.revision),state.revision);assert.match(await p.locator('#ctb-error').textContent(),/重新读取/);
+});
+test('R18 baseline lifecycle preserves failed reads and saves, accepts server values',async t=>{
+ const p=await fixture(t);const original=await draft(p);await p.locator('#ctb-threads').fill('7');
+ for(const action of ['reload','save']){await p.evaluate(()=>replies.push({error:'服务忙碌',status:409}));await p.locator('#ctb-'+action).click();await p.waitForFunction(()=>!ctbBusy);assert.match(await p.locator('#ctb-draft').textContent(),/1项/);}
+ await p.evaluate(async()=>{const saved=fetch;window.fetch=async()=>{throw new Error('offline')};try{await loadCTB()}finally{window.fetch=saved}});assert.match(await p.locator('#ctb-draft').textContent(),/1项/);
+ await p.locator('#ctb-undo').click();assert.deepEqual(await draft(p),original);
+ const updated=structuredClone(state);updated.config.threads=9;
+ await p.locator('#ctb-threads').fill('8');await p.evaluate(value=>replies.push(value),updated);await p.locator('#ctb-save').click();await p.waitForFunction(()=>!ctbBusy);
+ assert.equal(await p.locator('#ctb-threads').inputValue(),'9');assert.match(await p.locator('#ctb-draft').textContent(),/无未保存/);
+ await p.locator('#ctb-threads').fill('');await p.locator('#ctb-undo').click();assert.equal(await p.locator('#ctb-threads').inputValue(),'9');
+ await p.evaluate(value=>replies.push(value),state);await p.locator('#ctb-reload').click();await p.waitForFunction(()=>!ctbBusy);assert.deepEqual(await draft(p),original);
+});
+test('R18 in-flight edits, direct undo guard and reset reject late config',async t=>{
+ const p=await fixture(t);await p.locator('#ctb-threads').fill('7');await p.evaluate(()=>{window.refreshPromise=refreshCTBStatus()});await p.waitForFunction(()=>pending.length===1);
+ await p.locator('#ctb-threads').fill('8');await p.evaluate(()=>undoCTBDraft());assert.equal(await p.locator('#ctb-threads').inputValue(),'8');assert.equal(await p.locator('#ctb-undo').isDisabled(),true);assert.match(await p.locator('#ctb-draft').textContent(),/1项/);
+ await p.evaluate(value=>pending[0]({ok:true,status:200,json:async()=>value}),state);await p.evaluate(()=>refreshPromise);assert.equal(await p.locator('#ctb-undo').isEnabled(),true);
+ await p.evaluate(()=>{window.readPromise=loadCTB()});await p.waitForFunction(()=>pending.length===2);await p.evaluate(()=>undoCTBDraft());assert.equal(await p.locator('#ctb-threads').inputValue(),'8');
+ await p.evaluate(()=>{authenticated=false;resetCTB();undoCTBDraft();authenticated=true});await p.evaluate(value=>pending[1]({ok:true,status:200,json:async()=>value}),state);await p.evaluate(()=>readPromise);
+ assert.equal(await p.evaluate(()=>ctbBaseline),null);assert.match(await p.locator('#ctb-draft').textContent(),/读取配置后/);assert.equal(await p.locator('#ctb-undo').isDisabled(),true);
+ await p.evaluate(()=>replies.push({error:'读取失败',status:500}));await p.evaluate(()=>loadCTB());assert.equal(await p.evaluate(()=>ctbBaseline),null);
 });

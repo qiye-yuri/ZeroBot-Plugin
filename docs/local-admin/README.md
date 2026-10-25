@@ -12,7 +12,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 [R17更新监控状态独立刷新](post-r16-development-plan.md)，已合并部署，使用见[独立刷新运行状态](updatewatch.md#独立刷新运行状态r17)，交付见[R17记录](github-delivery.md#r17-运行状态刷新交付)。
 
-下一阶段为[R18两页草稿提示与本地撤销](post-r17-development-plan.md)，目前仅完成规划，尚未实现。
+[R18两页草稿提示与本地撤销](post-r17-development-plan.md)已实现，尚未合并部署；使用见[FTB草稿](ctb.md#草稿摘要与本地撤销r18)与[更新监控草稿](updatewatch.md#草稿摘要与本地撤销r18)。
 
 待验收与暂缓统一查阅[当前剩余验收条件](remaining-acceptance.md)：已确认通过的项目不重新列为待验收，钓鱼、真实好友申请与入群邀请等仍按原条件保留；P010本地AI画图及定时整合继续暂缓。插件去留以[现行清单](feature-plugin-inventory.md)为准，历史数量不作为当前状态。
 
