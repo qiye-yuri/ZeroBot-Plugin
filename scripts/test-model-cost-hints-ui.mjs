@@ -178,3 +178,27 @@ test('ambiguous singleton identities do not inherit expansion',async t=>{
   await render();await page.locator('summary').nth(0).click();await render();assert.equal(await page.locator('details[open]').count(),0);
  }
 });
+
+test('outcome control combines at task scope and preserves lifecycle and full downloads',async t=>{
+ const context=await browser.newContext();t.after(()=>context.close());let network=0;await context.route('**/*',r=>{network++;return r.abort()});const page=await context.newPage(),root='internal/localadmin/assets/';
+ await page.setContent((await fs.readFile(root+'index.html','utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link\b[^>]*>/g,''));
+ await page.evaluate(()=>{window.$=id=>document.getElementById(id);window.authenticated=true;$('auth').hidden=true;$('workspace').hidden=false;$('overview-view').hidden=false;});await page.addScriptTag({content:await fs.readFile(root+'overview.js','utf8')});
+ const meta={startedAt:'2026-10-27T00:00:00Z',checkedAt:'2026-10-27T01:00:00Z'},rows=[{id:1,session:'a'.repeat(24),task:'b'.repeat(24),outcome:'completed',usage:{input:100000,hit:0,miss:100000,output:1}},{id:2,session:'a'.repeat(24),task:'b'.repeat(24),outcome:'failed',usage:{input:1,hit:1,miss:0,output:0}},{id:3,outcome:'incomplete',usage:{input:1,hit:1,miss:0,output:0}},{id:4}];
+ const render=(rs=rows,m=meta)=>page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows:rs,meta:m});await render();
+ await page.getByText('AI费用风险提示',{exact:true}).click();await page.getByText('按任务查看用量',{exact:true}).click();await page.getByText('按提供商与模型查看用量',{exact:true}).click();
+ const outcome=page.getByLabel('任务包含的请求结果',{exact:true}),tasks=page.locator('#model-task-usage details');assert.equal(await outcome.inputValue(),'all');
+ const download=async()=>{const pending=page.waitForEvent('download');await page.locator('#model-usage-export').click();const file=await(await pending).path();assert.equal((await checkUsageFile(file)).passed,true);const data=JSON.parse(await fs.readFile(file,'utf8'));delete data.exportedAt;return data;};const before=await download();
+ await outcome.focus();await page.keyboard.press('ArrowDown');assert.equal(await outcome.inputValue(),'completed');await tasks.nth(0).locator('summary').click();
+ await outcome.selectOption('failed');await page.locator('#model-task-filter').selectOption('large');assert.equal(await tasks.count(),1);assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);assert.match(await tasks.nth(0).textContent(),/#1 [\s\S]*completed[\s\S]*#2 [\s\S]*failed/);assert.deepEqual(await download(),before);
+ await render();assert.equal(await outcome.inputValue(),'failed');assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);
+ await page.locator('#cost-large').fill('200000');assert.equal(await tasks.count(),1);await page.getByRole('button',{name:'应用到本页提示',exact:true}).click();assert.equal(await tasks.count(),0);assert.equal(await outcome.inputValue(),'failed');
+ await page.getByRole('button',{name:'恢复默认提示',exact:true}).click();assert.equal(await tasks.count(),1);assert.equal(await tasks.nth(0).evaluate(e=>e.open),false);
+ await page.locator('#model-task-filter').selectOption('all');for(const value of ['incomplete','unknown']){await outcome.selectOption(value);assert.equal(await tasks.count(),1);}
+ await outcome.selectOption('failed');await tasks.nth(0).locator('summary').click();await render(rows,{startedAt:'2026-10-27T02:00:00Z',checkedAt:'2026-10-27T03:00:00Z'});assert.equal(await outcome.inputValue(),'failed');assert.equal(await tasks.nth(0).evaluate(e=>e.open),false);
+ await page.evaluate(()=>clearModelRequests());assert.equal(await outcome.isDisabled(),true);assert.equal(await outcome.inputValue(),'failed');await render();assert.equal(await outcome.isEnabled(),true);assert.equal(await tasks.count(),1);
+ await page.evaluate(()=>showOverview(false));assert.equal(await outcome.inputValue(),'all');await render();await outcome.selectOption('failed');await page.evaluate(()=>{authenticated=false;resetOverview()});assert.equal(await outcome.inputValue(),'all');
+ await page.evaluate(()=>authenticated=true);await render([]);assert.match(await page.locator('#model-task-usage').textContent(),/暂无近期请求/);
+ await render();await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')});await page.addStyleTag({content:await fs.readFile(root+'appearance.css','utf8')});
+ for(const width of [320,1280])for(const theme of ['light','dark']){await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.equal(await outcome.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth+1}),true);}
+ assert.equal(network,0);
+});

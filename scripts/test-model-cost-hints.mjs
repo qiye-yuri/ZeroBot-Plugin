@@ -183,3 +183,18 @@ test('risk text explains each request without mutating groups or complete export
  assert.doesNotMatch(text,/#1 /);assert.match(text,/独立请求/);assert.equal(selected.length,3);
  assert.equal(JSON.stringify(rows),original);assert.equal(JSON.stringify(c.buildModelUsageReport(rows,meta,settings,'2026-10-27')),report);
 });
+
+test('outcome and risk intersect at task scope, retaining every request',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-27',checkedAt:'2026-10-28'},settings={large:100,minimum:100,missPercent:80};
+ const rows=[{...row(100,0,100),id:1,outcome:'completed',session:'a'.repeat(24),task:'b'.repeat(24)},{...row(1,1,0),id:2,outcome:'failed',session:'a'.repeat(24),task:'b'.repeat(24)},{...row(100,0,100),id:3,outcome:'completed',session:'c'.repeat(24),task:'b'.repeat(24)},{...row(1,1,0),id:4,outcome:'failed'},{...row(1,1,0),id:5,outcome:'incomplete'}];
+ const original=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta),select=(risk,result)=>c.selectModelTaskGroups(v,risk,'input',settings,result);
+ const both=select('large','failed');assert.equal(both.length,1);assert.deepEqual(Array.from(both[0].requests,r=>r.id),[1,2]);assert.equal(both[0].totals.input.value,'101');
+ assert.equal(select('all','completed').length,2);assert.equal(select('all','failed').length,2);assert.equal(select('all','incomplete').length,1);assert.equal(select('large','incomplete').length,0);assert.equal(select('all','all').length,4);assert.equal(JSON.stringify(rows),original);
+});
+
+test('unknown results are distinct from failed or prematurely closed requests',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-27',checkedAt:'2026-10-28'};
+ const rows=[undefined,null,'','other','completed','failed','incomplete'].map((outcome,i)=>({...row(0,0,0,0),id:i+1,outcome}));const v=c.modelTaskUsage(rows,meta);
+ assert.deepEqual(Array.from(c.selectModelTaskGroups(v,'all','original',undefined,'unknown'),g=>g.requests[0].id),[1,2,3,4]);
+ assert.equal(c.selectModelTaskGroups(v,'all','original',undefined,'failed').length,1);assert.equal(c.selectModelTaskGroups(null,'all','original',undefined,'failed').length,0);
+});
