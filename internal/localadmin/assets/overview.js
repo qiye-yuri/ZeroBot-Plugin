@@ -330,11 +330,12 @@ function modelRequestRiskText(row,settings){
   if(risk.inconsistent)reasons.push("缓存分项与输入不一致");
   return reasons.length?reasons.join("；"):"未触发当前用量提示";
 }
-function selectModelTaskGroups(value,filter="all",sort="original",settings=modelCostSettings){
+function selectModelTaskGroups(value,filter="all",sort="original",settings=modelCostSettings,outcome="all"){
   if(!value)return [];
-  const groups=value.groups.filter(g=>!["large","highMiss","invalid"].includes(filter)||g.requests.some(r=>{
+  const groups=value.groups.filter(g=>(outcome==="all"||g.requests.some(r=>outcome==="unknown"?!["completed","failed","incomplete"].includes(r.outcome):r.outcome===outcome)) &&
+    (!["large","highMiss","invalid"].includes(filter)||g.requests.some(r=>{
     const risk=modelRequestRisk(r,settings);return filter==="invalid"?risk.incomplete||risk.inconsistent:risk[filter];
-  }));
+  })));
   if(sort==="input"||sort==="miss")groups.sort((a,b)=>{
     const x=a.totals[sort].value,y=b.totals[sort].value;
     if(x===null)return y===null?0:1;if(y===null)return -1;
@@ -344,15 +345,16 @@ function selectModelTaskGroups(value,filter="all",sort="original",settings=model
 }
 function resetModelTaskView(){
   if($("model-task-filter"))$("model-task-filter").value="all";
+  if($("model-task-outcome"))$("model-task-outcome").value="all";
   if($("model-task-sort"))$("model-task-sort").value="original";
   if($("model-task-usage"))$("model-task-usage").replaceChildren();
 }
 function renderModelTaskView(){
   const value=modelTaskUsage(modelCostRows,modelUsageSnapshotMeta);
-  for(const id of ["model-task-filter","model-task-sort"])if($(id))$(id).disabled=!value;
+  for(const id of ["model-task-filter","model-task-outcome","model-task-sort"])if($(id))$(id).disabled=!value;
   const container=$("model-task-usage");
   if(!container)return;
-  const groups=selectModelTaskGroups(value,$("model-task-filter")?.value,$("model-task-sort")?.value);
+  const groups=selectModelTaskGroups(value,$("model-task-filter")?.value,$("model-task-sort")?.value,modelCostSettings,$("model-task-outcome")?.value);
   if(!groups.length){container.textContent=modelTaskUsageText(value,groups);return;}
   const opened=new Set(Array.from(container.querySelectorAll("details[open][data-task-key]"),e=>e.dataset.taskKey));
   const focused=document.activeElement;
@@ -374,5 +376,5 @@ function renderModelTaskView(){
   restoreFocus?.focus({preventScroll:true});
 }
 document.addEventListener("change",event=>{
-  if(["model-task-filter","model-task-sort"].includes(event.target.id)&&typeof authenticated!=="undefined"&&authenticated)renderModelTaskView();
+  if(["model-task-filter","model-task-outcome","model-task-sort"].includes(event.target.id)&&typeof authenticated!=="undefined"&&authenticated)renderModelTaskView();
 });
