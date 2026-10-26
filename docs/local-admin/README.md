@@ -117,6 +117,6 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 历史预算保持900000；其他待验收和暂缓项仍按[剩余验收条件](remaining-acceptance.md)执行。本批验收已由用户确认通过；本次只更新记录，不新增付费调用。代码已通过[PR #36](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/36)合并至master。
 
-本批完成[用量问题定位](post-pr36-development-plan.md)：任务筛选/排序和现有校验结果处理说明。已部署并通过空窗口检查，本批用户验收通过；尚未上传，不改变历史预算和其他待验收、暂缓状态。
+本批完成[用量问题定位](post-pr36-development-plan.md)：任务筛选/排序和现有校验结果处理说明。已部署并通过空窗口检查，本批用户验收通过；已上传并创建[PR #37](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/37)，尚未合并，不改变历史预算和其他待验收、暂缓状态。
 
 新增功能的使用步骤见[任务风险筛选与排序](model-request-statistics.md#任务风险筛选与排序)及[校验结果中文说明](model-request-statistics.md#校验结果中文说明本地工具)，当前日常实例已安装本批功能。
