@@ -21,7 +21,7 @@ const controller=fs.readFileSync(new URL('../internal/localadmin/assets/overview
 function harness(){
   const elements=new Map(),requests=[],timers=new Map();let timer=0;
   const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
-  const document=new Element();document.hidden=false;document.createElement=()=>new Element();
+  const document=new Element();document.hidden=false;document.createElement=()=>new Element();document.createDocumentFragment=()=>new Element();
   const context=vm.createContext({document,$:get,authenticated:true,AbortController,duration:seconds=>String(seconds),
     setTimeout:(callback,delay)=>{timers.set(++timer,{callback,delay});return timer;},clearTimeout:id=>timers.delete(id),
     showError:(id,error)=>{get(id).textContent=error.message;get(id).hidden=false;},

@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 function fixture(){
- const nodes=new Map();const $=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',replaceChildren(){}});return nodes.get(id)};
- const c=vm.createContext({$,document:{addEventListener(){}},Number,Date,setTimeout,clearTimeout});
+ const node=()=>({children:[],dataset:{},_text:'',get textContent(){return this._text+this.children.map(c=>c.textContent).join('');},set textContent(v){this._text=v;this.children=[];},append(...items){this.children.push(...items);},replaceChildren(...items){this._text='';this.children=items;},querySelectorAll(){return [];}});
+ const nodes=new Map();const $=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
+ const c=vm.createContext({$,document:{addEventListener(){},createElement:node,createDocumentFragment:node},Number,Date,setTimeout,clearTimeout});
  vm.runInContext(fs.readFileSync('internal/localadmin/assets/overview.js','utf8'),c);return {c,$};
 }
 const row=(input,hit,miss,output=10)=>({id:1,model:'fixture',usage:{input,hit,miss,output}});
@@ -164,7 +165,7 @@ test('per-request reasons cover boundaries and retain multiple independent risks
   [{...row(1,1,0),outcome:'failed'},'未触发当前用量提示']
  ];
  for(const [r,reason] of cases){
-  const text=c.modelTaskUsageText(c.modelTaskUsage([r],meta),undefined,settings);
+  const text=c.modelTaskRequestsText(c.modelTaskUsage([r],meta).groups[0],settings);
   assert.equal(text.split('\n提示：')[1],reason);
   if(r.outcome)assert.match(text,/failed/);
  }
@@ -175,9 +176,9 @@ test('risk text explains each request without mutating groups or complete export
  const rows=[60,60,100,1].map((n,i)=>({...row(n,n,0),id:i+1,session:'a'.repeat(24),task:(i<2?'b':'c').repeat(24)}));
  rows.push({...row(100,0,100),id:5,session:'d'.repeat(24),task:'c'.repeat(24)},{...row(100,0,100),id:6});
  const original=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta),report=JSON.stringify(c.buildModelUsageReport(rows,meta,settings,'2026-10-27'));
- const all=c.modelTaskUsageText(v,undefined,settings);
+ const all=v.groups.map(g=>c.modelTaskRequestsText(g,settings)).join('\n');
  assert.equal((all.match(/提示：未触发当前用量提示/g)||[]).length,3);
- const selected=c.selectModelTaskGroups(v,'large','input',settings),text=c.modelTaskUsageText(v,selected,settings);
+ const selected=c.selectModelTaskGroups(v,'large','input',settings),text=selected.map(g=>c.modelTaskSummaryText(g)+'\n'+c.modelTaskRequestsText(g,settings)).join('\n');
  assert.match(text,/#3 [\s\S]*提示：大输入[\s\S]*#4 [\s\S]*提示：未触发当前用量提示/);
  assert.doesNotMatch(text,/#1 /);assert.match(text,/独立请求/);assert.equal(selected.length,3);
  assert.equal(JSON.stringify(rows),original);assert.equal(JSON.stringify(c.buildModelUsageReport(rows,meta,settings,'2026-10-27')),report);
