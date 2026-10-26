@@ -128,3 +128,24 @@ test('task rendering clears on invalid snapshots and export keeps only allowed f
  const report=c.buildModelUsageReport(rows,meta,{large:100,minimum:10,missPercent:80},'');assert.equal(report.taskBreakdown.groups[0].totals.input.value,'10');assert.doesNotMatch(JSON.stringify(report.taskBreakdown),/secret-prompt|prompt/);
  c.renderModelUsage(null,meta);assert.equal($('model-task-usage').textContent,'任务用量未知。');c.clearModelRequests();assert.equal($('model-task-usage').textContent,'任务用量待更新。');
 });
+
+
+test('task risk filters use single-request thresholds and keep whole matching groups',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-26',checkedAt:'2026-10-27'},settings={large:100,minimum:50,missPercent:80};
+ const r=(id,input,hit,miss,output=1,task='a')=>({...row(input,hit,miss,output),id,session:'b'.repeat(24),task:task.repeat(24)});
+ const rows=[r(1,60,60,0),r(2,60,60,0),r(3,100,20,80,1,'c'),r(4,1,1,0,1,'c'),r(5,100,0,100,null,'d'),r(6,100,90,90,1,'e')];
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),ids=g=>Array.from(g,x=>Array.from(x.requests,r=>r.id));
+ assert.deepEqual(ids(c.selectModelTaskGroups(v,'large','original',settings)),[[3,4],[5],[6]]);
+ assert.deepEqual(ids(c.selectModelTaskGroups(v,'highMiss','original',settings)),[[3,4]]);
+ assert.deepEqual(ids(c.selectModelTaskGroups(v,'invalid','original',settings)),[[5],[6]]);
+ assert.match(c.modelCostHints(rows,settings),/大输入3次，高未命中1次/);
+ assert.equal(JSON.stringify(v),before);
+ assert.match(c.modelTaskUsageText(v,[]),/当前条件无匹配任务/);assert.match(c.modelTaskUsageText(c.modelTaskUsage([],meta),[]),/暂无近期请求/);
+});
+test('task sorting uses exact partial totals, stable ties, and unknown after known zero',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-26',checkedAt:'2026-10-27'},n=Number.MAX_SAFE_INTEGER;
+ const rows=[row(null,null,null),row(0,0,0),{...row(n,n,0),session:'a'.repeat(24),task:'b'.repeat(24)},{...row(n,n,0),session:'a'.repeat(24),task:'b'.repeat(24)},row(n,0,n),row(n,0,n)];rows.forEach((r,i)=>r.id=i+1);
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v);
+ assert.deepEqual(Array.from(c.selectModelTaskGroups(v,'all','input'),g=>g.requests[0].id),[3,5,6,2,1]);
+ assert.deepEqual(Array.from(c.selectModelTaskGroups(v,'all','miss'),g=>g.requests[0].id),[5,6,2,3,1]);assert.equal(JSON.stringify(v),before);
+});

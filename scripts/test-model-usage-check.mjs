@@ -6,7 +6,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {validateUsageReport,checkUsageFile} from './check-model-usage.mjs';
+import {validateUsageReport,checkUsageFile,usageDiagnostics} from './check-model-usage.mjs';
 
 const source=await fs.readFile('internal/localadmin/assets/overview.js','utf8');
 const meta={startedAt:'2026-10-26T00:00:00Z',checkedAt:'2026-10-26T01:00:00Z'};
@@ -76,4 +76,14 @@ test('CLI exit codes and exclusive output never overwrite source or prior result
   const saved=await fs.readFile(out,'utf8');assert.equal(run(['--report',p,'--output',out]).status,1);assert.equal(await fs.readFile(out,'utf8'),saved);
   assert.equal(run(['--report',p,'--output',p]).status,1);assert.equal(await fs.readFile(p,'utf8'),bytes);
   await fs.writeFile(p,'null');assert.equal(run(['--report',p]).status,1);
+});
+
+
+test('fixed diagnostics explain all failure classes without copying input values',()=>{
+ const cases={'file.read':'read','file.size/type':'size','file.encoding':'encoding','file.json':'json','report.format/version':'format','snapshot.time-order':'time','requests[2].time-range':'time','requests[1].usage.hit':'request','cacheSummary':'cache','breakdown.groups':'model','breakdown.top':'top','taskBreakdown':'task','PRIVATE-CONTENT':'invalid'};
+ for(const [issue,code] of Object.entries(cases)){
+  const [d]=usageDiagnostics([issue]);assert.equal(d.code,code);assert.deepEqual(Object.keys(d),['code','message','suggestion']);assert.ok(d.message.length&&d.suggestion.length);assert.doesNotMatch(JSON.stringify(d),/PRIVATE-CONTENT|requests\[/);
+ }
+ const valid=validateUsageReport(report([row(1)]));assert.deepEqual(valid.diagnostics,[]);assert.equal(valid.passed,true);
+ const bad=report([row(1)]);bad.cacheSummary.hitRate='0.00%';const checked=validateUsageReport(bad);assert.deepEqual(checked.issues,['cacheSummary']);assert.equal(checked.diagnostics[0].code,'cache');assert.equal(checked.passed,false);
 });

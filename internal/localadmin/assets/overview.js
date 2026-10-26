@@ -4,7 +4,7 @@ let modelCostSettings={...modelCostDefaults},modelCostRows=null,modelUsageSnapsh
 let overviewActive=false, overviewBusy=false, overviewGeneration=0, overviewRequest=null, overviewTimer=null;
 
 function clearModelRequests(message="请求统计待更新。") {
-  modelCostRows=null;modelUsageSnapshotMeta=null;renderModelUsageExport();
+  modelCostRows=null;modelUsageSnapshotMeta=null;renderModelUsageExport();renderModelTaskView();
   if($("model-usage-export-status"))$("model-usage-export-status").textContent="";
   if (typeof clearModelObservationCurrent==="function") clearModelObservationCurrent();
   $("model-request-summary").textContent=message;
@@ -75,11 +75,13 @@ function cancelOverview() {
   if (typeof renderReplyDownload==="function") renderReplyDownload();
 }
 function resetOverview() {
+  resetModelTaskView();
   resetModelCostSettings(false);
   overviewActive=false;cancelOverview();staleOverview();$("page-error").hidden=true;
   if (typeof resetModelObservation==="function") resetModelObservation();
 }
 function showOverview(active) {
+  if(!active)resetModelTaskView();
   overviewActive=active;cancelOverview();staleOverview();
   $("page-error").hidden=true;
   if (active && authenticated && !document.hidden) refreshOverview();
@@ -110,7 +112,7 @@ function renderModelUsage(recent,meta=null) {
   const summary=$("model-usage-summary"), detail=$("model-usage-recent");
   if (!summary || !detail) return;
   if(!validModelUsageRows(recent)){
-    modelCostRows=null;modelUsageSnapshotMeta=null;renderModelUsageExport();
+    modelCostRows=null;modelUsageSnapshotMeta=null;renderModelUsageExport();renderModelTaskView();
     summary.textContent="近期用量字段不可读取，不代表零请求。";detail.textContent="";
     if($("model-cost-hints"))$("model-cost-hints").textContent="近期用量未知，无法生成费用风险提示。";
     if($("model-usage-breakdown"))$("model-usage-breakdown").textContent="分组用量未知。";
@@ -119,8 +121,7 @@ function renderModelUsage(recent,meta=null) {
     return;
   }
   const rows=recent.slice(-256);
-  if($("model-task-usage"))$("model-task-usage").textContent=modelTaskUsageText(modelTaskUsage(rows,meta));
-  modelCostRows=rows;modelUsageSnapshotMeta=meta;renderModelUsageExport();
+  modelCostRows=rows;modelUsageSnapshotMeta=meta;renderModelUsageExport();renderModelTaskView();
   if ($("model-cost-hints")) $("model-cost-hints").textContent=modelCostHints(rows,modelCostSettings);
   if ($("model-usage-breakdown")) $("model-usage-breakdown").textContent=modelUsageBreakdownText(modelUsageBreakdown(rows));
   const known=n=>Number.isSafeInteger(n)&&n>=0;
@@ -138,16 +139,14 @@ function modelCostHints(rows,settings=modelCostDefaults) {
   if (!rows.length) return "暂无近期请求，费用未知。";
   let large=0,uncached=0,unknown=0,inconsistent=0,top=null;
   for (const row of rows) {
-    const u=row.usage||{};
+    const u=row.usage||{},risk=modelRequestRisk(row,settings);
     if (known(u.input)) {
       if (!top || u.input>top.usage.input) top=row;
-      if (u.input>=settings.large) large++;
+      if (risk.large) large++;
     }
-    const state=modelCacheState(u);
-    if(state==="inconsistent")inconsistent++;
-    if (![u.input,u.output,u.hit,u.miss].every(known)) {unknown++;continue;}
-    if(state!=="valid")continue;
-    if (u.input>=settings.minimum && BigInt(u.miss)*100n>=BigInt(u.input)*BigInt(settings.missPercent)) uncached++;
+    if(risk.inconsistent)inconsistent++;
+    if(risk.incomplete)unknown++;
+    if(risk.highMiss)uncached++;
   }
   const lines=[`最近${rows.length}次已结束请求：大输入${large}次，高未命中${uncached}次；用量字段不完整${unknown}次，输入与缓存分项不一致${inconsistent}次。`];
   if(top) lines.push(`输入最多：#${top.id} ${top.model||"模型未知"}，输入${top.usage.input} Token，未命中${known(top.usage.miss)?top.usage.miss:"未知"} Token。可结合下方会话和任务标识排查。`);
@@ -206,12 +205,13 @@ function applyModelCostSettings(){
   if(typeof authenticated==="undefined" || !authenticated)return;
   const next=parseModelCostSettings({large:$("cost-large").value,minimum:$("cost-minimum").value,missPercent:$("cost-miss-percent").value});
   if(!next){$("cost-settings-status").textContent="未应用：Token阈值须为1至1000000000的整数，百分比须为1至100的整数。原提示条件保持。";return;}
-  modelCostSettings=next;
+  modelCostSettings=next;renderModelTaskView();
   if(modelCostRows!==null)$("model-cost-hints").textContent=modelCostHints(modelCostRows,modelCostSettings);
   $("cost-settings-status").textContent="已应用到本页提示，未修改机器人配置或历史预算。"+(modelCostRows===null?"当前用量待更新。":"已用最近读取的用量重新计算，未发起请求。");
 }
 function resetModelCostSettings(notify=true){
   modelCostSettings={...modelCostDefaults};renderModelCostSettings();
+  if(notify)renderModelTaskView();
   if(notify && modelCostRows!==null)$("model-cost-hints").textContent=modelCostHints(modelCostRows,modelCostSettings);
   if($("cost-settings-status"))$("cost-settings-status").textContent=notify?"已恢复默认提示条件，仅影响本页。":"";
 }
@@ -296,12 +296,14 @@ function modelTaskUsage(recent,meta){
     return {session:g.session,task:g.task,grouped:g.grouped,count:g.rows.length,totals,cacheSummary:summarizeModelCache(g.rows),requests:g.rows};
   })};
 }
-function modelTaskUsageText(value){
+function modelTaskUsageText(value,groups=value?.groups){
   if(!value)return "任务用量未知，缺少有效统计窗口。";
   if(!value.count)return "暂无近期请求，任务用量未知。";
   const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
   const lines=[`统计起点：${value.startedAt}。当前窗口${value.count}次请求，${value.groups.length}组。仅包含最近最多256条已结束请求，可能缺少早期轮次；不代表任务完整用量、任务完成状态或费用。缺少有效会话/任务标识的请求逐条显示。`];
-  for(const g of value.groups){
+  lines.push(`匹配任务 ${groups.length}/${value.groups.length}；每个匹配任务显示全部窗口内请求。`);
+  if(!groups.length)lines.push("当前条件无匹配任务。");
+  for(const g of groups){
     lines.push(g.grouped?`\n会话${g.session} · 任务${g.task} · 窗口内${g.count}次请求`:`\n独立请求（缺少有效关联标识） · ${g.count}次请求`);
     lines.push(Object.entries(names).map(([f,n])=>`${n} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "));
     lines.push(`有效缓存统计${g.cacheSummary.valid}次 · 加权命中率${g.cacheSummary.hitRate??"未知"} · 分项不一致${g.cacheSummary.inconsistent}次`);
@@ -309,3 +311,37 @@ function modelTaskUsageText(value){
   }
   return lines.join("\n");
 }
+
+// Shared with the existing hint summary; the offline report checker stays independent.
+function modelRequestRisk(row,settings=modelCostSettings){
+  const u=row.usage||{},known=n=>Number.isSafeInteger(n)&&n>=0;
+  const incomplete=![u.input,u.hit,u.miss,u.output].every(known),state=modelCacheState(u);
+  return {large:known(u.input)&&u.input>=settings.large,incomplete,inconsistent:state==="inconsistent",
+    highMiss:!incomplete&&state==="valid"&&u.input>=settings.minimum&&BigInt(u.miss)*100n>=BigInt(u.input)*BigInt(settings.missPercent)};
+}
+function selectModelTaskGroups(value,filter="all",sort="original",settings=modelCostSettings){
+  if(!value)return [];
+  const groups=value.groups.filter(g=>!["large","highMiss","invalid"].includes(filter)||g.requests.some(r=>{
+    const risk=modelRequestRisk(r,settings);return filter==="invalid"?risk.incomplete||risk.inconsistent:risk[filter];
+  }));
+  if(sort==="input"||sort==="miss")groups.sort((a,b)=>{
+    const x=a.totals[sort].value,y=b.totals[sort].value;
+    if(x===null)return y===null?0:1;if(y===null)return -1;
+    return BigInt(x)===BigInt(y)?0:BigInt(x)>BigInt(y)?-1:1;
+  });
+  return groups;
+}
+function resetModelTaskView(){
+  if($("model-task-filter"))$("model-task-filter").value="all";
+  if($("model-task-sort"))$("model-task-sort").value="original";
+}
+function renderModelTaskView(){
+  const value=modelTaskUsage(modelCostRows,modelUsageSnapshotMeta);
+  for(const id of ["model-task-filter","model-task-sort"])if($(id))$(id).disabled=!value;
+  if(!$("model-task-usage"))return;
+  const groups=selectModelTaskGroups(value,$("model-task-filter")?.value,$("model-task-sort")?.value);
+  $("model-task-usage").textContent=modelTaskUsageText(value,groups);
+}
+document.addEventListener("change",event=>{
+  if(["model-task-filter","model-task-sort"].includes(event.target.id)&&typeof authenticated!=="undefined"&&authenticated)renderModelTaskView();
+});
