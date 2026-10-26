@@ -1,4 +1,4 @@
-当前部署（2026-10-26 09:20 +08:00）：资源与AI用量维护工作区构建已安装。程序SHA256：`345582C4B805D9BD9CEB284CF4CE477696776875C4984BCCFF4AEB3568E636F2`。仅重启ZeroBot，OneBot和原配置保持；未上传或合并本批代码。后台使用原密码重新登录。验收范围见[资源维护部署记录](resource-maintenance.md#资源与用量维护部署2026-10-26)。
+当前部署（2026-10-26 09:20 +08:00）：资源与AI用量维护工作区构建已安装。程序SHA256：`345582C4B805D9BD9CEB284CF4CE477696776875C4984BCCFF4AEB3568E636F2`。仅重启ZeroBot，OneBot和原配置保持；本批代码已通过PR #35合并master；本轮未重新部署，当前运行程序保持。后台使用原密码重新登录。验收范围见[资源维护部署记录](resource-maintenance.md#资源与用量维护部署2026-10-26)。
 
 首次部署前的1313份备份与SHA256清单位于本机忽略目录 `.local/resource-maintenance-deployment/deployment-20261026-091601/`；包括旧程序、完整data及原配置。回退时仅停止ZeroBot，把 `backup/zerobot.exe` 恢复到 `.local/bin/zerobot.exe`，通过既有服务脚本启动并核对QQ连接。无数据迁移，不覆盖部署后新增运行数据。空状态修复前的第二份备份位于 `.local/resource-maintenance-deployment/deployment-20261026-092020/`。部署和通知原始证据仅保留本机。
 
