@@ -1,5 +1,7 @@
 当前部署（2026-10-26 09:20 +08:00）：资源与AI用量维护工作区构建已安装。程序SHA256：`345582C4B805D9BD9CEB284CF4CE477696776875C4984BCCFF4AEB3568E636F2`。仅重启ZeroBot，OneBot和原配置保持；本批代码已通过PR #35合并master；本轮未重新部署，当前运行程序保持。后台使用原密码重新登录。验收范围见[资源维护部署记录](resource-maintenance.md#资源与用量维护部署2026-10-26)。
 
+后续功能交付固定按“开发 → 部署验收测试 → 合入 → 下一个目标”执行，详见[现行交付顺序](github-delivery.md#现行开发交付顺序)。部署验收对象为本批候选版本，验收通过后再合入master；失败时修复并复测。PR #39当前已合入但尚未部署，应补齐本批部署验收后再推进下一目标；此说明不改变历史部署记录。
+
 首次部署前的1313份备份与SHA256清单位于本机忽略目录 `.local/resource-maintenance-deployment/deployment-20261026-091601/`；包括旧程序、完整data及原配置。回退时仅停止ZeroBot，把 `backup/zerobot.exe` 恢复到 `.local/bin/zerobot.exe`，通过既有服务脚本启动并核对QQ连接。无数据迁移，不覆盖部署后新增运行数据。空状态修复前的第二份备份位于 `.local/resource-maintenance-deployment/deployment-20261026-092020/`。部署和通知原始证据仅保留本机。
 
 历史部署（2026-10-24 21:16 +08:00）：[PR #26](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/26)合并后的master `e7a0ac58`已构建并安装到 `.local/bin/zerobot.exe`，程序SHA256为 `8BB318A6D1C862BA9BD1A03F9A1C8BF7D3638901A7E047ADC1792564C2B7D2B3`。完整隔离回归通过，仅重启ZeroBot；单实例、新程序身份、原账号握手、后台及FTB资源检查通过，OneBot原进程和登录保持。后台密码及机器人、FTB、更新监控、OneBot配置未改。21:19完成真实FTB查询、下载、路径修复和群文件回执/列表核对，范围见[FTB部署验证](ctb.md)。后台重启后用原密码重新登录。
