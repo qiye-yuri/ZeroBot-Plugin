@@ -36,6 +36,7 @@ function showError(id, error) { $(id).textContent = error.message; $(id).hidden 
 function showAuth() {
  if(typeof resetCTB==="function")resetCTB();
   if (typeof resetUpdateWatch === "function") resetUpdateWatch();
+  if (typeof resetResources === "function") resetResources();
   closePluginUsage();
   if (typeof resetAgentArchive === "function") resetAgentArchive();
   if (typeof resetSecurity === "function") resetSecurity();
@@ -85,6 +86,7 @@ async function showWorkspace() {
   if (currentView === "connections") loadConnections();
   if (currentView === "ai") loadAI();
   if (currentView === "updatewatch") loadUpdateWatch();
+  if (currentView === "resources") loadResources(false);
  if(currentView === "ctb")loadCTB();
 }
 function duration(seconds) {
@@ -614,14 +616,16 @@ function showWorkspaceView(name, {autoLoadAI=true,autoLoadPlugins=true}={}) {
     renderPluginBusy(); renderPlugins();
   }
   if (name !== "updatewatch" && typeof leaveUpdateWatchRuntime === "function") leaveUpdateWatchRuntime();
+  if (name !== "resources" && typeof leaveResources === "function") leaveResources();
   if (name !== "ctb" && typeof leaveCTBStatus === "function") leaveCTBStatus();
   if (typeof showAISearch === "function") showAISearch(name === "ai");
   if (typeof showAIModelShortcut === "function") showAIModelShortcut(name === "ai");
   document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("active", item === button));
-  for (const view of ["overview", "plugins", "connections", "ai", "logs", "backups", "security", "agent", "updatewatch", "ctb"]) $(view + "-view").hidden = button.dataset.view !== view;
+  for (const view of ["overview", "plugins", "connections", "ai", "logs", "backups", "security", "agent", "updatewatch", "ctb", "resources"]) $(view + "-view").hidden = button.dataset.view !== view;
   renderPluginCatalogControls();
-  $("breadcrumb").textContent = "工作空间 / " + ({ overview:"运行概览", plugins:"插件列表", connections:"连接设置", ai:"AI 设置", updatewatch:"更新监控",ctb:"FTB工具", agent:"Agent 会话", logs:"运行日志", backups:"备份恢复", security:"后台安全" }[button.dataset.view]);
+  $("breadcrumb").textContent = "工作空间 / " + ({ overview:"运行概览", plugins:"插件列表", connections:"连接设置", ai:"AI 设置", resources:"资源维护", updatewatch:"更新监控",ctb:"FTB工具", agent:"Agent 会话", logs:"运行日志", backups:"备份恢复", security:"后台安全" }[button.dataset.view]);
   showOverview(button.dataset.view === "overview");
+  if(button.dataset.view === "resources")loadResources(false);
   if(button.dataset.view === "ctb" && !ctbState)loadCTB();
   if (button.dataset.view === "updatewatch" && !updateWatchState) loadUpdateWatch();
   if (button.dataset.view === "plugins" && autoLoadPlugins) ensurePluginList();

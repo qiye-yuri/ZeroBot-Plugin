@@ -11,6 +11,7 @@ import (
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelstats"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/processidentity"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/replystats"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/resourcecheck"
 	core "github.com/FloatTech/ZeroBot-Plugin/internal/updatewatch"
 	"github.com/FloatTech/zbputils/chat"
 	"io"
@@ -24,7 +25,7 @@ import (
 	"unicode/utf8"
 )
 
-//go:embed assets/index.html assets/app.js assets/connections-add.js assets/connections-delete.js assets/overview.js assets/reply-metrics.js assets/model-observation.js assets/ai.js assets/ai-search.js assets/ctb.js assets/updatewatch.js assets/ai-probe.js assets/logs.js assets/backups.js assets/security.js assets/theme.js assets/style.css assets/appearance.css assets/agent-archive.js assets/agent-memory.js assets/agent-tasks.js
+//go:embed assets/index.html assets/app.js assets/connections-add.js assets/connections-delete.js assets/overview.js assets/reply-metrics.js assets/model-observation.js assets/ai.js assets/ai-search.js assets/ctb.js assets/resources.js assets/updatewatch.js assets/ai-probe.js assets/logs.js assets/backups.js assets/security.js assets/theme.js assets/style.css assets/appearance.css assets/agent-archive.js assets/agent-memory.js assets/agent-tasks.js
 var assets embed.FS
 
 type Overview struct {
@@ -58,6 +59,7 @@ type Config struct {
 	Connections     *ConnectionStore
 	PluginControl   *PluginStore
 	AI              *AIStore
+	Resources       *resourcecheck.Manager
 	UpdateWatch     core.Admin
 	Logs            *LogStore
 	Backups         *BackupStore
@@ -158,6 +160,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/ai-models", s.authorize(s.aiModels, false))
 	mux.HandleFunc("GET /api/ctb", s.authorize(s.ctbSettings, false))
 	mux.HandleFunc("POST /api/ctb", s.authorize(s.ctbSettings, true))
+	mux.HandleFunc("GET /api/resources", s.authorize(s.resources, false))
+	mux.HandleFunc("POST /api/resources/check", s.authorize(s.resources, true))
 	mux.HandleFunc("GET /api/updatewatch", s.authorize(s.updateWatch, false))
 	mux.HandleFunc("POST /api/updatewatch", s.authorize(s.updateWatch, true))
 	mux.HandleFunc("GET /api/ai-search", s.authorize(s.aiSearch, false))
@@ -198,7 +202,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/backups/restore", s.authorize(s.restoreBackup, true))
 	mux.HandleFunc("POST /api/backups/cleanup-preview", s.authorize(s.previewBackupCleanup, true))
 	mux.HandleFunc("POST /api/backups/cleanup", s.authorize(s.cleanupBackups, true))
-	for route, asset := range map[string]string{"/": "index.html", "/app.js": "app.js", "/connections-add.js": "connections-add.js", "/connections-delete.js": "connections-delete.js", "/overview.js": "overview.js", "/reply-metrics.js": "reply-metrics.js", "/model-observation.js": "model-observation.js", "/ai.js": "ai.js", "/ai-search.js": "ai-search.js", "/updatewatch.js": "updatewatch.js", "/ctb.js": "ctb.js", "/ai-probe.js": "ai-probe.js", "/agent-memory.js": "agent-memory.js", "/agent-tasks.js": "agent-tasks.js", "/logs.js": "logs.js", "/backups.js": "backups.js", "/security.js": "security.js", "/theme.js": "theme.js", "/style.css": "style.css", "/appearance.css": "appearance.css"} {
+	for route, asset := range map[string]string{"/": "index.html", "/app.js": "app.js", "/connections-add.js": "connections-add.js", "/connections-delete.js": "connections-delete.js", "/overview.js": "overview.js", "/reply-metrics.js": "reply-metrics.js", "/model-observation.js": "model-observation.js", "/ai.js": "ai.js", "/ai-search.js": "ai-search.js", "/resources.js": "resources.js", "/updatewatch.js": "updatewatch.js", "/ctb.js": "ctb.js", "/ai-probe.js": "ai-probe.js", "/agent-memory.js": "agent-memory.js", "/agent-tasks.js": "agent-tasks.js", "/logs.js": "logs.js", "/backups.js": "backups.js", "/security.js": "security.js", "/theme.js": "theme.js", "/style.css": "style.css", "/appearance.css": "appearance.css"} {
 		pattern := "GET " + route
 		if route == "/" {
 			pattern = "GET /{$}"

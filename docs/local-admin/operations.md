@@ -1,4 +1,8 @@
-当前部署（2026-10-24 21:16 +08:00）：[PR #26](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/26)合并后的master `e7a0ac58`已构建并安装到 `.local/bin/zerobot.exe`，程序SHA256为 `8BB318A6D1C862BA9BD1A03F9A1C8BF7D3638901A7E047ADC1792564C2B7D2B3`。完整隔离回归通过，仅重启ZeroBot；单实例、新程序身份、原账号握手、后台及FTB资源检查通过，OneBot原进程和登录保持。后台密码及机器人、FTB、更新监控、OneBot配置未改。21:19完成真实FTB查询、下载、路径修复和群文件回执/列表核对，范围见[FTB部署验证](ctb.md)。后台重启后用原密码重新登录。
+当前部署（2026-10-26 09:20 +08:00）：资源与AI用量维护工作区构建已安装。程序SHA256：`345582C4B805D9BD9CEB284CF4CE477696776875C4984BCCFF4AEB3568E636F2`。仅重启ZeroBot，OneBot和原配置保持；未上传或合并本批代码。后台使用原密码重新登录。验收范围见[资源维护部署记录](resource-maintenance.md#资源与用量维护部署2026-10-26)。
+
+首次部署前的1313份备份与SHA256清单位于本机忽略目录 `.local/resource-maintenance-deployment/deployment-20261026-091601/`；包括旧程序、完整data及原配置。回退时仅停止ZeroBot，把 `backup/zerobot.exe` 恢复到 `.local/bin/zerobot.exe`，通过既有服务脚本启动并核对QQ连接。无数据迁移，不覆盖部署后新增运行数据。空状态修复前的第二份备份位于 `.local/resource-maintenance-deployment/deployment-20261026-092020/`。部署和通知原始证据仅保留本机。
+
+历史部署（2026-10-24 21:16 +08:00）：[PR #26](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/26)合并后的master `e7a0ac58`已构建并安装到 `.local/bin/zerobot.exe`，程序SHA256为 `8BB318A6D1C862BA9BD1A03F9A1C8BF7D3638901A7E047ADC1792564C2B7D2B3`。完整隔离回归通过，仅重启ZeroBot；单实例、新程序身份、原账号握手、后台及FTB资源检查通过，OneBot原进程和登录保持。后台密码及机器人、FTB、更新监控、OneBot配置未改。21:19完成真实FTB查询、下载、路径修复和群文件回执/列表核对，范围见[FTB部署验证](ctb.md)。后台重启后用原密码重新登录。
 
 本次1311份停机备份（旧程序、完整data、后台和OneBot配置、FTB配置/额度、更新监控与电量助手目录）及SHA256清单位于本机忽略目录 `.local/ctb-deployment/master-20261024-211553/`。需要回退时只停止ZeroBot，恢复该目录 `backup/zerobot.exe`到日常程序路径，再通过既有托管任务启动并检查连接。此次没有数据迁移；不要用旧备份覆盖部署后新增聊天数据或下载额度。部署与诊断原始证据均留在本机，不公开上传。以下为历史批次记录。
 

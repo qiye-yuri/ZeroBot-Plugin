@@ -1,7 +1,8 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]*\.exe$')]
-    [string]$OutputName = 'zerobot-agent-validation.exe'
+    [string]$OutputName = 'zerobot-agent-validation.exe',
+    [switch]$ReadOnlyMaintenanceOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -13,6 +14,7 @@ New-Item -ItemType Directory -Force -Path $runDirectory | Out-Null
 $reportPath = Join-Path $runDirectory 'result.json'
 $report = [ordered]@{
     passed = $false
+    scope = $(if ($ReadOnlyMaintenanceOnly) { 'readonly-maintenance' } else { 'full-agent-validation' })
     startedAt = [DateTimeOffset]::UtcNow.ToString('o')
     completedAt = $null
     binary = '.local/bin/' + $OutputName
@@ -42,15 +44,28 @@ function Invoke-AgentCheck {
 $previousCgo = $env:CGO_ENABLED
 try {
     $env:CGO_ENABLED = '0'
+    $maintenanceBrowserFiles = @('scripts/test-resources-ui.mjs', 'scripts/test-model-cost-hints.mjs', 'scripts/test-model-cost-hints-ui.mjs', 'scripts/test-maintenance-navigation-ui.mjs')
+    if ($ReadOnlyMaintenanceOnly) {
+        Invoke-AgentCheck 'resources' $repoRoot 'go' @('test', './internal/resourcecheck', '-count=1', '-timeout=60s')
+        foreach ($asset in @('app', 'overview', 'resources')) {
+            Invoke-AgentCheck ('syntax-' + $asset) $repoRoot 'node' @('--check', "internal/localadmin/assets/$asset.js")
+        }
+        Invoke-AgentCheck 'maintenance-browser' $repoRoot 'node' (@('--test', 'scripts/test-overview-ui.mjs') + $maintenanceBrowserFiles)
+        New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot '.local/bin') | Out-Null
+        Invoke-AgentCheck 'build' $repoRoot 'go' @('build', '-trimpath', '-o', $report.binary, '.')
+        $report.binarySHA256 = (Get-FileHash -LiteralPath (Join-Path $repoRoot $report.binary) -Algorithm SHA256).Hash
+        $report.passed = $true
+    } else {
     Invoke-AgentCheck 'sdk' (Join-Path $repoRoot 'third_party/go-onebot-agent') 'go' @('test', './...', '-count=1', '-timeout=180s')
     Invoke-AgentCheck 'chat' (Join-Path $repoRoot 'third_party/zbputils') 'go' @('test', './modelconfig', './chat', '-count=1', '-timeout=180s')
-    Invoke-AgentCheck 'backend' $repoRoot 'go' @('test', './internal/localadmin', './plugin/aichat', './internal/aicommands', './internal/modelrequest', './internal/modelstats', './internal/replystats', './internal/adminqa', './internal/batteryhub', '-count=1', '-timeout=180s')
+    Invoke-AgentCheck 'backend' $repoRoot 'go' @('test', './internal/localadmin', './plugin/aichat', './internal/aicommands', './internal/modelrequest', './internal/modelstats', './internal/resourcecheck', './internal/replystats', './internal/adminqa', './internal/batteryhub', '-count=1', '-timeout=180s')
     Invoke-AgentCheck 'smoke-tests' $repoRoot 'go' @('test', 'scripts/smoke-local-admin.go', 'scripts/smoke-local-admin_test.go', '-count=1', '-timeout=120s')
     Invoke-AgentCheck 'model-provider-tests' $repoRoot 'go' @('test', 'scripts/test-real-model.go', 'scripts/test-real-model_test.go', '-count=1', '-timeout=120s')
-    foreach ($asset in @('app', 'agent-archive', 'agent-memory', 'agent-tasks', 'ai', 'ai-search', 'ai-probe')) {
+    foreach ($asset in @('app', 'agent-archive', 'agent-memory', 'agent-tasks', 'ai', 'ai-search', 'ai-probe', 'overview', 'resources')) {
         Invoke-AgentCheck ('syntax-' + $asset) $repoRoot 'node' @('--check', "internal/localadmin/assets/$asset.js")
     }
     Invoke-AgentCheck 'browser' $repoRoot 'node' @('--test', 'scripts/test-agent-archive-ui.mjs', 'scripts/test-agent-memory-ui.mjs', 'scripts/test-agent-tasks-ui.mjs', 'scripts/test-ai-draft-ui.mjs', 'scripts/test-conversation-shortcuts-ui.mjs', 'scripts/test-conversation-check-ui.mjs', 'scripts/test-ai-probe-ui.mjs', 'scripts/test-ai-check-ui.mjs', 'scripts/test-ai-search-ui.mjs', 'scripts/test-search-probe-ui.mjs', 'scripts/test-plugin-save-all-ui.mjs', 'scripts/test-plugin-discard-one-ui.mjs', 'scripts/test-plugin-catalog-ui.mjs', 'scripts/test-restore-plugin-ui.mjs')
+    Invoke-AgentCheck 'maintenance-browser' $repoRoot 'node' (@('--test') + $maintenanceBrowserFiles)
     New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot '.local/bin') | Out-Null
     Invoke-AgentCheck 'build' $repoRoot 'go' @('build', '-trimpath', '-o', $report.binary, '.')
     $report.binarySHA256 = (Get-FileHash -LiteralPath (Join-Path $repoRoot $report.binary) -Algorithm SHA256).Hash
@@ -64,6 +79,7 @@ try {
     $integration = Get-Content -LiteralPath $report.integrationResult -Raw | ConvertFrom-Json
     $report.passed = $integration.passed -eq $true -and $integration.isolated -eq $true -and $integration.realQQMessagesSent -eq $false
     if (-not $report.passed) { throw 'Isolated integration result did not pass.' }
+    }
 } catch {
     $report.error = $_.Exception.Message
     throw

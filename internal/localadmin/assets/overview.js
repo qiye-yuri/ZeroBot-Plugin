@@ -1,9 +1,15 @@
 "use strict";
+const modelCostDefaults=Object.freeze({large:100000,minimum:10000,missPercent:80});
+let modelCostSettings={...modelCostDefaults},modelCostRows=null,modelUsageSnapshotMeta=null;
 let overviewActive=false, overviewBusy=false, overviewGeneration=0, overviewRequest=null, overviewTimer=null;
 
 function clearModelRequests(message="请求统计待更新。") {
+  modelCostRows=null;modelUsageSnapshotMeta=null;renderModelUsageExport();
+  if($("model-usage-export-status"))$("model-usage-export-status").textContent="";
   if (typeof clearModelObservationCurrent==="function") clearModelObservationCurrent();
   $("model-request-summary").textContent=message;
+ if ($("model-cost-hints")) $("model-cost-hints").textContent="费用风险提示待更新。";
+ if ($("model-usage-breakdown")) $("model-usage-breakdown").textContent="分组用量待更新。";
  if ($("model-usage-summary")) $("model-usage-summary").textContent="用量未知";
  if ($("model-usage-recent")) $("model-usage-recent").textContent="";
   $("model-request-categories").replaceChildren();
@@ -30,7 +36,7 @@ function renderModelRequests(value) {
     const row=value.categories.find(item=>item.kind===kind),card=document.createElement("article"),title=document.createElement("h3"),count=document.createElement("p"),time=document.createElement("p");
     title.textContent=name;count.textContent=countsText(row);time.className="field-help";time.textContent=elapsed(row);card.append(title,count,time);$("model-request-categories").append(card);
   }
-  renderModelUsage(value.recent);
+  renderModelUsage(value.recent,{startedAt:value.startedAt,checkedAt:value.checkedAt});
   if (typeof receiveModelObservation==="function") receiveModelObservation(value);
 }
 
@@ -63,11 +69,12 @@ function staleOverview(message="状态待更新") {
 }
 function cancelOverview() {
   overviewGeneration++;clearTimeout(overviewTimer);overviewTimer=null;
-  overviewRequest?.abort();overviewRequest=null;overviewBusy=false;$("refresh").disabled=false;
+  overviewRequest?.abort();overviewRequest=null;overviewBusy=false;$("refresh").disabled=false;renderModelUsageExport();
   if (typeof renderModelObservation==="function") renderModelObservation();
   if (typeof renderReplyDownload==="function") renderReplyDownload();
 }
 function resetOverview() {
+  resetModelCostSettings(false);
   overviewActive=false;cancelOverview();staleOverview();$("page-error").hidden=true;
   if (typeof resetModelObservation==="function") resetModelObservation();
 }
@@ -79,7 +86,7 @@ function showOverview(active) {
 async function refreshOverview() {
   if (!authenticated || !overviewActive || document.hidden || overviewBusy) return;
   clearTimeout(overviewTimer);overviewTimer=null;
-  const generation=++overviewGeneration,controller=new AbortController();overviewRequest=controller;overviewBusy=true;$("refresh").disabled=true;$("page-error").hidden=true;
+  const generation=++overviewGeneration,controller=new AbortController();overviewRequest=controller;overviewBusy=true;$("refresh").disabled=true;renderModelUsageExport();$("page-error").hidden=true;
   if (typeof renderModelObservation==="function") renderModelObservation();
   if (typeof renderReplyDownload==="function") renderReplyDownload();
   try {
@@ -88,7 +95,7 @@ async function refreshOverview() {
   } catch(error) {
     if (overviewReady(generation) && error.name!=="AbortError") {staleOverview("无法获取状态");$("connection-detail").textContent="状态更新失败，旧连接信息已清除。";showError("page-error",error);}
   } finally {
-    if (overviewReady(generation)) {overviewRequest=null;overviewBusy=false;$("refresh").disabled=false;overviewTimer=setTimeout(refreshOverview,10000);}
+    if (overviewReady(generation)) {overviewRequest=null;overviewBusy=false;$("refresh").disabled=false;renderModelUsageExport();overviewTimer=setTimeout(refreshOverview,10000);}
     if (overviewReady(generation) && typeof renderModelObservation==="function") renderModelObservation();
     if (overviewReady(generation) && typeof renderReplyDownload==="function") renderReplyDownload();
   }
@@ -98,17 +105,167 @@ document.addEventListener("visibilitychange",()=>{
   if (!document.hidden && authenticated && overviewActive) refreshOverview();
 });
 
-function renderModelUsage(recent) {
+function renderModelUsage(recent,meta=null) {
   const summary=$("model-usage-summary"), detail=$("model-usage-recent");
   if (!summary || !detail) return;
-  const rows=Array.isArray(recent)?recent.slice(-256):[];
+  if(!validModelUsageRows(recent)){
+    modelCostRows=null;modelUsageSnapshotMeta=null;renderModelUsageExport();
+    summary.textContent="近期用量字段不可读取，不代表零请求。";detail.textContent="";
+    if($("model-cost-hints"))$("model-cost-hints").textContent="近期用量未知，无法生成费用风险提示。";
+    if($("model-usage-breakdown"))$("model-usage-breakdown").textContent="分组用量未知。";
+    if($("model-usage-export-status"))$("model-usage-export-status").textContent="";
+    return;
+  }
+  const rows=recent.slice(-256);
+  modelCostRows=rows;modelUsageSnapshotMeta=meta;renderModelUsageExport();
+  if ($("model-cost-hints")) $("model-cost-hints").textContent=modelCostHints(rows,modelCostSettings);
+  if ($("model-usage-breakdown")) $("model-usage-breakdown").textContent=modelUsageBreakdownText(modelUsageBreakdown(rows));
   const known=n=>Number.isSafeInteger(n)&&n>=0;
-  let hit=0,miss=0,covered=0;
-  for (const row of rows) if (known(row.usage?.hit)&&known(row.usage?.miss)) {hit+=row.usage.hit;miss+=row.usage.miss;covered++;}
-  const ratio=Number.isSafeInteger(hit+miss)&&hit+miss>0?(100*hit/(hit+miss)).toFixed(2)+"%":"未知";
-  summary.textContent=`最近${rows.length}次已结束请求，缓存字段完整${covered}次，按Token加权命中率${ratio}。缺失值为未知；重启清空，不等同账单。`;
+  const cache=summarizeModelCache(rows);
+  summary.textContent=`最近${rows.length}次已结束请求，有效缓存统计${cache.valid}次，字段缺失/无效${cache.unknown}次，分项不一致${cache.inconsistent}次，按Token加权命中率${cache.hitRate??"未知"}。缺失值为未知；重启清空，不等同账单。`;
   const number=n=>known(n)?String(n):"未知";
   detail.textContent=rows.slice(-20).reverse().map(r=>`#${r.id} ${r.kind} ${r.model||"模型未知"} ${r.outcome}
 输入 ${number(r.usage?.input)} / 命中 ${number(r.usage?.hit)} / 未命中 ${number(r.usage?.miss)} / 输出 ${number(r.usage?.output)}
 ${r.provider||"提供商未知"} · ${r.startedAt} · ${Number(r.milliseconds).toFixed(0)}ms · 会话 ${r.session||"未知"} · 任务 ${r.task||"未知"} / 客户端请求序号 ${r.sequence||"未知"}`).join("\n\n");
+}
+
+// Read-only interpretation of the existing bounded usage window, never billing or request control.
+function modelCostHints(rows,settings=modelCostDefaults) {
+  const known=n=>Number.isSafeInteger(n)&&n>=0;
+  if (!rows.length) return "暂无近期请求，费用未知。";
+  let large=0,uncached=0,unknown=0,inconsistent=0,top=null;
+  for (const row of rows) {
+    const u=row.usage||{};
+    if (known(u.input)) {
+      if (!top || u.input>top.usage.input) top=row;
+      if (u.input>=settings.large) large++;
+    }
+    const state=modelCacheState(u);
+    if(state==="inconsistent")inconsistent++;
+    if (![u.input,u.output,u.hit,u.miss].every(known)) {unknown++;continue;}
+    if(state!=="valid")continue;
+    if (u.input>=settings.minimum && BigInt(u.miss)*100n>=BigInt(u.input)*BigInt(settings.missPercent)) uncached++;
+  }
+  const lines=[`最近${rows.length}次已结束请求：大输入${large}次，高未命中${uncached}次；用量字段不完整${unknown}次，输入与缓存分项不一致${inconsistent}次。`];
+  if(top) lines.push(`输入最多：#${top.id} ${top.model||"模型未知"}，输入${top.usage.input} Token，未命中${known(top.usage.miss)?top.usage.miss:"未知"} Token。可结合下方会话和任务标识排查。`);
+  if(large || uncached) lines.push("建议核对是否夹带长工具结果或重复内容，并检查稳定提示前缀；冷启动与上下文变化也会造成未命中，不能据此认定缓存故障。");
+  lines.push(`提示条件：单次输入≥${settings.large} Token；输入≥${settings.minimum}且未命中占比≥${settings.missPercent}%。缺失或不一致字段不参与高未命中判断。仅提示，不修改请求、历史预算或插件开关。金额未知：未配置可核对的单价，实际费用以服务商账单为准；此窗口不含全部调用。人工诊断不计入业务统计，重启清空，最多保留256次。`);
+  return lines.join("\n");
+}
+
+function modelUsageBreakdown(recent) {
+  const known=n=>Number.isSafeInteger(n)&&n>=0;
+  const rows=Array.isArray(recent)?recent.slice(-256):[];
+  const groups=new Map(), fields=["input","hit","miss","output"];
+  const label=s=>typeof s==="string"&&s.length?s:null;
+  for(const r of rows){
+    const provider=label(r.provider),model=label(r.model),key=JSON.stringify([provider,model]);
+    if(!groups.has(key))groups.set(key,{provider,model,count:0,totals:Object.fromEntries(fields.map(f=>[f,{sum:0n,known:0}])),cacheCount:0,cacheHit:0n,cacheMiss:0n,inconsistent:0});
+    const g=groups.get(key),u=r.usage||{};g.count++;
+    for(const f of fields)if(known(u[f])){g.totals[f].sum+=BigInt(u[f]);g.totals[f].known++;}
+    const state=modelCacheState(u);
+    if(state==="valid"){g.cacheCount++;g.cacheHit+=BigInt(u.hit);g.cacheMiss+=BigInt(u.miss);}
+    else if(state==="inconsistent")g.inconsistent++;
+
+  }
+  const result=Array.from(groups.values()).sort((a,b)=>a.totals.input.sum>b.totals.input.sum?-1:a.totals.input.sum<b.totals.input.sum?1:0).map(g=>{
+    return {provider:g.provider,model:g.model,count:g.count,totals:Object.fromEntries(fields.map(f=>[f,{value:g.totals[f].known?String(g.totals[f].sum):null,known:g.totals[f].known}])),cacheCount:g.cacheCount,inconsistent:g.inconsistent,hitRate:modelCacheRate(g.cacheHit,g.cacheMiss)};
+  });
+  // Copy before sorting: preserve the original collector order and data.
+  const top=rows.map((r,index)=>({r,index})).filter(x=>known(x.r.usage?.input)).sort((a,b)=>b.r.usage.input-a.r.usage.input || b.index-a.index).slice(0,5).map(x=>x.r);
+  return {count:rows.length,groups:result,top};
+}
+function modelUsageBreakdownText(value){
+  if(!value.count)return "暂无近期请求，分组用量未知。";
+  const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
+  const lines=[`最近${value.count}次请求，按提供商与模型分组；按已知输入小计降序排列。小计只包含各字段已知值，覆盖不全时不能代表全部用量；不同模型Token数量不等同费用。`];
+  for(const g of value.groups){
+    lines.push(`\n${g.provider??"提供商未知"} / ${g.model??"模型未知"} · ${g.count}次请求`);
+    lines.push(Object.entries(names).map(([f,name])=>`${name} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "));
+    lines.push(`有效缓存统计${g.cacheCount}/${g.count}次 · 加权命中率${g.hitRate??"未知"} · 分项不一致${g.inconsistent}次`);
+  }
+  lines.push("\n输入最多的5次请求（仅已知输入；同量时较新记录优先，包含失败请求）：");
+  if(!value.top.length)lines.push("输入量全部未知，无法排序。");
+  for(const r of value.top)lines.push(`#${r.id} · ${r.provider||"提供商未知"} / ${r.model||"模型未知"} · 输入${r.usage.input} · ${r.outcome||"状态未知"}\n${r.startedAt||"时间未知"} · 会话${r.session||"未知"} · 任务${r.task||"未知"} · 客户端请求序号${r.sequence||"未知"}`);
+  lines.push("\n复用现有最多256条记录；不新增采集或模型调用。缓存命中率仅纳入输入=命中+未命中的完整分项，未按请求百分比平均。金额仍未知，不等同服务商账单。");
+  return lines.join("\n");
+}
+
+function parseModelCostSettings(values){
+  const integer=(s,max)=>typeof s==="string" && /^[0-9]+$/.test(s.trim()) && Number(s)>=1 && Number(s)<=max ? Number(s):null;
+  const large=integer(values.large,1000000000),minimum=integer(values.minimum,1000000000),missPercent=integer(values.missPercent,100);
+  return large===null || minimum===null || missPercent===null ? null : {large,minimum,missPercent};
+}
+function renderModelCostSettings(){
+  for(const [key,id] of Object.entries({large:"cost-large",minimum:"cost-minimum",missPercent:"cost-miss-percent"}))if($(id))$(id).value=String(modelCostSettings[key]);
+}
+function applyModelCostSettings(){
+  if(typeof authenticated==="undefined" || !authenticated)return;
+  const next=parseModelCostSettings({large:$("cost-large").value,minimum:$("cost-minimum").value,missPercent:$("cost-miss-percent").value});
+  if(!next){$("cost-settings-status").textContent="未应用：Token阈值须为1至1000000000的整数，百分比须为1至100的整数。原提示条件保持。";return;}
+  modelCostSettings=next;
+  if(modelCostRows!==null)$("model-cost-hints").textContent=modelCostHints(modelCostRows,modelCostSettings);
+  $("cost-settings-status").textContent="已应用到本页提示，未修改机器人配置或历史预算。"+(modelCostRows===null?"当前用量待更新。":"已用最近读取的用量重新计算，未发起请求。");
+}
+function resetModelCostSettings(notify=true){
+  modelCostSettings={...modelCostDefaults};renderModelCostSettings();
+  if(notify && modelCostRows!==null)$("model-cost-hints").textContent=modelCostHints(modelCostRows,modelCostSettings);
+  if($("cost-settings-status"))$("cost-settings-status").textContent=notify?"已恢复默认提示条件，仅影响本页。":"";
+}
+document.addEventListener("submit",event=>{if(event.target.id==="model-cost-settings"){event.preventDefault();applyModelCostSettings();}});
+document.addEventListener("click",event=>{if(event.target.id==="cost-settings-reset" && typeof authenticated!=="undefined" && authenticated)resetModelCostSettings();});
+document.addEventListener("input",event=>{
+  if(["cost-large","cost-minimum","cost-miss-percent"].includes(event.target.id))$("cost-settings-status").textContent="阈值草稿尚未应用，提示仍使用上次应用的条件。";
+});
+
+function validModelUsageMeta(meta){
+  return meta && typeof meta.startedAt==="string" && typeof meta.checkedAt==="string" && Number.isFinite(Date.parse(meta.startedAt)) && Number.isFinite(Date.parse(meta.checkedAt)) && Date.parse(meta.checkedAt)>=Date.parse(meta.startedAt);
+}
+function renderModelUsageExport(){
+  if($("model-usage-export"))$("model-usage-export").disabled=typeof authenticated==="undefined" || !authenticated || overviewBusy || document.hidden || modelCostRows===null || !validModelUsageMeta(modelUsageSnapshotMeta);
+}
+function buildModelUsageReport(rows,meta,settings,exportedAt){
+  if(!validModelUsageRows(rows) || !validModelUsageMeta(meta))return null;
+  const number=n=>Number.isSafeInteger(n)&&n>=0?n:null;
+  const text=s=>typeof s==="string"?s:null;
+  const anonymous=s=>typeof s==="string" && /^[a-f0-9]{24}$/i.test(s)?s:null;
+  // Explicit fields only: never forward future API fields such as prompts or raw responses.
+  const requests=rows.slice(-256).map(r=>({id:number(r.id),sequence:number(r.sequence),kind:text(r.kind),provider:text(r.provider),model:text(r.model),session:anonymous(r.session),task:anonymous(r.task),startedAt:text(r.startedAt),milliseconds:Number.isFinite(r.milliseconds)&&r.milliseconds>=0?r.milliseconds:null,outcome:text(r.outcome),usage:Object.fromEntries(["input","hit","miss","output"].map(f=>[f,number(r.usage?.[f])]))}));
+  const thresholds={large:settings.large,minimum:settings.minimum,missPercent:settings.missPercent};
+  return {format:"zerobot-model-usage",version:1,exportedAt,scope:{kind:"recent-business-model-requests",limit:256,includesAllCalls:false,amount:null},snapshot:{startedAt:meta.startedAt,checkedAt:meta.checkedAt},thresholds,requests,cacheSummary:summarizeModelCache(requests),breakdown:modelUsageBreakdown(requests),hints:modelCostHints(requests,thresholds)};
+}
+function downloadModelUsage(){
+  if(typeof authenticated==="undefined" || !authenticated || overviewBusy || document.hidden || modelCostRows===null)return;
+  const report=buildModelUsageReport(modelCostRows,modelUsageSnapshotMeta,modelCostSettings,new Date().toISOString());if(!report)return;
+  let url=null,link=null;
+  try{
+    url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)+"\n"],{type:"application/json;charset=utf-8"}));
+    link=document.createElement("a");link.href=url;link.download="zerobot-model-usage-"+report.exportedAt.replace(/[-:.]/g,"")+".json";document.body.append(link);link.click();
+    $("model-usage-export-status").textContent="已发起最近用量报告下载，包含已应用的提示条件与原统计时间；未重新读取或调用模型。";
+  }catch(e){$("model-usage-export-status").textContent="导出未完成，请重试。";}
+  finally{link?.remove();if(url)setTimeout(()=>URL.revokeObjectURL(url),1000);}
+}
+document.addEventListener("click",event=>{if(event.target.id==="model-usage-export")downloadModelUsage();});
+
+function validModelUsageRows(rows){
+  return Array.isArray(rows) && rows.every(r=>r!==null && typeof r==="object" && !Array.isArray(r));
+}
+function modelCacheState(u){
+  const known=n=>Number.isSafeInteger(n)&&n>=0;
+  if(![u?.input,u?.hit,u?.miss].every(known))return "unknown";
+  return BigInt(u.hit)+BigInt(u.miss)===BigInt(u.input)?"valid":"inconsistent";
+}
+function modelCacheRate(hit,miss){
+  const total=hit+miss;if(total===0n)return null;
+  const rate=(hit*10000n+total/2n)/total;
+  return `${rate/100n}.${String(rate%100n).padStart(2,"0")}%`;
+}
+function summarizeModelCache(rows){
+  let valid=0,unknown=0,inconsistent=0,hit=0n,miss=0n;
+  for(const r of rows){
+    const state=modelCacheState(r.usage);
+    if(state==="valid"){valid++;hit+=BigInt(r.usage.hit);miss+=BigInt(r.usage.miss);}
+    else if(state==="unknown")unknown++;else inconsistent++;
+  }
+  return {valid,unknown,inconsistent,hit:valid?String(hit):null,miss:valid?String(miss):null,hitRate:modelCacheRate(hit,miss)};
 }

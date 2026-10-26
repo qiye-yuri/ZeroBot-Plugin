@@ -70,7 +70,7 @@ func (c *Collector) Read() Snapshot {
 	for i, name := range [...]string{"gpt", "chat", "agent", "vision"} {
 		s.Categories[i] = Category{Kind: name, Counts: c.rows[i].Counts}
 	}
-	s.Recent = append([]Request(nil), c.recent...)
+	s.Recent = append([]Request{}, c.recent...)
 	for i := range s.Recent {
 		s.Recent[i].Usage = cloneUsage(s.Recent[i].Usage)
 	}
