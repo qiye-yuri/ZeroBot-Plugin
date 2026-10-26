@@ -10,6 +10,7 @@ function clearModelRequests(message="请求统计待更新。") {
   $("model-request-summary").textContent=message;
  if ($("model-cost-hints")) $("model-cost-hints").textContent="费用风险提示待更新。";
  if ($("model-usage-breakdown")) $("model-usage-breakdown").textContent="分组用量待更新。";
+ if ($("model-task-usage")) $("model-task-usage").textContent="任务用量待更新。";
  if ($("model-usage-summary")) $("model-usage-summary").textContent="用量未知";
  if ($("model-usage-recent")) $("model-usage-recent").textContent="";
   $("model-request-categories").replaceChildren();
@@ -113,10 +114,12 @@ function renderModelUsage(recent,meta=null) {
     summary.textContent="近期用量字段不可读取，不代表零请求。";detail.textContent="";
     if($("model-cost-hints"))$("model-cost-hints").textContent="近期用量未知，无法生成费用风险提示。";
     if($("model-usage-breakdown"))$("model-usage-breakdown").textContent="分组用量未知。";
+    if($("model-task-usage"))$("model-task-usage").textContent="任务用量未知。";
     if($("model-usage-export-status"))$("model-usage-export-status").textContent="";
     return;
   }
   const rows=recent.slice(-256);
+  if($("model-task-usage"))$("model-task-usage").textContent=modelTaskUsageText(modelTaskUsage(rows,meta));
   modelCostRows=rows;modelUsageSnapshotMeta=meta;renderModelUsageExport();
   if ($("model-cost-hints")) $("model-cost-hints").textContent=modelCostHints(rows,modelCostSettings);
   if ($("model-usage-breakdown")) $("model-usage-breakdown").textContent=modelUsageBreakdownText(modelUsageBreakdown(rows));
@@ -232,7 +235,7 @@ function buildModelUsageReport(rows,meta,settings,exportedAt){
   // Explicit fields only: never forward future API fields such as prompts or raw responses.
   const requests=rows.slice(-256).map(r=>({id:number(r.id),sequence:number(r.sequence),kind:text(r.kind),provider:text(r.provider),model:text(r.model),session:anonymous(r.session),task:anonymous(r.task),startedAt:text(r.startedAt),milliseconds:Number.isFinite(r.milliseconds)&&r.milliseconds>=0?r.milliseconds:null,outcome:text(r.outcome),usage:Object.fromEntries(["input","hit","miss","output"].map(f=>[f,number(r.usage?.[f])]))}));
   const thresholds={large:settings.large,minimum:settings.minimum,missPercent:settings.missPercent};
-  return {format:"zerobot-model-usage",version:1,exportedAt,scope:{kind:"recent-business-model-requests",limit:256,includesAllCalls:false,amount:null},snapshot:{startedAt:meta.startedAt,checkedAt:meta.checkedAt},thresholds,requests,cacheSummary:summarizeModelCache(requests),breakdown:modelUsageBreakdown(requests),hints:modelCostHints(requests,thresholds)};
+  return {format:"zerobot-model-usage",version:1,exportedAt,scope:{kind:"recent-business-model-requests",limit:256,includesAllCalls:false,amount:null},snapshot:{startedAt:meta.startedAt,checkedAt:meta.checkedAt},thresholds,requests,cacheSummary:summarizeModelCache(requests),breakdown:modelUsageBreakdown(requests),taskBreakdown:modelTaskUsage(requests,meta),hints:modelCostHints(requests,thresholds)};
 }
 function downloadModelUsage(){
   if(typeof authenticated==="undefined" || !authenticated || overviewBusy || document.hidden || modelCostRows===null)return;
@@ -268,4 +271,41 @@ function summarizeModelCache(rows){
     else if(state==="unknown")unknown++;else inconsistent++;
   }
   return {valid,unknown,inconsistent,hit:valid?String(hit):null,miss:valid?String(miss):null,hitRate:modelCacheRate(hit,miss)};
+}
+
+
+// One snapshot belongs to one process lifetime. Never retain groups across snapshots.
+function modelTaskUsage(recent,meta){
+  if(!validModelUsageRows(recent) || !validModelUsageMeta(meta))return null;
+  const rows=recent.slice(-256),groups=new Map();
+  const anonymous=s=>typeof s==="string" && /^[a-f0-9]{24}$/i.test(s)?s:null;
+  rows.forEach((r,index)=>{
+    const session=anonymous(r.session),task=anonymous(r.task);
+    const grouped=session!==null && task!==null;
+    const key=grouped?JSON.stringify([meta.startedAt,session,task]):JSON.stringify(["single",index]);
+    if(!groups.has(key))groups.set(key,{session:grouped?session:null,task:grouped?task:null,grouped,rows:[]});
+    groups.get(key).rows.push(r);
+  });
+  return {startedAt:meta.startedAt,count:rows.length,complete:false,groups:Array.from(groups.values()).map(g=>{
+    const byModel=modelUsageBreakdown(g.rows);
+    const totals=Object.fromEntries(["input","hit","miss","output"].map(f=>{
+      const known=byModel.groups.reduce((n,m)=>n+m.totals[f].known,0);
+      const sum=byModel.groups.reduce((n,m)=>n+BigInt(m.totals[f].value??0),0n);
+      return [f,{value:known?String(sum):null,known}];
+    }));
+    return {session:g.session,task:g.task,grouped:g.grouped,count:g.rows.length,totals,cacheSummary:summarizeModelCache(g.rows),requests:g.rows};
+  })};
+}
+function modelTaskUsageText(value){
+  if(!value)return "任务用量未知，缺少有效统计窗口。";
+  if(!value.count)return "暂无近期请求，任务用量未知。";
+  const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
+  const lines=[`统计起点：${value.startedAt}。当前窗口${value.count}次请求，${value.groups.length}组。仅包含最近最多256条已结束请求，可能缺少早期轮次；不代表任务完整用量、任务完成状态或费用。缺少有效会话/任务标识的请求逐条显示。`];
+  for(const g of value.groups){
+    lines.push(g.grouped?`\n会话${g.session} · 任务${g.task} · 窗口内${g.count}次请求`:`\n独立请求（缺少有效关联标识） · ${g.count}次请求`);
+    lines.push(Object.entries(names).map(([f,n])=>`${n} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "));
+    lines.push(`有效缓存统计${g.cacheSummary.valid}次 · 加权命中率${g.cacheSummary.hitRate??"未知"} · 分项不一致${g.cacheSummary.inconsistent}次`);
+    for(const r of g.requests)lines.push(`#${r.id??"未知"} · 客户端请求序号${r.sequence??"未知"} · ${r.kind??"类别未知"} · ${r.provider??"提供商未知"} / ${r.model??"模型未知"} · ${r.outcome??"状态未知"} · ${r.startedAt??"时间未知"}\n`+Object.entries(names).map(([f,n])=>`${n} ${Number.isSafeInteger(r.usage?.[f]) && r.usage[f]>=0?r.usage[f]:"未知"}`).join(" / "));
+  }
+  return lines.join("\n");
 }

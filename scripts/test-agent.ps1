@@ -44,7 +44,7 @@ function Invoke-AgentCheck {
 $previousCgo = $env:CGO_ENABLED
 try {
     $env:CGO_ENABLED = '0'
-    $maintenanceBrowserFiles = @('scripts/test-resources-ui.mjs', 'scripts/test-model-cost-hints.mjs', 'scripts/test-model-cost-hints-ui.mjs', 'scripts/test-maintenance-navigation-ui.mjs')
+    $maintenanceBrowserFiles = @('scripts/test-resources-ui.mjs', 'scripts/test-model-cost-hints.mjs', 'scripts/test-model-cost-hints-ui.mjs', 'scripts/test-maintenance-navigation-ui.mjs', 'scripts/test-model-usage-check.mjs')
     if ($ReadOnlyMaintenanceOnly) {
         Invoke-AgentCheck 'resources' $repoRoot 'go' @('test', './internal/resourcecheck', '-count=1', '-timeout=60s')
         foreach ($asset in @('app', 'overview', 'resources')) {

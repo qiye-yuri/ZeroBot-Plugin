@@ -108,3 +108,23 @@ test('malformed request entries clear only usage and prevent misleading export',
   c.renderModelUsage([row(10,1,9)],meta);$('model-request-summary').textContent='valid cumulative counts';c.renderModelUsage([row(10,1,9),bad],meta);assert.equal($('model-request-summary').textContent,'valid cumulative counts');assert.equal($('model-usage-export').disabled,true);assert.equal($('model-usage-recent').textContent,'');assert.equal(c.buildModelUsageReport([bad],meta,{large:1,minimum:1,missPercent:1},''),null);
  }
 });
+
+test('task grouping isolates sessions and leaves missing identities independent',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-26T00:00:00Z',checkedAt:'2026-10-26T01:00:00Z'};
+ const a='a'.repeat(24),b='b'.repeat(24),task='c'.repeat(24);
+ const rows=[{...row(10,8,2),id:1,session:a,task},{...row(20,10,10),id:2,session:a,task,model:'other'},{...row(30,0,30),id:3,session:b,task},{...row(1,0,1),id:4},{...row(2,0,2),id:5,session:a,task:'raw-id'}];
+ const before=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta);assert.equal(v.groups.length,4);assert.equal(v.groups[0].count,2);assert.equal(v.groups[0].totals.input.value,'30');assert.equal(v.groups[0].cacheSummary.hitRate,'60.00%');assert.equal(v.complete,false);assert.equal(v.groups[2].grouped,false);assert.equal(v.groups[3].task,null);assert.equal(JSON.stringify(rows),before);
+ const next=c.modelTaskUsage([rows[0]],{...meta,startedAt:'2026-10-26T00:30:00Z'});assert.equal(next.count,1);assert.notEqual(next.startedAt,v.startedAt);assert.equal(c.modelTaskUsage(rows,null),null);
+});
+test('task window preserves partial coverage and exact sums, never claims completion',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-26',checkedAt:'2026-10-27'},n=Number.MAX_SAFE_INTEGER;
+ const rows=Array.from({length:260},(_,i)=>({...row(n,n,0,null),id:i,session:'a'.repeat(24),task:'b'.repeat(24)}));
+ const value=c.modelTaskUsage(rows,meta);assert.equal(value.count,256);assert.equal(value.groups[0].requests[0].id,4);assert.equal(value.groups[0].totals.input.value,String(BigInt(n)*256n));assert.equal(value.groups[0].totals.output.value,null);assert.equal(value.groups[0].cacheSummary.hitRate,'100.00%');assert.match(c.modelTaskUsageText(value),/可能缺少早期轮次/);
+ const bad=c.modelTaskUsage([row(10,8,8,null),row(null,null,null,null)],meta);assert.equal(bad.groups[0].cacheSummary.inconsistent,1);assert.equal(bad.groups[1].cacheSummary.hitRate,null);
+});
+test('task rendering clears on invalid snapshots and export keeps only allowed fields',()=>{
+ const {c,$}=fixture(),meta={startedAt:'2026-10-26',checkedAt:'2026-10-27'};
+ const rows=[{...row(10,8,2),session:'a'.repeat(24),task:'b'.repeat(24),prompt:'secret-prompt'}];c.renderModelUsage(rows,meta);assert.match($('model-task-usage').textContent,/窗口内1次/);
+ const report=c.buildModelUsageReport(rows,meta,{large:100,minimum:10,missPercent:80},'');assert.equal(report.taskBreakdown.groups[0].totals.input.value,'10');assert.doesNotMatch(JSON.stringify(report.taskBreakdown),/secret-prompt|prompt/);
+ c.renderModelUsage(null,meta);assert.equal($('model-task-usage').textContent,'任务用量未知。');c.clearModelRequests();assert.equal($('model-task-usage').textContent,'任务用量待更新。');
+});
