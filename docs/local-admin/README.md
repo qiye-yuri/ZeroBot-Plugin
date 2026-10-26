@@ -1,6 +1,6 @@
 # 本地机器人管理后台：使用与开发文档
 
-上一批代码已审查并合并至master：[PR #37](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/37)。使用方式与既有验收结果保持，合并记录见[GitHub交付](github-delivery.md)。
+最新代码已审查并合并至master：[PR #39](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/39)，逐请求风险原因尚未部署到日常实例。使用方式与既有验收结果保持，合并记录见[GitHub交付](github-delivery.md)。
 
 当前部署状态（2026-10-26）：资源只读检查、AI费用风险提示、分组用量、页面阈值和JSON报告导出已安装到日常实例。后台访问保护、静态资源一致性、单实例及QQ连接检查通过。真实Chrome后台扫描、异常筛选、资源报告下载、空用量显示、页面阈值应用/恢复及用量报告下载通过；QQ服务列表已由用户确认通过。非空用量已用用户空闲时段的真实请求核对通过，本轮未新增模型调用。下文标注“未部署”的日期化记录为当时状态。
 
@@ -8,7 +8,7 @@
 
 ## 当前版本与计划
 
-后续开发见[PR37后详细计划](post-pr37-development-plan.md)：逐请求风险原因定位，包含5个工作包、10项验收标准及简洁实现约束。已完成逐请求风险原因的本地实现，使用见[逐请求风险原因](model-request-statistics.md#逐请求风险原因本地实现)；尚未合并部署。
+后续开发见[PR37后详细计划](post-pr37-development-plan.md)：逐请求风险原因定位，包含5个工作包、10项验收标准及简洁实现约束。已完成逐请求风险原因的本地实现，使用见[逐请求风险原因](model-request-statistics.md#逐请求风险原因本地实现)；已通过PR #39合并至master，尚未部署。
 
 状态核对日期：2026-10-26（Asia/Shanghai）。资源维护与AI用量排查已通过PR #35合并并完成此前日常部署验收；当前批次已部署，用户已确认本批验收通过，见[本批交付状态](#本批交付状态)；已通过[PR #36](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/36)合并至master。此前R19 包含更新监控运行分项展示、两页草稿摘要与本地撤销、更新监控独立状态刷新、FTB独立状态刷新及此前群聊下载、路径修复；本批部署后页面与服务检查通过，FTB真实查询、下载和群文件接口/列表核对保持此前结论，见[FTB工具与验证范围](ctb.md)及[运行维护](operations.md)。R1～R13及N1～N3已按各批记录合并部署，R13会话插件范围入口见[使用方法](conversation-check.md#设置会话对应的插件范围r13)与[部署验收](self-test.md#r13-合并部署验收)。开发批次编号不是仓库发布版本。
 
@@ -71,7 +71,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 | 查阅内容 | 入口 |
 | --- | --- |
-| 当前工作包与开发约定 | [下一批任务风险原因定位计划](post-pr37-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
+| 当前工作包与开发约定 | [任务风险原因定位计划与完成状态](post-pr37-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
 | 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
