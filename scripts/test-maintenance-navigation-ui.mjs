@@ -16,10 +16,10 @@ async function fixture(t){
 }
 async function respond(p,index,value,status=200){await p.evaluate(({index,value,status})=>pending[index].resolve({ok:status===200,status,json:async()=>value}),{index,value,status});}
 test('actual navigation clears cost hints and ignores departed scan response',async t=>{
- const p=await fixture(t);await p.evaluate(()=>renderModelUsage([{id:1,model:'fixture',usage:{input:100000,hit:0,miss:100000,output:1}}]));
+ const p=await fixture(t);await p.evaluate(()=>renderModelUsage([{id:1,model:'fixture',usage:{input:100000,hit:0,miss:100000,output:1}}],{startedAt:'2026-10-26T00:00:00Z',checkedAt:'2026-10-26T01:00:00Z'}));assert.match(await p.locator('#model-task-usage').textContent(),/提示：大输入/);
  await p.evaluate(()=>{$('model-task-filter').value='large';$('model-task-sort').value='miss'});
  assert.match(await p.locator('#model-usage-breakdown').textContent(),/fixture/);
- await p.locator('[data-view="resources"]').click();await p.waitForFunction(()=>pending.length===1);assert.equal(await p.locator('#model-task-filter').inputValue(),'all');assert.equal(await p.locator('#model-task-sort').inputValue(),'original');assert.equal(await p.evaluate(()=>pending[0].url),'/api/resources');assert.equal(await p.locator('#model-usage-breakdown').textContent(),'分组用量待更新。');
+ await p.locator('[data-view="resources"]').click();await p.waitForFunction(()=>pending.length===1);assert.equal(await p.locator('#model-task-filter').inputValue(),'all');assert.equal(await p.locator('#model-task-sort').inputValue(),'original');assert.equal(await p.evaluate(()=>pending[0].url),'/api/resources');assert.equal(await p.locator('#model-usage-breakdown').textContent(),'分组用量待更新。');assert.doesNotMatch(await p.locator('#model-task-usage').textContent(),/提示：/);
  await respond(p,0,{busy:false,report});await p.waitForFunction(()=>!resourcesBusy);
  await p.locator('#resources-check').click();await p.waitForFunction(()=>pending.length===2);
  await p.locator('[data-view="overview"]').click();await p.waitForFunction(()=>pending.length===3);assert.equal(await p.evaluate(()=>pending[2].url),'/api/overview');
@@ -29,9 +29,9 @@ test('actual navigation clears cost hints and ignores departed scan response',as
 });
 test('actual session expiry clears both controllers and prevents export',async t=>{
  const p=await fixture(t);await p.locator('[data-view="resources"]').click();await p.waitForFunction(()=>pending.length===1);await respond(p,0,{busy:false,report});await p.waitForFunction(()=>!resourcesBusy);
- await p.evaluate(()=>renderModelUsage([{id:1,model:'fixture',usage:{input:100000,hit:0,miss:100000,output:1}}]));
+ await p.evaluate(()=>renderModelUsage([{id:1,model:'fixture',usage:{input:100000,hit:0,miss:100000,output:1}}],{startedAt:'2026-10-26T00:00:00Z',checkedAt:'2026-10-26T01:00:00Z'}));assert.match(await p.locator('#model-task-usage').textContent(),/提示：大输入/);
  await p.locator('#resources-refresh').click();await p.waitForFunction(()=>pending.length===2);await respond(p,1,{error:'session expired'},401);
- await p.waitForFunction(()=>!authenticated);assert.equal(await p.locator('#auth').isVisible(),true);assert.equal(await p.locator('#model-task-filter').inputValue(),'all');assert.equal(await p.locator('#model-task-sort').inputValue(),'original');assert.equal(await p.evaluate(()=>resourcesSnapshot),null);assert.equal(await p.locator('#resources-export').isDisabled(),true);assert.equal(await p.locator('#model-usage-breakdown').textContent(),'分组用量待更新。');
+ await p.waitForFunction(()=>!authenticated);assert.equal(await p.locator('#auth').isVisible(),true);assert.equal(await p.locator('#model-task-filter').inputValue(),'all');assert.equal(await p.locator('#model-task-sort').inputValue(),'original');assert.equal(await p.evaluate(()=>resourcesSnapshot),null);assert.equal(await p.locator('#resources-export').isDisabled(),true);assert.equal(await p.locator('#model-usage-breakdown').textContent(),'分组用量待更新。');assert.doesNotMatch(await p.locator('#model-task-usage').textContent(),/提示：/);
 });
 
 
@@ -39,9 +39,9 @@ test('overview failure clears filtered tasks and recovery uses current data, log
  const p=await fixture(t);await p.locator('[data-view="overview"]').click();await p.waitForFunction(()=>pending.length===1);
  const meta={startedAt:'2026-10-26T00:00:00Z',checkedAt:'2026-10-26T01:00:00Z'},rows=[{id:1,model:'old-fixture',usage:{input:100000,hit:0,miss:100000,output:1}}];
  await p.evaluate(({rows,meta})=>{renderModelUsage(rows,meta);$('model-task-filter').value='large';$('model-task-sort').value='miss';renderModelTaskView()},{rows,meta});
- assert.match(await p.locator('#model-task-usage').textContent(),/old-fixture/);
+ assert.match(await p.locator('#model-task-usage').textContent(),/old-fixture/);assert.match(await p.locator('#model-task-usage').textContent(),/提示：大输入/);
  await respond(p,0,{error:'synthetic read failure'},500);await p.waitForFunction(()=>!overviewBusy);
- assert.equal(await p.locator('#model-task-filter').isDisabled(),true);assert.equal(await p.locator('#model-usage-export').isDisabled(),true);assert.doesNotMatch(await p.locator('#model-task-usage').textContent(),/old-fixture/);
+ assert.equal(await p.locator('#model-task-filter').isDisabled(),true);assert.equal(await p.locator('#model-usage-export').isDisabled(),true);assert.doesNotMatch(await p.locator('#model-task-usage').textContent(),/old-fixture|提示：/);
  assert.equal(await p.locator('#model-task-filter').inputValue(),'large');
  await p.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows:[{...rows[0],model:'new-fixture'}],meta});
  assert.equal(await p.locator('#model-task-filter').isEnabled(),true);assert.match(await p.locator('#model-task-usage').textContent(),/new-fixture/);assert.doesNotMatch(await p.locator('#model-task-usage').textContent(),/old-fixture/);
