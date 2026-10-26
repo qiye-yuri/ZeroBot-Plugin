@@ -149,3 +149,36 @@ test('task sorting uses exact partial totals, stable ties, and unknown after kno
  assert.deepEqual(Array.from(c.selectModelTaskGroups(v,'all','input'),g=>g.requests[0].id),[3,5,6,2,1]);
  assert.deepEqual(Array.from(c.selectModelTaskGroups(v,'all','miss'),g=>g.requests[0].id),[5,6,2,3,1]);assert.equal(JSON.stringify(v),before);
 });
+
+test('per-request reasons cover boundaries and retain multiple independent risks',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-26',checkedAt:'2026-10-27'},settings={large:100,minimum:50,missPercent:80};
+ const cases=[
+  [row(100,20,80),'大输入（单次输入达到已应用阈值100）；高未命中（输入达到50且未命中占比达到80%）'],
+  [row(99,20,79),'未触发当前用量提示'],
+  [row(50,10,40),'高未命中（输入达到50且未命中占比达到80%）'],
+  [row(49,0,49),'未触发当前用量提示'],
+  [row(0,0,0,0),'未触发当前用量提示'],
+  [row(100,90,90,null),'大输入（单次输入达到已应用阈值100）；用量字段不完整；缓存分项与输入不一致'],
+  [row(10,-1,11),'用量字段不完整'],
+  [row(null,null,null,null),'用量字段不完整'],
+  [{...row(1,1,0),outcome:'failed'},'未触发当前用量提示']
+ ];
+ for(const [r,reason] of cases){
+  const text=c.modelTaskUsageText(c.modelTaskUsage([r],meta),undefined,settings);
+  assert.equal(text.split('\n提示：')[1],reason);
+  if(r.outcome)assert.match(text,/failed/);
+ }
+});
+
+test('risk text explains each request without mutating groups or complete exports',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-26',checkedAt:'2026-10-27'},settings={large:100,minimum:50,missPercent:80};
+ const rows=[60,60,100,1].map((n,i)=>({...row(n,n,0),id:i+1,session:'a'.repeat(24),task:(i<2?'b':'c').repeat(24)}));
+ rows.push({...row(100,0,100),id:5,session:'d'.repeat(24),task:'c'.repeat(24)},{...row(100,0,100),id:6});
+ const original=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta),report=JSON.stringify(c.buildModelUsageReport(rows,meta,settings,'2026-10-27'));
+ const all=c.modelTaskUsageText(v,undefined,settings);
+ assert.equal((all.match(/提示：未触发当前用量提示/g)||[]).length,3);
+ const selected=c.selectModelTaskGroups(v,'large','input',settings),text=c.modelTaskUsageText(v,selected,settings);
+ assert.match(text,/#3 [\s\S]*提示：大输入[\s\S]*#4 [\s\S]*提示：未触发当前用量提示/);
+ assert.doesNotMatch(text,/#1 /);assert.match(text,/独立请求/);assert.equal(selected.length,3);
+ assert.equal(JSON.stringify(rows),original);assert.equal(JSON.stringify(c.buildModelUsageReport(rows,meta,settings,'2026-10-27')),report);
+});

@@ -88,3 +88,42 @@ test('multi-round downloads isolate sessions and replace old task snapshots',asy
  await page.evaluate(meta=>renderModelUsage([],meta),nextMeta);const empty=await downloadReport();assert.equal(empty.taskBreakdown.groups.length,0);assert.match(await page.locator('#model-task-usage').textContent(),/暂无近期请求/);
  await page.evaluate(()=>renderModelUsage(null));assert.equal(await page.locator('#model-usage-export').isDisabled(),true);assert.equal(await page.locator('#model-task-usage').textContent(),'任务用量未知。');assert.equal(await page.locator('#model-task-filter').isDisabled(),true);assert.equal(requests,0);
 });
+
+test('request reasons follow applied thresholds, preserve downloads and clear with the snapshot',async t=>{
+ const context=await browser.newContext();t.after(()=>context.close());let requests=0;
+ await context.route('**/*',r=>{requests++;return r.abort()});const page=await context.newPage(),root='internal/localadmin/assets/';
+ await page.setContent((await fs.readFile(root+'index.html','utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link\b[^>]*>/g,''));
+ await page.evaluate(()=>{window.$=id=>document.getElementById(id);window.authenticated=true;$('auth').hidden=true;$('workspace').hidden=false;$('overview-view').hidden=false;});
+ await page.addScriptTag({content:await fs.readFile(root+'overview.js','utf8')});
+ const rows=[{id:1,session:'a'.repeat(24),task:'b'.repeat(24),model:'fixture',usage:{input:200000,hit:0,miss:200000,output:1}},
+ {id:2,session:'a'.repeat(24),task:'b'.repeat(24),model:'fixture',usage:{input:1,hit:1,miss:0,output:0}},
+ {id:3,model:'other',usage:{input:10,hit:10,miss:0,output:1}}];
+ const meta={startedAt:'2026-10-26T00:00:00Z',checkedAt:'2026-10-26T01:00:00Z'};
+ await page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows,meta});
+ await page.getByText('AI费用风险提示',{exact:true}).click();await page.getByText('按任务查看用量',{exact:true}).click();await page.getByText('按提供商与模型查看用量',{exact:true}).click();
+ const text=()=>page.locator('#model-task-usage').textContent();
+ const report=async()=>{const pending=page.waitForEvent('download');await page.locator('#model-usage-export').click();const file=await(await pending).path();assert.equal((await checkUsageFile(file)).passed,true);const data=JSON.parse(await fs.readFile(file,'utf8'));delete data.exportedAt;return data;};
+ const before=await report();assert.match(await text(),/提示：大输入（单次输入达到已应用阈值100000）；高未命中/);
+ await page.locator('#model-task-filter').focus();await page.keyboard.press('ArrowDown');assert.equal(await page.locator('#model-task-filter').inputValue(),'large');
+ await page.locator('#model-task-filter').selectOption('large');await page.locator('#model-task-sort').selectOption('miss');
+ assert.match(await text(),/#2 [\s\S]*提示：未触发当前用量提示/);assert.doesNotMatch(await text(),/#3 /);
+ assert.deepEqual(await report(),before);
+ await page.locator('#cost-large').fill('300000');await page.locator('#cost-minimum').fill('300000');assert.match(await text(),/已应用阈值100000/);
+ await page.getByRole('button',{name:'应用到本页提示',exact:true}).click();assert.match(await text(),/当前条件无匹配任务/);assert.doesNotMatch(await text(),/提示：/);
+ await page.locator('#model-task-filter').selectOption('all');assert.equal((await text()).match(/提示：未触发当前用量提示/g).length,3);
+ await page.getByRole('button',{name:'恢复默认提示',exact:true}).click();assert.match(await text(),/已应用阈值100000/);
+ await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')});await page.addStyleTag({content:await fs.readFile(root+'appearance.css','utf8')});
+ const many=Array.from({length:256},(_,i)=>({...rows[0],id:i+1,model:'<img src=x onerror=alert(1)>'+('long-model-'.repeat(20))}));
+ await page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows:many,meta});
+ assert.equal((await text()).match(/提示：大输入/g).length,256);assert.equal(await page.locator('#model-task-usage img').count(),0);
+ for(const width of [320,1280])for(const theme of ['light','dark']){
+  await page.setViewportSize({width,height:900});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  assert.equal(await page.locator('#model-task-usage').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,`${width} ${theme}`);
+ }
+ await page.locator('#model-task-usage').evaluate(e=>e.scrollIntoView({block:'start'}));await page.screenshot({path:'.local/resource-readonly/task-risk-reasons.png',fullPage:false});
+ await page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows:[rows[2]],meta});assert.doesNotMatch(await text(),/提示：大输入/);
+ await page.evaluate(meta=>renderModelUsage([],meta),meta);assert.match(await text(),/暂无近期请求/);assert.doesNotMatch(await text(),/提示：/);
+ await page.evaluate(()=>renderModelUsage(null));assert.equal(await text(),'任务用量未知。');
+ await page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows,meta});await page.evaluate(()=>{authenticated=false;resetOverview()});assert.equal(await text(),'任务用量待更新。');assert.equal(await page.locator('#model-task-filter').inputValue(),'all');
+ assert.equal(requests,0);
+});

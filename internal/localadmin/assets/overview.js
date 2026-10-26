@@ -296,7 +296,7 @@ function modelTaskUsage(recent,meta){
     return {session:g.session,task:g.task,grouped:g.grouped,count:g.rows.length,totals,cacheSummary:summarizeModelCache(g.rows),requests:g.rows};
   })};
 }
-function modelTaskUsageText(value,groups=value?.groups){
+function modelTaskUsageText(value,groups=value?.groups,settings=modelCostSettings){
   if(!value)return "任务用量未知，缺少有效统计窗口。";
   if(!value.count)return "暂无近期请求，任务用量未知。";
   const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
@@ -307,7 +307,7 @@ function modelTaskUsageText(value,groups=value?.groups){
     lines.push(g.grouped?`\n会话${g.session} · 任务${g.task} · 窗口内${g.count}次请求`:`\n独立请求（缺少有效关联标识） · ${g.count}次请求`);
     lines.push(Object.entries(names).map(([f,n])=>`${n} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "));
     lines.push(`有效缓存统计${g.cacheSummary.valid}次 · 加权命中率${g.cacheSummary.hitRate??"未知"} · 分项不一致${g.cacheSummary.inconsistent}次`);
-    for(const r of g.requests)lines.push(`#${r.id??"未知"} · 客户端请求序号${r.sequence??"未知"} · ${r.kind??"类别未知"} · ${r.provider??"提供商未知"} / ${r.model??"模型未知"} · ${r.outcome??"状态未知"} · ${r.startedAt??"时间未知"}\n`+Object.entries(names).map(([f,n])=>`${n} ${Number.isSafeInteger(r.usage?.[f]) && r.usage[f]>=0?r.usage[f]:"未知"}`).join(" / "));
+    for(const r of g.requests)lines.push(`#${r.id??"未知"} · 客户端请求序号${r.sequence??"未知"} · ${r.kind??"类别未知"} · ${r.provider??"提供商未知"} / ${r.model??"模型未知"} · ${r.outcome??"状态未知"} · ${r.startedAt??"时间未知"}\n`+Object.entries(names).map(([f,n])=>`${n} ${Number.isSafeInteger(r.usage?.[f]) && r.usage[f]>=0?r.usage[f]:"未知"}`).join(" / ")+`\n提示：${modelRequestRiskText(r,settings)}`);
   }
   return lines.join("\n");
 }
@@ -318,6 +318,14 @@ function modelRequestRisk(row,settings=modelCostSettings){
   const incomplete=![u.input,u.hit,u.miss,u.output].every(known),state=modelCacheState(u);
   return {large:known(u.input)&&u.input>=settings.large,incomplete,inconsistent:state==="inconsistent",
     highMiss:!incomplete&&state==="valid"&&u.input>=settings.minimum&&BigInt(u.miss)*100n>=BigInt(u.input)*BigInt(settings.missPercent)};
+}
+function modelRequestRiskText(row,settings){
+  const risk=modelRequestRisk(row,settings),reasons=[];
+  if(risk.large)reasons.push(`大输入（单次输入达到已应用阈值${settings.large}）`);
+  if(risk.highMiss)reasons.push(`高未命中（输入达到${settings.minimum}且未命中占比达到${settings.missPercent}%）`);
+  if(risk.incomplete)reasons.push("用量字段不完整");
+  if(risk.inconsistent)reasons.push("缓存分项与输入不一致");
+  return reasons.length?reasons.join("；"):"未触发当前用量提示";
 }
 function selectModelTaskGroups(value,filter="all",sort="original",settings=modelCostSettings){
   if(!value)return [];
