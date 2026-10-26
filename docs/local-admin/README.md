@@ -8,7 +8,7 @@
 
 ## 当前版本与计划
 
-下一批设计见[PR39后详细开发计划](post-pr39-development-plan.md)：任务摘要与按需展开，包含5个顺序工作包、12项验收标准、刷新与焦点契约。已完成任务折叠与状态保持实现，使用见[任务摘要](model-request-statistics.md#任务摘要与按需展开)；部署与验收状态见开发进度，按开发、部署验收、合入、下一个目标推进。
+本批设计见[PR39后详细开发计划](post-pr39-development-plan.md)：任务摘要与按需展开，包含5个顺序工作包、12项验收标准、刷新与焦点契约。已完成实现、部署验收及PR #40合入，使用见[任务摘要](model-request-statistics.md#任务摘要与按需展开)；部署与验收状态见开发进度，按开发、部署验收、合入、下一个目标推进。
 
 后续开发见[PR37后详细计划](post-pr37-development-plan.md)：逐请求风险原因定位，包含5个工作包、10项验收标准及简洁实现约束。已完成逐请求风险原因的本地实现，使用见[逐请求风险原因](model-request-statistics.md#逐请求风险原因本地实现)；已通过PR #39合并至master并部署。
 
@@ -124,3 +124,5 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 本批完成[用量问题定位](post-pr36-development-plan.md)：任务筛选/排序和现有校验结果处理说明。已部署并通过空窗口检查，本批用户验收通过；已通过[PR #37](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/37)合并到master，不改变历史预算和其他待验收、暂缓状态。
 
 新增功能的使用步骤见[任务风险筛选与排序](model-request-statistics.md#任务风险筛选与排序)及[校验结果中文说明](model-request-statistics.md#校验结果中文说明本地工具)，当前日常实例已安装本批功能。
+
+最新功能“任务摘要与按需展开”已完成开发、部署及非空实机验收，并通过[PR #40](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/40)合入master。使用见[任务摘要](model-request-statistics.md#任务摘要与按需展开)，范围和交付记录见[自测](self-test.md)与[交付](github-delivery.md)。
