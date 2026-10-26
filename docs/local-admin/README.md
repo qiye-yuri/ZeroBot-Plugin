@@ -69,7 +69,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 | 查阅内容 | 入口 |
 | --- | --- |
-| 当前工作包与开发约定 | [本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
+| 当前工作包与开发约定 | [下一批用量定位计划](post-pr36-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
 | 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
@@ -116,3 +116,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 | 文档与集成检查 | 当前入口和历史记录分开；浏览器实际下载接入独立校验，覆盖多轮多模型、跨会话隔离、重启与空窗口、无效数据清理，并检查修改统计后的报告被拒绝。 |
 
 历史预算保持900000；其他待验收和暂缓项仍按[剩余验收条件](remaining-acceptance.md)执行。本批验收已由用户确认通过；本次只更新记录，不新增付费调用。代码已通过[PR #36](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/36)合并至master。
+
+本批完成[用量问题定位](post-pr36-development-plan.md)：任务筛选/排序和现有校验结果处理说明。已部署并通过空窗口检查，本批用户验收通过；尚未上传，不改变历史预算和其他待验收、暂缓状态。
+
+新增功能的使用步骤见[任务风险筛选与排序](model-request-statistics.md#任务风险筛选与排序)及[校验结果中文说明](model-request-statistics.md#校验结果中文说明本地工具)，当前日常实例已安装本批功能。

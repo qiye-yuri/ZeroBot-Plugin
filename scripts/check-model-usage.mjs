@@ -58,6 +58,39 @@ function tasks(rows,startedAt){
   return {startedAt,count:rows.length,complete:false,groups:Array.from(groups.values()).map(g=>({...g,count:g.requests.length,totals:totals(g.requests),cacheSummary:cache(g.requests)}))};
 }
 
+// Fixed classifications only: never copy untrusted input values into advice.
+export function usageDiagnostics(issues){
+  const definitions={
+    read:['无法读取报告文件。','核对文件路径和当前账户读取权限，保留原件；不要扩大权限。'],
+    size:['报告不是普通文件或超过4 MiB限制。','选择后台导出的JSON文件；不要截断内容以绕过限制。'],
+    encoding:['报告包含无效UTF-8字节。','保留原件并从后台重新导出，不要替换损坏字符使其通过。'],
+    json:['报告不是有效JSON。','保留原件，确认下载完整并重新导出。'],
+    format:['报告格式或版本不受支持。','选择当前用量报告，核对导出与校验工具版本。'],
+    time:['报告统计时间或请求时间无效。','核对原统计起点与检查时间，保留原件并重新导出。'],
+    request:['请求记录的字段、数量或编号无效。','使用完整原始报告，不手改编号或Token；重新导出后再核对。'],
+    cache:['缓存汇总与请求明细不一致。','保留原件，核对导出版本并重新导出，不手改汇总数字。'],
+    model:['模型分组汇总与请求明细不一致。','核对报告与工具版本后重新导出完整快照。'],
+    top:['输入排名与请求明细不一致。','保留原始顺序与完整报告，核对版本后重新导出。'],
+    task:['任务分组与请求明细不一致。','保留原件，核对会话隔离及导出版本后重新导出。'],
+    invalid:['报告字段未通过校验。','选择未经编辑的完整用量报告，核对工具版本；原issues保留具体位置。']
+  };
+  return issues.map(issue=>{
+    let code='invalid';
+    if(issue==='file.read')code='read';
+    else if(['file.size','file.size/type'].includes(issue))code='size';
+    else if(issue==='file.encoding')code='encoding';
+    else if(issue==='file.json')code='json';
+    else if(issue==='report.format/version')code='format';
+    else if(['snapshot','snapshot.startedAt','snapshot.checkedAt','snapshot.time-order','exportedAt'].includes(issue)||/^requests\[\d+\]\.(startedAt|time-range)$/.test(issue))code='time';
+    else if(issue==='requests'||/^requests\[\d+\](\.(id|sequence|kind|provider|model|outcome|session|task|milliseconds|usage)(\.(input|hit|miss|output))?)?$/.test(issue))code='request';
+    else if(issue==='cacheSummary')code='cache';
+    else if(['breakdown','breakdown.count','breakdown.groups'].includes(issue))code='model';
+    else if(issue==='breakdown.top')code='top';
+    else if(issue==='taskBreakdown')code='task';
+    const [message,suggestion]=definitions[code];return {code,message,suggestion};
+  });
+}
+
 export function validateUsageReport(value){
   const issues=[];
   const result={format:'zerobot-model-usage-check',version:1,passed:false,issues,taskBreakdownChecked:false,businessAcceptancePassed:false,billingVerified:false};
@@ -112,7 +145,7 @@ export function validateUsageReport(value){
     Object.assign(result,{requestCount:rows.length,totals:totals(rows),cacheSummary:computed,risks: risk,hintProseChecked:false});
     result.passed=issues.length===0;
   }catch(error){issues.push(error instanceof Invalid?error.location:'report.invalid');}
-  return result;
+  return {...result,diagnostics:usageDiagnostics(issues)};
 }
 
 export async function checkUsageFile(filename){
@@ -128,7 +161,7 @@ export async function checkUsageFile(filename){
     try{decoded=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new Invalid('file.encoding');}
     try{value=JSON.parse(decoded);}catch{throw new Invalid('file.json');}
     return {...validateUsageReport(value),sourceSHA256:createHash('sha256').update(bytes).digest('hex')};
-  }catch(error){return {format:'zerobot-model-usage-check',version:1,passed:false,issues:[error instanceof Invalid?error.location:'file.read'],businessAcceptancePassed:false,billingVerified:false};}
+  }catch(error){const issues=[error instanceof Invalid?error.location:'file.read'];return {format:'zerobot-model-usage-check',version:1,passed:false,issues,diagnostics:usageDiagnostics(issues),businessAcceptancePassed:false,billingVerified:false};}
   finally{await handle?.close();}
 }
 export async function main(args=process.argv.slice(2)){
