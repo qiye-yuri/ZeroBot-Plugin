@@ -296,20 +296,23 @@ function modelTaskUsage(recent,meta){
     return {session:g.session,task:g.task,grouped:g.grouped,count:g.rows.length,totals,cacheSummary:summarizeModelCache(g.rows),requests:g.rows};
   })};
 }
-function modelTaskUsageText(value,groups=value?.groups,settings=modelCostSettings){
+function modelTaskUsageText(value,groups=value?.groups){
   if(!value)return "任务用量未知，缺少有效统计窗口。";
   if(!value.count)return "暂无近期请求，任务用量未知。";
-  const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
   const lines=[`统计起点：${value.startedAt}。当前窗口${value.count}次请求，${value.groups.length}组。仅包含最近最多256条已结束请求，可能缺少早期轮次；不代表任务完整用量、任务完成状态或费用。缺少有效会话/任务标识的请求逐条显示。`];
-  lines.push(`匹配任务 ${groups.length}/${value.groups.length}；每个匹配任务显示全部窗口内请求。`);
+  lines.push(`匹配任务 ${groups.length}/${value.groups.length}；展开任务查看全部窗口内请求。`);
   if(!groups.length)lines.push("当前条件无匹配任务。");
-  for(const g of groups){
-    lines.push(g.grouped?`\n会话${g.session} · 任务${g.task} · 窗口内${g.count}次请求`:`\n独立请求（缺少有效关联标识） · ${g.count}次请求`);
-    lines.push(Object.entries(names).map(([f,n])=>`${n} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "));
-    lines.push(`有效缓存统计${g.cacheSummary.valid}次 · 加权命中率${g.cacheSummary.hitRate??"未知"} · 分项不一致${g.cacheSummary.inconsistent}次`);
-    for(const r of g.requests)lines.push(`#${r.id??"未知"} · 客户端请求序号${r.sequence??"未知"} · ${r.kind??"类别未知"} · ${r.provider??"提供商未知"} / ${r.model??"模型未知"} · ${r.outcome??"状态未知"} · ${r.startedAt??"时间未知"}\n`+Object.entries(names).map(([f,n])=>`${n} ${Number.isSafeInteger(r.usage?.[f]) && r.usage[f]>=0?r.usage[f]:"未知"}`).join(" / ")+`\n提示：${modelRequestRiskText(r,settings)}`);
-  }
   return lines.join("\n");
+}
+function modelTaskSummaryText(g){
+  const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
+  return [g.grouped?`会话${g.session} · 任务${g.task} · 窗口内${g.count}次请求`:`独立请求 #${g.requests[0].id??"未知"}（缺少有效关联标识） · 窗口内${g.count}次请求`,
+    Object.entries(names).map(([f,n])=>`${n} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "),
+    `有效缓存统计${g.cacheSummary.valid}次 · 加权命中率${g.cacheSummary.hitRate??"未知"} · 分项不一致${g.cacheSummary.inconsistent}次`].join("\n");
+}
+function modelTaskRequestsText(g,settings=modelCostSettings){
+  const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
+  return g.requests.map(r=>`#${r.id??"未知"} · 客户端请求序号${r.sequence??"未知"} · ${r.kind??"类别未知"} · ${r.provider??"提供商未知"} / ${r.model??"模型未知"} · ${r.outcome??"状态未知"} · ${r.startedAt??"时间未知"}\n`+Object.entries(names).map(([f,n])=>`${n} ${Number.isSafeInteger(r.usage?.[f]) && r.usage[f]>=0?r.usage[f]:"未知"}`).join(" / ")+`\n提示：${modelRequestRiskText(r,settings)}`).join("\n");
 }
 
 // Shared with the existing hint summary; the offline report checker stays independent.
@@ -342,13 +345,33 @@ function selectModelTaskGroups(value,filter="all",sort="original",settings=model
 function resetModelTaskView(){
   if($("model-task-filter"))$("model-task-filter").value="all";
   if($("model-task-sort"))$("model-task-sort").value="original";
+  if($("model-task-usage"))$("model-task-usage").replaceChildren();
 }
 function renderModelTaskView(){
   const value=modelTaskUsage(modelCostRows,modelUsageSnapshotMeta);
   for(const id of ["model-task-filter","model-task-sort"])if($(id))$(id).disabled=!value;
-  if(!$("model-task-usage"))return;
+  const container=$("model-task-usage");
+  if(!container)return;
   const groups=selectModelTaskGroups(value,$("model-task-filter")?.value,$("model-task-sort")?.value);
-  $("model-task-usage").textContent=modelTaskUsageText(value,groups);
+  if(!groups.length){container.textContent=modelTaskUsageText(value,groups);return;}
+  const opened=new Set(Array.from(container.querySelectorAll("details[open][data-task-key]"),e=>e.dataset.taskKey));
+  const focused=document.activeElement;
+  const focusKey=focused?.tagName==="SUMMARY" && container.contains(focused)?focused.parentElement.dataset.taskKey:null;
+  const ids=new Map();
+  for(const g of value.groups)if(!g.grouped){const id=g.requests[0].id;ids.set(id,(ids.get(id)||0)+1);}
+  const fragment=document.createDocumentFragment(),intro=document.createElement("p");
+  intro.textContent=modelTaskUsageText(value,groups);fragment.append(intro);
+  let restoreFocus=null;
+  for(const g of groups){
+    const item=document.createElement("details"),summary=document.createElement("summary"),body=document.createElement("p");
+    const id=g.requests[0].id;
+    const key=g.grouped?JSON.stringify([value.startedAt,g.session,g.task]):Number.isSafeInteger(id)&&id>0&&ids.get(id)===1?JSON.stringify([value.startedAt,id]):null;
+    if(key){item.dataset.taskKey=key;item.open=opened.has(key);if(key===focusKey)restoreFocus=summary;}
+    summary.textContent=modelTaskSummaryText(g);body.textContent=modelTaskRequestsText(g);
+    item.append(summary,body);fragment.append(item);
+  }
+  container.replaceChildren(fragment);
+  restoreFocus?.focus({preventScroll:true});
 }
 document.addEventListener("change",event=>{
   if(["model-task-filter","model-task-sort"].includes(event.target.id)&&typeof authenticated!=="undefined"&&authenticated)renderModelTaskView();

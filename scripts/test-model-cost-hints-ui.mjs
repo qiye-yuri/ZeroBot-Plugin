@@ -116,6 +116,7 @@ test('request reasons follow applied thresholds, preserve downloads and clear wi
  const many=Array.from({length:256},(_,i)=>({...rows[0],id:i+1,model:'<img src=x onerror=alert(1)>'+('long-model-'.repeat(20))}));
  await page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows:many,meta});
  assert.equal((await text()).match(/提示：大输入/g).length,256);assert.equal(await page.locator('#model-task-usage img').count(),0);
+ await page.locator('#model-task-usage summary').click();
  for(const width of [320,1280])for(const theme of ['light','dark']){
   await page.setViewportSize({width,height:900});await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   assert.equal(await page.locator('#model-task-usage').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,`${width} ${theme}`);
@@ -126,4 +127,54 @@ test('request reasons follow applied thresholds, preserve downloads and clear wi
  await page.evaluate(()=>renderModelUsage(null));assert.equal(await text(),'任务用量未知。');
  await page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows,meta});await page.evaluate(()=>{authenticated=false;resetOverview()});assert.equal(await text(),'任务用量待更新。');assert.equal(await page.locator('#model-task-filter').inputValue(),'all');
  assert.equal(requests,0);
+});
+
+test('task disclosure preserves visible identity and keyboard focus across refresh, without changing reports',async t=>{
+ const context=await browser.newContext();t.after(()=>context.close());let requests=0;
+ await context.route('**/*',r=>{requests++;return r.abort()});const page=await context.newPage(),root='internal/localadmin/assets/';
+ await page.setContent((await fs.readFile(root+'index.html','utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link\b[^>]*>/g,''));
+ await page.evaluate(()=>{window.$=id=>document.getElementById(id);window.authenticated=true;$('auth').hidden=true;$('workspace').hidden=false;$('overview-view').hidden=false;});
+ await page.addScriptTag({content:await fs.readFile(root+'overview.js','utf8')});
+ const meta={startedAt:'2026-10-26T00:00:00Z',checkedAt:'2026-10-26T01:00:00Z'};
+ const rows=[{id:1,session:'a'.repeat(24),task:'b'.repeat(24),model:'risk',usage:{input:100000,hit:0,miss:100000,output:1}},
+ {id:2,session:'a'.repeat(24),task:'b'.repeat(24),model:'ordinary',usage:{input:1,hit:1,miss:0,output:0}},
+ {id:3,session:'c'.repeat(24),task:'b'.repeat(24),model:'separate-session',usage:{input:2,hit:2,miss:0,output:0}},
+ {id:4,model:'singleton',usage:{input:null,hit:null,miss:null,output:0}}];
+ const render=(rs=rows,m=meta)=>page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows:rs,meta:m});
+ await render();await page.getByText('AI费用风险提示',{exact:true}).click();await page.getByText('按任务查看用量',{exact:true}).click();await page.getByText('按提供商与模型查看用量',{exact:true}).click();
+ const tasks=page.locator('#model-task-usage details'),summaries=page.locator('#model-task-usage summary');
+ assert.equal(await tasks.count(),3);assert.equal(await page.locator('#model-task-usage details[open]').count(),0);
+ assert.match(await summaries.nth(0).innerText(),/输入 100001（已知2\/2次）/);assert.match(await summaries.nth(2).innerText(),/独立请求 #4[\s\S]*输入 未知[\s\S]*输出 0/);
+ assert.equal(await tasks.nth(0).locator('p').isVisible(),false);
+ const download=async()=>{const wait=page.waitForEvent('download');await page.locator('#model-usage-export').click();const file=await(await wait).path();assert.equal((await checkUsageFile(file)).passed,true);const report=JSON.parse(await fs.readFile(file,'utf8'));delete report.exportedAt;return report;};
+ const before=await download();
+ await page.locator('#model-task-sort').focus();await page.keyboard.press('Tab');assert.equal(await summaries.nth(0).evaluate(e=>e===document.activeElement),true);
+ await page.keyboard.press('Enter');assert.equal(await tasks.nth(0).locator('p').isVisible(),true);assert.match(await tasks.nth(0).locator('p').innerText(),/#1 [\s\S]*提示：大输入[\s\S]*#2 [\s\S]*未触发/);
+ await render([...rows,{...rows[1],id:5,model:'new-round'}]);assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);assert.equal(await summaries.nth(0).evaluate(e=>e===document.activeElement),true);assert.match(await tasks.nth(0).innerText(),/new-round/);
+ await page.keyboard.press('Space');assert.equal(await tasks.nth(0).evaluate(e=>e.open),false);await page.keyboard.press('Enter');
+ await render();assert.doesNotMatch(await tasks.nth(0).textContent(),/new-round/);
+ await page.locator('#model-task-sort').focus();await page.locator('#model-task-sort').selectOption('miss');assert.equal(await page.locator('#model-task-sort').evaluate(e=>e===document.activeElement),true);assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);
+ await page.locator('#cost-large').fill('200000');assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);assert.match(await tasks.nth(0).textContent(),/已应用阈值100000/);
+ await page.getByRole('button',{name:'应用到本页提示',exact:true}).click();assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);assert.doesNotMatch(await tasks.nth(0).textContent(),/提示：大输入/);
+ await page.getByRole('button',{name:'恢复默认提示',exact:true}).click();assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);
+ await page.locator('#model-task-filter').selectOption('large');assert.equal(await tasks.count(),1);assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);assert.deepEqual(await download(),before);
+ await page.locator('#model-task-filter').selectOption('invalid');await page.locator('#model-task-filter').selectOption('all');assert.equal(await tasks.nth(0).evaluate(e=>e.open),false);
+ await summaries.nth(2).click();await render([rows[3],rows[0],rows[1],rows[2]]);assert.equal(await page.locator('#model-task-usage details[open] summary').innerText().then(s=>s.includes('独立请求 #4')),true);
+ await render(rows,{startedAt:'2026-10-26T02:00:00Z',checkedAt:'2026-10-26T03:00:00Z'});assert.equal(await page.locator('#model-task-usage details[open]').count(),0);
+ for(const clear of ['empty','invalid','failure','leave','logout']){
+  await render();await summaries.nth(0).click();
+  await page.evaluate(({clear,meta})=>{if(clear==='empty')renderModelUsage([],meta);if(clear==='invalid')renderModelUsage(null);if(clear==='failure')clearModelRequests();if(clear==='leave')showOverview(false);if(clear==='logout'){authenticated=false;resetOverview();}},{clear,meta});
+  assert.equal(await tasks.count(),0);await page.evaluate(()=>authenticated=true);await render();assert.equal(await page.locator('#model-task-usage details[open]').count(),0);
+ }
+ assert.equal(requests,0);
+});
+
+test('ambiguous singleton identities do not inherit expansion',async t=>{
+ const context=await browser.newContext();t.after(()=>context.close());const page=await context.newPage();
+ await page.setContent('<div id="model-task-usage"></div>');await page.evaluate(()=>window.$=id=>document.getElementById(id));
+ await page.addScriptTag({content:await fs.readFile('internal/localadmin/assets/overview.js','utf8')});
+ for(const id of [null,0,1]){
+  const render=()=>page.evaluate(id=>{modelCostRows=[{id},{id}];modelUsageSnapshotMeta={startedAt:'2026-10-26',checkedAt:'2026-10-27'};renderModelTaskView();},id);
+  await render();await page.locator('summary').nth(0).click();await render();assert.equal(await page.locator('details[open]').count(),0);
+ }
 });
