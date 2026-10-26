@@ -105,6 +105,11 @@ git diff --check
 
 实现时同步model-request-statistics.md、user-guide.md、README.md、operations.md、progress.md、self-test.md与github-delivery.md，分别写明开发、部署、验收、合入四种状态。公开记录只写必要结论及边界，不上传真实QQ信息、配置、密钥、运行数据、二进制、截图或报告原件。
 
-## 7 本次规划交付
+## 7 规划阶段交付记录（历史）
 
 本次只设计下一批功能和验收路径，不修改程序、部署服务或进行模型测试。先检查文档链接、锚点、差异和上述源码依据，检查通过后上传公开规划及配套记录。检查结果见[自测记录](self-test.md)，上传结果见[交付记录](github-delivery.md)。纯文档提交不需要机器人部署，不能据此将P40或A01～A12标为完成。
+
+
+## 8 最终验收结果
+
+P40-01～05已完成。A01～A12逐项结论及自动化与实机证据边界见[部署验收最终清单](pr40-deployment-acceptance.md)。上节描述最初纯文档规划交付，不代表当前功能仍未实现或待部署。

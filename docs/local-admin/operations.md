@@ -1,3 +1,5 @@
+PR #40部署验收最终状态：已完成，逐项结果与自动化/实机边界见[最终清单](pr40-deployment-acceptance.md)。
+
 当前部署（2026-10-26 23:45 +08:00）：任务摘要与按需展开已安装，非空日常验收已通过，随后通过PR #40合入master；合并源码与验收版本一致。
 
 程序基于636b4f77加本批工作区实现构建，SHA256为 `F70A0C54B5A8CCD539B6BFCD594FBDDAF25C38533BE8FC2906F76C2D943FD2D6`。1313份停机备份及哈希清单位于本机忽略目录 `.local/task-summary-deployment/deployment-20261026-234523/`。仅重启ZeroBot，单实例、原账号握手、OneBot原进程、9份配置哈希和更新监控状态保持。回退仅恢复该目录 `backup/zerobot.exe`，不得覆盖后续运行数据。
