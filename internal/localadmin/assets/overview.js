@@ -351,7 +351,7 @@ function resetModelTaskView(){
 }
 function renderModelTaskView(){
   const value=modelTaskUsage(modelCostRows,modelUsageSnapshotMeta);
-  for(const id of ["model-task-filter","model-task-outcome","model-task-sort"])if($(id))$(id).disabled=!value;
+  for(const id of ["model-task-filter","model-task-outcome","model-task-sort","model-task-reset"])if($(id))$(id).disabled=!value;
   const container=$("model-task-usage");
   if(!container)return;
   const groups=selectModelTaskGroups(value,$("model-task-filter")?.value,$("model-task-sort")?.value,modelCostSettings,$("model-task-outcome")?.value);
@@ -377,4 +377,8 @@ function renderModelTaskView(){
 }
 document.addEventListener("change",event=>{
   if(["model-task-filter","model-task-outcome","model-task-sort"].includes(event.target.id)&&typeof authenticated!=="undefined"&&authenticated)renderModelTaskView();
+});
+
+document.addEventListener("click",event=>{
+  if(event.target.id==="model-task-reset"&&typeof authenticated!=="undefined"&&authenticated){resetModelTaskView();renderModelTaskView();}
 });

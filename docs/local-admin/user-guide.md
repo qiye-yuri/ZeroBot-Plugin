@@ -484,3 +484,6 @@ AI费用风险提示支持[调整本页提示阈值](model-request-statistics.md
 
 
 新增[按请求结果筛选任务](model-request-statistics.md#按请求结果筛选任务)：定位包含接口完成、失败、提前关闭或未知结果的任务，与风险条件在任务级组合，保留完整明细和报告。部署与验收状态见[本批清单](task-outcome-acceptance.md)。
+
+
+任务筛选排查结束后，可用[一键重置任务视图](model-request-statistics.md#一键重置任务视图)恢复三项选择并收起明细，费用阈值及草稿保持。部署状态见[验收清单](task-view-reset-acceptance.md)。
