@@ -1373,3 +1373,6 @@ PR #45非空验收通过：用户确认QQ收件，实际Chrome五段摘要与逐
 ## 请求次数排序开发（2026-10-27）
 
 从PR #46分支aa2280dd创建codex/task-count-sort，增加原生count选项和局部稳定降序，复用组count，不改分组、报告、接口或存储。72项相关回归全部通过，脚本语法检查通过；测试及部署状态见[本批清单](task-count-sort-acceptance.md)。后续草稿PR以codex/task-any-risk为base，依赖PR #46，非空集中验收前不合入。历史预算、其他待验收/暂缓项与无关修改保持。
+
+
+请求次数排序交付补记（2026-10-27）：[PR #47](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/47)已上传为依赖PR #46的草稿。72项回归、最终构建与完整隔离通过，累计候选已备份部署；实际后台空窗口排序、刷新保持、重置、窄屏与报告检查通过。下载副本已清理；集中非空验收队列2/5，两份PR均不合入。程序及证据边界见[排序验收](task-count-sort-acceptance.md)。
