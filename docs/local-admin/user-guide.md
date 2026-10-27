@@ -514,4 +514,9 @@ AI费用风险提示支持[调整本页提示阈值](model-request-statistics.md
 
 ## 请求次数排序规划
 
-[PR46后开发计划](post-pr46-development-plan.md)拟增加“窗口内请求次数降序”，尚未实现；当前排序仍以[模型用量说明](model-request-statistics.md)为准。PR #46已部署未合入，正在等待累计5项后的集中非空验收；本规划不计入队列。
+[PR46后开发计划](post-pr46-development-plan.md)已实现“窗口内请求次数降序”，部署及验收见[本批清单](task-count-sort-acceptance.md)；使用方式以[模型用量说明](model-request-statistics.md)为准。PR #46已部署未合入，正在等待累计5项后的集中非空验收；本规划不计入队列。
+
+
+## 优先查看请求次数较多的任务
+
+登录运行概览 → 模型接口请求 → AI费用风险提示 → 按任务查看用量，在任务排序中选“窗口内请求次数降序”。同次数保持原顺序，可与风险及结果筛选组合；次数仅是当前窗口次数，完整报告不受影响。无需额外权限，更新程序后刷新后台生效。详见[排序说明](model-request-statistics.md#按窗口内请求次数排序)和[本批验收](task-count-sort-acceptance.md)。
