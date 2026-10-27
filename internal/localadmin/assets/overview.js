@@ -305,8 +305,11 @@ function modelTaskUsageText(value,groups=value?.groups){
   return lines.join("\n");
 }
 function modelTaskSummaryText(g){
+  const outcomes={completed:0,failed:0,incomplete:0,unknown:0};
+  for(const r of g.requests)outcomes[["completed","failed","incomplete"].includes(r.outcome)?r.outcome:"unknown"]++;
   const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
   return [g.grouped?`会话${g.session} · 任务${g.task} · 窗口内${g.count}次请求`:`独立请求 #${g.requests[0].id??"未知"}（缺少有效关联标识） · 窗口内${g.count}次请求`,
+    `窗口内请求结果：接口完成 ${outcomes.completed} · 失败 ${outcomes.failed} · 提前关闭 ${outcomes.incomplete} · 未知 ${outcomes.unknown}`,
     Object.entries(names).map(([f,n])=>`${n} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "),
     `有效缓存统计${g.cacheSummary.valid}次 · 加权命中率${g.cacheSummary.hitRate??"未知"} · 分项不一致${g.cacheSummary.inconsistent}次`].join("\n");
 }

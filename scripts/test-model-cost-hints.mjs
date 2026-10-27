@@ -198,3 +198,15 @@ test('unknown results are distinct from failed or prematurely closed requests',(
  assert.deepEqual(Array.from(c.selectModelTaskGroups(v,'all','original',undefined,'unknown'),g=>g.requests[0].id),[1,2,3,4]);
  assert.equal(c.selectModelTaskGroups(v,'all','original',undefined,'failed').length,1);assert.equal(c.selectModelTaskGroups(null,'all','original',undefined,'failed').length,0);
 });
+
+test('task summary counts complete group outcomes without changing report objects',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-27',checkedAt:'2026-10-28'};
+ const rows=['completed','completed','failed','incomplete',undefined,null,'','COMPLETED','<script>'].map(outcome=>({...row(1,1,0),id:1,outcome,session:'a'.repeat(24),task:'b'.repeat(24)}));
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),report=JSON.stringify(c.buildModelUsageReport(rows,meta,{large:100000,minimum:10000,missPercent:80},'2026-10-28'));
+ assert.match(c.modelTaskSummaryText(v.groups[0]),/接口完成 2 · 失败 1 · 提前关闭 1 · 未知 5/);assert.doesNotMatch(c.modelTaskSummaryText(v.groups[0]),/<script>/);assert.equal(JSON.stringify(v),before);
+ assert.deepEqual(Object.keys(v.groups[0]).sort(),['cacheSummary','count','grouped','requests','session','task','totals']);
+ assert.equal(JSON.stringify(c.buildModelUsageReport(rows,meta,{large:100000,minimum:10000,missPercent:80},'2026-10-28')),report);
+ const selected=c.selectModelTaskGroups(v,'all','original',undefined,'failed');assert.match(c.modelTaskSummaryText(selected[0]),/接口完成 2 · 失败 1/);
+ const isolated=c.modelTaskUsage([{...rows[0],session:'c'.repeat(24)},{...rows[2]},{...rows[3],session:null}],meta);assert.equal(isolated.groups.length,3);assert.match(c.modelTaskSummaryText(isolated.groups[0]),/接口完成 1 · 失败 0 · 提前关闭 0 · 未知 0/);assert.match(c.modelTaskSummaryText(isolated.groups[2]),/接口完成 0 · 失败 0 · 提前关闭 1 · 未知 0/);
+ const window=c.modelTaskUsage(Array.from({length:257},(_,i)=>({...rows[0],outcome:i===0?'failed':'completed'})),meta);assert.match(c.modelTaskSummaryText(window.groups[0]),/接口完成 256 · 失败 0/);
+});
