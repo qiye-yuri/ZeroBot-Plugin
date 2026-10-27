@@ -1,6 +1,6 @@
 # PR41后的详细开发计划：一键重置任务视图
 
-核对日期：2026-10-27（Asia/Shanghai）。源码基线为master `991dcb1f12d5a36578c42e20d07ae19033aeb63e`。PR #41已完成开发、部署验收及合入，范围见[最终验收清单](task-outcome-acceptance.md)。本文件保留设计契约；实现与63项相关回归已完成，最终构建、部署及合入状态见[验收清单](task-view-reset-acceptance.md)。
+核对日期：2026-10-27（Asia/Shanghai）。源码基线为master `991dcb1f12d5a36578c42e20d07ae19033aeb63e`。PR #41已完成开发、部署验收及合入，范围见[最终验收清单](task-outcome-acceptance.md)。本文件保留设计契约；实现、63项相关回归、最终构建、部署验收及PR #42合入已完成，最终状态见[验收清单](task-view-reset-acceptance.md)。
 
 ## 1 问题、目标与边界
 

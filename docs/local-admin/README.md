@@ -1,8 +1,8 @@
 # 本地机器人管理后台：使用与开发文档
 
-PR #41请求结果筛选已完成开发、部署验收及合入，当前结果与证据边界见[最终清单](task-outcome-acceptance.md)。PR #40历史结果见[任务摘要验收](pr40-deployment-acceptance.md)。
+PR #42任务视图重置已完成开发、部署验收及合入，当前结果与证据边界见[最终清单](task-view-reset-acceptance.md)。PR #41结果筛选历史记录见[验收清单](task-outcome-acceptance.md)。PR #40历史结果见[任务摘要验收](pr40-deployment-acceptance.md)。
 
-最新代码已审查并合并至master：[PR #41](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/41)，请求结果筛选已部署，非空后台、完整报告及用户QQ收件核对通过。使用方式与既有验收结果保持，合并记录见[GitHub交付](github-delivery.md)。
+最新代码已审查并合并至master：[PR #42](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/42)，任务视图重置已部署，非空后台、完整报告及用户QQ收件核对通过。使用方式与既有验收结果保持，合并记录见[GitHub交付](github-delivery.md)。
 
 既有部署记录（2026-10-26）：资源只读检查、AI费用风险提示、分组用量、页面阈值和JSON报告导出已安装到日常实例。后台访问保护、静态资源一致性、单实例及QQ连接检查通过。真实Chrome后台扫描、异常筛选、资源报告下载、空用量显示、页面阈值应用/恢复及用量报告下载通过；QQ服务列表已由用户确认通过。非空用量已用用户空闲时段的真实请求核对通过，本轮未新增模型调用。下文标注“未部署”的日期化记录为当时状态。
 
@@ -10,7 +10,7 @@ PR #41请求结果筛选已完成开发、部署验收及合入，当前结果�
 
 ## 当前版本与计划
 
-下一批设计见[PR41后详细开发计划](post-pr41-development-plan.md)：一键重置任务视图，恢复风险、结果、排序并收起明细，保留已应用阈值、草稿与完整请求。4个工作包、11项验收标准，预计有效工时3～5小时；本批实现与63项相关回归已完成，部署与合入状态见[验收清单](task-view-reset-acceptance.md)。
+本批设计见[PR41后详细开发计划](post-pr41-development-plan.md)：一键重置任务视图，恢复风险、结果、排序并收起明细，保留已应用阈值、草稿与完整请求。4个工作包、11项验收标准，预计有效工时3～5小时；本批实现、63项相关回归、部署验收及合入已完成，最终状态见[验收清单](task-view-reset-acceptance.md)。
 
 本批设计见[PR40后详细开发计划](post-pr40-development-plan.md)：按请求结果筛选任务。包含5个工作包、12项验收标准与任务级组合语义，实现、62项相关回归、部署验收及PR #41合入已完成；最终状态见[本批清单](task-outcome-acceptance.md)。复用现有数据与页面逻辑，不增加接口或存储。
 
