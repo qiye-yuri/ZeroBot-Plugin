@@ -210,3 +210,18 @@ test('task summary counts complete group outcomes without changing report object
  const isolated=c.modelTaskUsage([{...rows[0],session:'c'.repeat(24)},{...rows[2]},{...rows[3],session:null}],meta);assert.equal(isolated.groups.length,3);assert.match(c.modelTaskSummaryText(isolated.groups[0]),/接口完成 1 · 失败 0 · 提前关闭 0 · 未知 0/);assert.match(c.modelTaskSummaryText(isolated.groups[2]),/接口完成 0 · 失败 0 · 提前关闭 1 · 未知 0/);
  const window=c.modelTaskUsage(Array.from({length:257},(_,i)=>({...rows[0],outcome:i===0?'failed':'completed'})),meta);assert.match(c.modelTaskSummaryText(window.groups[0]),/接口完成 256 · 失败 0/);
 });
+
+test('summary risk counts overlap, use per-request thresholds and preserve reports',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-27',checkedAt:'2026-10-28'},settings={large:100,minimum:100,missPercent:80};
+ const rows=[row(100,0,100),row(1,1,0),row(100,0,100,null),row(10,0,11,null)].map((r,i)=>({...r,id:1,outcome:i===1?'failed':'completed',session:'a'.repeat(24),task:'b'.repeat(24)}));
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),report=JSON.stringify(c.buildModelUsageReport(rows,meta,settings,'2026-10-28'));
+ const selected=c.selectModelTaskGroups(v,'large','input',settings,'failed');assert.equal(selected.length,1);
+ assert.match(c.modelTaskSummaryText(selected[0],settings),/大输入 2次 · 高未命中 1次 · 字段不完整 2次 · 分项不一致 1次/);
+ assert.match(c.modelTaskSummaryText(selected[0],{...settings,large:101,minimum:101}),/大输入 0次 · 高未命中 0次 · 字段不完整 2次 · 分项不一致 1次/);
+ assert.equal(JSON.stringify(v),before);assert.equal(JSON.stringify(c.buildModelUsageReport(rows,meta,settings,'2026-10-28')),report);
+ const group=rs=>c.modelTaskUsage(rs.map(r=>({...r,session:'a'.repeat(24),task:'b'.repeat(24)})),meta).groups[0];
+ assert.match(c.modelTaskSummaryText(group([row(60,60,0),row(60,60,0)]),settings),/大输入 0次 · 高未命中 0次 · 字段不完整 0次 · 分项不一致 0次/);
+ assert.match(c.modelTaskSummaryText(group([row(-1,0,0),row(Number.MAX_SAFE_INTEGER+1,0,0)]),settings),/大输入 0次 · 高未命中 0次 · 字段不完整 2次/);
+ const window=group([row(100,0,100),...Array.from({length:256},()=>row(0,0,0,0))]);assert.match(c.modelTaskSummaryText(window,settings),/大输入 0次 · 高未命中 0次/);
+ const isolated=c.modelTaskUsage([rows[0],{...rows[1],session:'c'.repeat(24)},{...rows[3],session:null}],meta);assert.equal(isolated.groups.length,3);assert.match(c.modelTaskSummaryText(isolated.groups[1],settings),/大输入 0次 · 高未命中 0次/);assert.match(c.modelTaskSummaryText(isolated.groups[2],settings),/字段不完整 1次 · 分项不一致 1次/);
+});
