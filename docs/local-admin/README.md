@@ -1,8 +1,8 @@
 # 本地机器人管理后台：使用与开发文档
 
-PR #44任务视图排版已完成开发、部署验收及合入，当前结果与证据边界见[最终清单](task-view-layout-acceptance.md)。PR #43历史结果见[验收清单](task-outcome-summary-acceptance.md)。PR #42重置历史结果见[验收清单](task-view-reset-acceptance.md)。PR #41结果筛选历史记录见[验收清单](task-outcome-acceptance.md)。PR #40历史结果见[任务摘要验收](pr40-deployment-acceptance.md)。
+PR #45任务摘要用量提示计数已完成开发、部署验收及合入，当前结果与证据边界见[最终清单](task-risk-counts-acceptance.md)。PR #44历史结果见[验收清单](task-view-layout-acceptance.md)。PR #43历史结果见[验收清单](task-outcome-summary-acceptance.md)。PR #42重置历史结果见[验收清单](task-view-reset-acceptance.md)。PR #41结果筛选历史记录见[验收清单](task-outcome-acceptance.md)。PR #40历史结果见[任务摘要验收](pr40-deployment-acceptance.md)。
 
-最新代码已审查并合并至master：[PR #44](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/44)，任务视图排版已部署，非空后台、完整报告及用户QQ收件核对通过。使用方式与既有验收结果保持，合并记录见[GitHub交付](github-delivery.md)。
+最新代码已审查并合并至master：[PR #45](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/45)，任务摘要用量提示计数已部署，非空后台、完整报告及用户QQ收件核对通过。使用方式与既有验收结果保持，合并记录见[GitHub交付](github-delivery.md)。
 
 既有部署记录（2026-10-26）：资源只读检查、AI费用风险提示、分组用量、页面阈值和JSON报告导出已安装到日常实例。后台访问保护、静态资源一致性、单实例及QQ连接检查通过。真实Chrome后台扫描、异常筛选、资源报告下载、空用量显示、页面阈值应用/恢复及用量报告下载通过；QQ服务列表已由用户确认通过。非空用量已用用户空闲时段的真实请求核对通过，本轮未新增模型调用。下文标注“未部署”的日期化记录为当时状态。
 
@@ -10,7 +10,7 @@ PR #44任务视图排版已完成开发、部署验收及合入，当前结果�
 
 ## 当前版本与计划
 
-下一批见[PR44后详细开发计划](post-pr44-development-plan.md)：任务摘要用量提示计数。复用已有逐请求规则，展示四类可重叠计数，保留报告及阈值契约；4个工作包、11项验收标准，预计4～6小时有效工时，本批已实现，测试、部署与合入状态见[验收清单](task-risk-counts-acceptance.md)。
+本批设计见[PR44后详细开发计划](post-pr44-development-plan.md)：任务摘要用量提示计数。复用已有逐请求规则，展示四类可重叠计数，保留报告及阈值契约；4个工作包、11项验收标准，预计4～6小时有效工时，本批已通过68项回归、非空部署验收并合入，状态见[验收清单](task-risk-counts-acceptance.md)。
 
 本批设计见[PR43后详细开发计划](post-pr43-development-plan.md)：任务视图排版与可读性。整理标签/选择框的自适应布局和摘要四段分行，保留原生控件、计算与报告；4个工作包、11项验收标准，预计4～6小时有效工时；本批已通过66项回归及非空部署验收并合入，状态见[排版验收](task-view-layout-acceptance.md)。
 
