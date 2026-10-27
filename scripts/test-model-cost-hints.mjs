@@ -244,3 +244,17 @@ test('count sorting is stable after filtering and never mutates original groups'
  const independent=c.modelTaskUsage([{...rows[0],session:null},{...rows[0],session:null}],meta);assert.equal(c.selectModelTaskGroups(independent,'all','count').length,2);
  const window=c.modelTaskUsage([...Array.from({length:255},()=>rows[0]),...Array.from({length:2},()=>rows[1])],meta);assert.deepEqual(Array.from(c.selectModelTaskGroups(window,'all','count'),g=>g.count),[254,2]);
 });
+
+test('count filtering intersects whole groups, preserves ordering and follows retained window',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},settings={large:100,minimum:100,missPercent:80};
+ const rows=[1,2,3,2].flatMap((n,i)=>Array.from({length:n},(_,j)=>({...row(i===2?null:j===0?100:1,j===0?0:1,j===0?100:0),id:i*10+j+1,session:String(i+1).repeat(24),task:'a'.repeat(24),outcome:j===1?'failed':i===3?'other':'completed'})));
+ const original=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),ids=gs=>Array.from(gs,g=>g.session[0]);
+ const select=(count,sort='original',risk='all',outcome='all')=>c.selectModelTaskGroups(v,risk,sort,settings,outcome,count);
+ assert.deepEqual(ids(select('all')),['1','2','3','4']);assert.deepEqual(ids(select('single')),['1']);assert.deepEqual(ids(select('multiple')),['2','3','4']);
+ assert.deepEqual(ids(select('multiple','count')),['3','2','4']);assert.deepEqual(ids(select('multiple','input')),['2','4','3']);assert.deepEqual(ids(select('multiple','miss')),['2','3','4']);
+ const matched=select('multiple','original','anyRisk','failed');assert.deepEqual(ids(matched),['2','3','4']);assert.equal(matched[0].requests.length,2);assert.equal(matched[0].requests[0].outcome,'completed');
+ assert.deepEqual(ids(select('multiple','original','anyRisk','unknown')),['4']);assert.equal(select('single','original','anyRisk','failed').length,0);
+ assert.equal(JSON.stringify(rows),original);assert.equal(JSON.stringify(v),before);
+ const isolated=c.modelTaskUsage([{...rows[0],session:null},{...rows[0],session:null},{...rows[0],session:'f'.repeat(24)},rows[0]],meta);assert.equal(c.selectModelTaskGroups(isolated,'all','original',settings,'all','single').length,4);
+ const window=c.modelTaskUsage([rows[1],...Array.from({length:255},()=>rows[0]),rows[2]],meta);assert.deepEqual(Array.from(c.selectModelTaskGroups(window,'all','original',settings,'all','single'),g=>g.count),[1]);assert.equal(c.selectModelTaskGroups(window,'all','original',settings,'all','single')[0].session,rows[1].session);
+});

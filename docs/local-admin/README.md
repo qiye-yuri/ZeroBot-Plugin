@@ -143,4 +143,6 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 最新功能“任务摘要与按需展开”已完成开发、部署及非空实机验收，并通过[PR #40](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/40)合入master。使用见[任务摘要](model-request-statistics.md#任务摘要与按需展开)，范围和交付记录见[自测](self-test.md)与[交付](github-delivery.md)。
 
-下一批设计见[PR47后详细开发计划](post-pr47-development-plan.md)：窗口内请求次数筛选（全部、仅1次、至少2次），4个工作包、10项验收标准，预计3～5小时有效工时。尚未实现，集中验收仍2/5；规划不计数。
+下一批设计见[PR47后详细开发计划](post-pr47-development-plan.md)：窗口内请求次数筛选（全部、仅1次、至少2次），4个工作包、10项验收标准，预计3～5小时有效工时。现已实现，最新状态见[验收清单](task-count-filter-acceptance.md)；规划本身不计数。
+
+窗口内请求次数筛选已实现，使用见[次数筛选](model-request-statistics.md#按窗口内请求次数筛选)，测试与部署进度见[本批验收](task-count-filter-acceptance.md)。
