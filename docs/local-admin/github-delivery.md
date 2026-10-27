@@ -403,3 +403,7 @@ PR #43非空部署验收补齐：用户已确认QQ收件，实际Chrome摘要分
 本批阶段更新：最终构建与完整隔离通过，19:30候选已部署，程序/资源身份、原配置及OneBot核对通过。实际Chrome宽窄屏、主题、空窗口筛选重置和空报告校验通过，下载重复副本已清理。[草稿PR #44](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/44)已上传，非空实机待验收，尚未合入；最新状态见[集中清单](task-view-layout-acceptance.md)。
 
 PR #44非空部署验收通过：用户确认QQ收件，实际Chrome宽窄屏四段摘要、展开和键盘操作、筛选刷新/无匹配清理/重置通过。两份报告独立校验，统计起点、完整请求、任务明细及阈值一致；下载副本已核对哈希后清理，部署程序及源码保持。准备合入，范围见[验收清单](task-view-layout-acceptance.md)。
+
+## PR44合入收尾（2026-10-27）
+
+[PR #44](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/44)在非空部署验收和用户QQ收件确认后合入master。审查头bfdd5aeea294701462551e8c002073db89bf9b5f，合并提交1b6cc407fdb04e0c782f3cd4ac7d6c594441a1bf；合并树与验收分支一致，已部署程序无需重启。66项回归、完整隔离及本批实际Chrome非空验收通过；原始资料留本机，下载副本已清理。使用与范围见[集中清单](task-view-layout-acceptance.md)，此前待验收记录为历史阶段，其他待验收/暂缓项和历史预算保持。
