@@ -1,6 +1,6 @@
 # PR44后的详细开发计划：任务摘要用量提示计数
 
-核对日期：2026-10-27（Asia/Shanghai）。设计基线master `50e90976952fa027e877fee7fb1daade5b5c2bc2`。PR #44已完成开发、部署验收与合入，见[最终清单](task-view-layout-acceptance.md)。本次只交付设计与开发计划；下述功能尚未实现，不表示已部署。
+核对日期：2026-10-27（Asia/Shanghai）。设计基线master `50e90976952fa027e877fee7fb1daade5b5c2bc2`。PR #44已完成开发、部署验收与合入，见[最终清单](task-view-layout-acceptance.md)。本计划最初只交付设计；现已实现摘要用量提示计数，测试、部署及合入状态见[本批验收](task-risk-counts-acceptance.md)。下文设计时的工作包与历史交付边界保留。
 
 ## 1 问题与目标
 
