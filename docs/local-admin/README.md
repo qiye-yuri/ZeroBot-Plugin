@@ -146,3 +146,5 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 下一批设计见[PR47后详细开发计划](post-pr47-development-plan.md)：窗口内请求次数筛选（全部、仅1次、至少2次），4个工作包、10项验收标准，预计3～5小时有效工时。现已实现，最新状态见[验收清单](task-count-filter-acceptance.md)；规划本身不计数。
 
 窗口内请求次数筛选已实现，使用见[次数筛选](model-request-statistics.md#按窗口内请求次数筛选)，测试与部署进度见[本批验收](task-count-filter-acceptance.md)。
+
+本批74项回归、最终隔离及部署独立检查通过，PR #48保持草稿，集中非空验收3/5。

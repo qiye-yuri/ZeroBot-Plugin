@@ -460,3 +460,5 @@ PR #45非空验收通过：用户确认QQ收件，实际Chrome五段摘要与逐
 ## 请求次数筛选开发（2026-10-28）
 
 从PR #47的26faedc5创建codex/task-count-filter，增加原生次数条件及局部组级谓词，复用g.count；同步重置、禁用与变化监听，未增加接口、存储或报告字段。测试及部署状态见[本批清单](task-count-filter-acceptance.md)。依赖PR #46→#47，本批草稿以codex/task-count-sort为base；集中非空验收前不合入。历史预算及其他待验收/暂缓项保持。
+
+请求次数筛选交付补记：74项回归、最终构建及完整隔离通过，累计候选已备份部署；实际后台空窗口选择、刷新、重置、窄屏和完整报告检查通过，下载副本已清理。[PR #48](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/48)为依赖#47的草稿，单条QQ集中验收3/5；三份PR均不合入。详细范围见[本批清单](task-count-filter-acceptance.md)。

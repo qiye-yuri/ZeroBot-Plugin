@@ -752,3 +752,5 @@ GOOS=linux GOARCH=mips GOMIPS=softfloat CGO_ENABLED=0 go build -ldflags "-s -w" 
 下一批见[窗口内请求次数筛选计划](docs/local-admin/post-pr47-development-plan.md)：区分单次与多次窗口请求，4个工作包及10项验收标准。该规划现已实现，最新部署及验收见下方清单。
 
 窗口内请求次数筛选已实现，支持全部、仅1次、至少2次与现有条件组合；[使用说明](docs/local-admin/model-request-statistics.md#按窗口内请求次数筛选)及[验收状态](docs/local-admin/task-count-filter-acceptance.md)。
+
+[PR #48](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/48)已完成次数筛选、74项回归和部署独立检查，QQ集中非空验收累计3/5；依赖#47保持草稿未合入。

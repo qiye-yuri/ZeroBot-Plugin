@@ -524,7 +524,7 @@ AI费用风险提示支持[调整本页提示阈值](model-request-statistics.md
 
 ## 窗口内请求次数筛选规划
 
-[PR47后详细开发计划](post-pr47-development-plan.md)拟增加全部、仅1次、至少2次的任务筛选，并与现有风险、结果和排序组合。该功能现已实现，部署及验收状态见[本批清单](task-count-filter-acceptance.md)。PR #46、#47仍为草稿，集中QQ验收2/5，本规划不计数。
+[PR47后详细开发计划](post-pr47-development-plan.md)拟增加全部、仅1次、至少2次的任务筛选，并与现有风险、结果和排序组合。该功能现已实现，部署及验收状态见[本批清单](task-count-filter-acceptance.md)。PR #46、#47、#48仍为草稿，集中QQ验收3/5；规划本身不计数，已完成独立部署检查的本功能计为第3项。
 
 
 ## 按窗口内请求次数筛选
