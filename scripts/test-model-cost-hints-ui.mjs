@@ -148,7 +148,7 @@ test('task disclosure preserves visible identity and keyboard focus across refre
  assert.equal(await tasks.nth(0).locator('p').isVisible(),false);
  const download=async()=>{const wait=page.waitForEvent('download');await page.locator('#model-usage-export').click();const file=await(await wait).path();assert.equal((await checkUsageFile(file)).passed,true);const report=JSON.parse(await fs.readFile(file,'utf8'));delete report.exportedAt;return report;};
  const before=await download();
- await page.locator('#model-task-sort').focus();await page.keyboard.press('Tab');assert.equal(await summaries.nth(0).evaluate(e=>e===document.activeElement),true);
+ await page.locator('#model-task-sort').focus();await page.keyboard.press('Tab');assert.equal(await page.getByRole('button',{name:'重置任务视图',exact:true}).evaluate(e=>e===document.activeElement),true);await page.keyboard.press('Tab');assert.equal(await summaries.nth(0).evaluate(e=>e===document.activeElement),true);
  await page.keyboard.press('Enter');assert.equal(await tasks.nth(0).locator('p').isVisible(),true);assert.match(await tasks.nth(0).locator('p').innerText(),/#1 [\s\S]*提示：大输入[\s\S]*#2 [\s\S]*未触发/);
  await render([...rows,{...rows[1],id:5,model:'new-round'}]);assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);assert.equal(await summaries.nth(0).evaluate(e=>e===document.activeElement),true);assert.match(await tasks.nth(0).innerText(),/new-round/);
  await page.keyboard.press('Space');assert.equal(await tasks.nth(0).evaluate(e=>e.open),false);await page.keyboard.press('Enter');
@@ -200,5 +200,28 @@ test('outcome control combines at task scope and preserves lifecycle and full do
  await page.evaluate(()=>authenticated=true);await render([]);assert.match(await page.locator('#model-task-usage').textContent(),/暂无近期请求/);
  await render();await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')});await page.addStyleTag({content:await fs.readFile(root+'appearance.css','utf8')});
  for(const width of [320,1280])for(const theme of ['light','dark']){await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.equal(await outcome.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&e.scrollWidth<=e.clientWidth+1}),true);}
+ assert.equal(network,0);
+});
+
+test('reset task view restores full order and collapses details without changing thresholds or reports',async t=>{
+ const context=await browser.newContext();t.after(()=>context.close());let network=0;await context.route('**/*',r=>{network++;return r.abort()});const page=await context.newPage(),root='internal/localadmin/assets/';
+ await page.setContent((await fs.readFile(root+'index.html','utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link\b[^>]*>/g,''));
+ await page.evaluate(()=>{window.$=id=>document.getElementById(id);window.authenticated=true;$('auth').hidden=true;$('workspace').hidden=false;$('overview-view').hidden=false;});await page.addScriptTag({content:await fs.readFile(root+'overview.js','utf8')});
+ const meta={startedAt:'2026-10-27T00:00:00Z',checkedAt:'2026-10-27T01:00:00Z'},rows=[{id:1,outcome:'completed',usage:{input:1,hit:1,miss:0,output:0}},{id:2,outcome:'failed',usage:{input:200,hit:0,miss:200,output:1}}];
+ const render=(rs=rows,m=meta)=>page.evaluate(({rows,meta})=>renderModelUsage(rows,meta),{rows:rs,meta:m});await render();
+ await page.getByText('AI费用风险提示',{exact:true}).click();await page.getByText('按任务查看用量',{exact:true}).click();await page.getByText('按提供商与模型查看用量',{exact:true}).click();
+ const reset=page.getByRole('button',{name:'重置任务视图',exact:true}),tasks=page.locator('#model-task-usage details'),summaries=page.locator('#model-task-usage summary');
+ const defaults=async()=>{for(const [id,value] of [['filter','all'],['outcome','all'],['sort','original']])assert.equal(await page.locator('#model-task-'+id).inputValue(),value);assert.equal(await page.locator('#model-task-usage details[open]').count(),0);};
+ const download=async()=>{const pending=page.waitForEvent('download');await page.locator('#model-usage-export').click();const file=await(await pending).path();assert.equal((await checkUsageFile(file)).passed,true);const report=JSON.parse(await fs.readFile(file,'utf8'));delete report.exportedAt;return report;};
+ await page.locator('#cost-large').fill('100');await page.getByRole('button',{name:'应用到本页提示',exact:true}).click();await page.locator('#cost-large').fill('300');const before=await download();
+ await page.locator('#model-task-filter').selectOption('large');await page.locator('#model-task-outcome').selectOption('failed');await page.locator('#model-task-sort').selectOption('input');await summaries.nth(0).click();assert.equal(await tasks.count(),1);
+ await reset.click();await defaults();assert.equal(await tasks.count(),2);assert.match(await summaries.nth(0).textContent(),/独立请求 #1/);assert.match(await summaries.nth(1).textContent(),/独立请求 #2/);assert.equal(await page.locator('#cost-large').inputValue(),'300');assert.match(await tasks.nth(1).textContent(),/已应用阈值100/);assert.equal(await reset.evaluate(e=>e===document.activeElement),true);assert.deepEqual(await download(),before);
+ await render();await defaults();await summaries.nth(0).click();await render();assert.equal(await tasks.nth(0).evaluate(e=>e.open),true);await reset.focus();await page.keyboard.press('Enter');await defaults();await summaries.nth(0).click();await reset.focus();await page.keyboard.press('Space');await defaults();await reset.click();await defaults();
+ await page.locator('#model-task-outcome').selectOption('unknown');assert.match(await page.locator('#model-task-usage').textContent(),/当前条件无匹配任务/);await reset.click();assert.equal(await tasks.count(),2);
+ await render([]);assert.equal(await reset.isEnabled(),true);await reset.click();assert.match(await page.locator('#model-task-usage').textContent(),/暂无近期请求/);
+ await page.evaluate(()=>clearModelRequests());assert.equal(await reset.isDisabled(),true);assert.equal(await tasks.count(),0);await render();assert.equal(await reset.isEnabled(),true);
+ for(const clear of ['leave','logout']){await page.locator('#model-task-outcome').selectOption('failed');await page.evaluate(clear=>{if(clear==='leave')showOverview(false);else{authenticated=false;resetOverview();}},clear);assert.equal(await reset.isDisabled(),true);assert.equal(await tasks.count(),0);await page.evaluate(()=>authenticated=true);await render();await defaults();}
+ await summaries.nth(0).click();await render(rows,{startedAt:'2026-10-27T02:00:00Z',checkedAt:'2026-10-27T03:00:00Z'});await defaults();
+ await page.addStyleTag({content:await fs.readFile(root+'style.css','utf8')});await page.addStyleTag({content:await fs.readFile(root+'appearance.css','utf8')});for(const width of [320,1280])for(const theme of ['light','dark']){await page.setViewportSize({width,height:900});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.equal(await reset.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth}),true);}
  assert.equal(network,0);
 });
