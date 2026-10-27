@@ -339,8 +339,8 @@ function modelRequestRiskText(row,settings){
 function selectModelTaskGroups(value,filter="all",sort="original",settings=modelCostSettings,outcome="all"){
   if(!value)return [];
   const groups=value.groups.filter(g=>(outcome==="all"||g.requests.some(r=>outcome==="unknown"?!["completed","failed","incomplete"].includes(r.outcome):r.outcome===outcome)) &&
-    (!["large","highMiss","invalid"].includes(filter)||g.requests.some(r=>{
-    const risk=modelRequestRisk(r,settings);return filter==="invalid"?risk.incomplete||risk.inconsistent:risk[filter];
+    (!["anyRisk","large","highMiss","invalid"].includes(filter)||g.requests.some(r=>{
+    const risk=modelRequestRisk(r,settings);if(filter==="anyRisk")return risk.large||risk.highMiss||risk.incomplete||risk.inconsistent;return filter==="invalid"?risk.incomplete||risk.inconsistent:risk[filter];
   })));
   if(sort==="input"||sort==="miss")groups.sort((a,b)=>{
     const x=a.totals[sort].value,y=b.totals[sort].value;
