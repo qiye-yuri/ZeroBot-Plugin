@@ -748,3 +748,5 @@ GOOS=linux GOARCH=mips GOMIPS=softfloat CGO_ENABLED=0 go build -ldflags "-s -w" 
 </a>
 
 请求次数排序已完成开发、72项回归及部署独立检查，[PR #47](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/47)保持依赖草稿；单条QQ集中非空验收累计2/5，未合入。见[验收记录](docs/local-admin/task-count-sort-acceptance.md)。
+
+下一批见[窗口内请求次数筛选计划](docs/local-admin/post-pr47-development-plan.md)：区分单次与多次窗口请求，4个工作包及10项验收标准。当前仅规划，尚未实现；集中QQ验收仍2/5。
