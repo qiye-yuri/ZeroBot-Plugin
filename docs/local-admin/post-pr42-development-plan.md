@@ -1,6 +1,6 @@
 # PR42后的详细开发计划：任务摘要展示请求结果分布
 
-核对日期：2026-10-27（Asia/Shanghai）。源码基线为master `e22795c52a198d1575292cfd15d8617b747c5864`。PR #42已完成开发、部署验收与合入，见[最终清单](task-view-reset-acceptance.md)。设计契约保留如下，实现和相关65项回归已完成；最终构建、部署与合入状态见[本批清单](task-outcome-summary-acceptance.md)。
+核对日期：2026-10-27（Asia/Shanghai）。源码基线为master `e22795c52a198d1575292cfd15d8617b747c5864`。PR #42已完成开发、部署验收与合入，见[最终清单](task-view-reset-acceptance.md)。设计契约保留如下，实现、相关65项回归、最终构建、部署验收与PR #43合入已完成；最终状态见[本批清单](task-outcome-summary-acceptance.md)。
 
 ## 1 目标与取舍
 
