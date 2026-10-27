@@ -10,7 +10,9 @@ PR #45任务摘要用量提示计数已完成开发、部署验收及合入，�
 
 ## 当前版本与计划
 
-下一批见[PR45后详细开发计划](post-pr45-development-plan.md)：包含任意用量提示的任务筛选。复用四类提示的并集，保留整组范围、结果交集及完整报告；4个工作包、10项验收标准，预计3～5小时有效工时，本批已实现，测试、部署和合入状态见[验收清单](task-any-risk-acceptance.md)。
+下一批设计见[PR46后详细开发计划](post-pr46-development-plan.md)：按窗口内请求次数降序排序，4个工作包、10项验收标准，预计3～5小时有效工时，尚未实现。依赖PR #46分支；单条QQ集中验收队列仍为1/5，规划不计数。
+
+当前待验收批次见[PR45后详细开发计划](post-pr45-development-plan.md)：包含任意用量提示的任务筛选。复用四类提示的并集，保留整组范围、结果交集及完整报告；4个工作包、10项验收标准，预计3～5小时有效工时，本批已实现，测试、部署和合入状态见[验收清单](task-any-risk-acceptance.md)。
 
 本批设计见[PR44后详细开发计划](post-pr44-development-plan.md)：任务摘要用量提示计数。复用已有逐请求规则，展示四类可重叠计数，保留报告及阈值契约；4个工作包、11项验收标准，预计4～6小时有效工时，本批已通过68项回归、非空部署验收并合入，状态见[验收清单](task-risk-counts-acceptance.md)。
 
@@ -87,7 +89,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 | 查阅内容 | 入口 |
 | --- | --- |
-| 当前工作包与开发约定 | [下一批任意用量提示筛选计划](post-pr45-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
+| 当前工作包与开发约定 | [下一批请求次数排序计划](post-pr46-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
 | 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
