@@ -487,3 +487,6 @@ AI费用风险提示支持[调整本页提示阈值](model-request-statistics.md
 
 
 任务筛选排查结束后，可用[一键重置任务视图](model-request-statistics.md#一键重置任务视图)恢复三项选择并收起明细，费用阈值及草稿保持。部署状态见[验收清单](task-view-reset-acceptance.md)。
+
+
+收起任务即可查看[请求结果分布](model-request-statistics.md#任务摘要中的请求结果分布)，四类计数覆盖整组窗口请求，不表示任务成败；部署状态见[验收清单](task-outcome-summary-acceptance.md)。
