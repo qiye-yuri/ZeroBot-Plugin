@@ -1325,3 +1325,5 @@ PR #43非空部署验收补齐：用户已确认QQ收件，实际Chrome摘要分
 ## 任务视图排版开发（2026-10-27）
 
 基于master f5cad7de在codex/task-view-layout实现任务控件自适应布局、摘要四段分行及局部焦点样式，仅改HTML/CSS，不改业务JavaScript或报告。相关66项回归通过，无失败或跳过；320/640/768/1280px的明暗主题几何、原生折叠键盘、完整报告保持已验证。最终构建、部署及非空验收状态集中见[验收清单](task-view-layout-acceptance.md)。历史预算900000、其他待验收和暂缓项保持；本机资料及无关修改不提交。
+
+本批阶段更新：最终构建与完整隔离通过，19:30候选已部署，程序/资源身份、原配置及OneBot核对通过。实际Chrome宽窄屏、主题、空窗口筛选重置和空报告校验通过，下载重复副本已清理。[草稿PR #44](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/44)已上传，非空实机待验收，尚未合入；最新状态见[集中清单](task-view-layout-acceptance.md)。
