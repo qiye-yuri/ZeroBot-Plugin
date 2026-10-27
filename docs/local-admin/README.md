@@ -10,6 +10,8 @@ PR #43任务摘要结果分布已完成开发、部署验收及合入，当前�
 
 ## 当前版本与计划
 
+下一批设计见[PR43后详细开发计划](post-pr43-development-plan.md)：任务视图排版与可读性。整理标签/选择框的自适应布局和摘要四段分行，保留原生控件、计算与报告；4个工作包、11项验收标准，预计4～6小时有效工时，当前仅规划。
+
 本批设计见[PR42后详细开发计划](post-pr42-development-plan.md)：任务摘要展示请求结果分布。复用组内outcome，固定显示接口完成、失败、提前关闭和未知计数，保留完整报告格式；4个工作包、11项验收标准，预计4～6小时有效工时，实现、相关65项回归、部署验收与合入已完成，最终状态见[本批清单](task-outcome-summary-acceptance.md)。
 
 本批设计见[PR41后详细开发计划](post-pr41-development-plan.md)：一键重置任务视图，恢复风险、结果、排序并收起明细，保留已应用阈值、草稿与完整请求。4个工作包、11项验收标准，预计有效工时3～5小时；本批实现、63项相关回归、部署验收及合入已完成，最终状态见[验收清单](task-view-reset-acceptance.md)。
@@ -81,7 +83,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 | 查阅内容 | 入口 |
 | --- | --- |
-| 当前工作包与开发约定 | [下一批任务结果分布计划](post-pr42-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
+| 当前工作包与开发约定 | [下一批任务视图排版计划](post-pr43-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
 | 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
