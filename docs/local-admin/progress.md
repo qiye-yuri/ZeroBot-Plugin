@@ -1343,3 +1343,5 @@ PR #44非空部署验收通过：用户确认QQ收件，实际Chrome宽窄屏四
 ## 任务摘要用量提示计数开发（2026-10-27）
 
 基于master ef331494在codex/task-risk-counts实现摘要四类可重叠提示计数，复用modelRequestRisk，保持整组范围和已应用阈值语义；仅增加局部计数与说明，不改报告、接口或存储。测试、部署和合入状态集中见[本批清单](task-risk-counts-acceptance.md)。历史预算900000、其他待验收/暂缓项保持，本机资料及无关修改不提交。
+
+本批阶段更新：最终程序构建与完整隔离通过，20:06候选已部署，程序及8份资源身份、原配置、OneBot与更新监控核对通过。实际Chrome空窗口说明、筛选重置、窄屏和空报告校验通过，下载重复副本已清理。[草稿PR #45](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/45)已上传，非空摘要/阈值重算待本批新请求，尚未合入；详见[本批清单](task-risk-counts-acceptance.md)。
