@@ -490,3 +490,8 @@ AI费用风险提示支持[调整本页提示阈值](model-request-statistics.md
 
 
 收起任务即可查看[请求结果分布](model-request-statistics.md#任务摘要中的请求结果分布)，四类计数覆盖整组窗口请求，不表示任务成败；部署状态见[验收清单](task-outcome-summary-acceptance.md)。
+
+
+## 任务视图的排版与操作
+
+运行概览 → 模型接口请求 → AI费用风险提示 → 按任务查看用量：标签位于选择框上方，窄屏按顺序排列；任务摘要分为身份、结果、Token和缓存四段。点击摘要或Tab定位后按Enter/空格展开；筛选、排序、重置与报告规则保持。更新程序后刷新页面生效，需先登录后台。详见[任务统计说明](model-request-statistics.md#任务视图排版)和[部署验收状态](task-view-layout-acceptance.md)。

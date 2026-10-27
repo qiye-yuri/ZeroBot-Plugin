@@ -1,6 +1,6 @@
 # PR43后的详细开发计划：任务视图排版与可读性
 
-核对日期：2026-10-27（Asia/Shanghai）。基线master `0643513d73581c0967ddaf7f1ba966a381c63e77`。PR #43已完成部署验收及合入，见[最终清单](task-outcome-summary-acceptance.md)。本次仅交付后续设计及配套记录，以下排版尚未实现。
+核对日期：2026-10-27（Asia/Shanghai）。基线master `0643513d73581c0967ddaf7f1ba966a381c63e77`。PR #43已完成部署验收及合入，见[最终清单](task-outcome-summary-acceptance.md)。本计划最初仅交付设计；现已按本计划实现局部排版并通过66项回归，当前部署与合入状态见[排版验收](task-view-layout-acceptance.md)。下文现状与排期保留设计时含义。
 
 ## 1 问题与目标
 
