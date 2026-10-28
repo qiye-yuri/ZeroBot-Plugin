@@ -1,6 +1,8 @@
-后续设计（2026-10-28）：[按请求关联类型筛选详细计划](docs/local-admin/post-pr50-development-plan.md)已整理，包含4个工作包、11项验收标准，预计4～6小时有效工时。复用grouped区分有效会话/任务关联和缺少关联的独立请求；尚未实现。本轮仅规划，PR #50仍待集中验收，队列保持1/5，累计5项统一进行。
+后续设计（2026-10-28）：[筛选结果已知输出量小计详细计划](docs/local-admin/post-pr51-development-plan.md)已整理，含4个工作包、11项验收标准，预计3～5小时有效工时。复用现有组级输出合计，区分已知零与未知，保留完整导出；尚未实现。本轮仅文档，QQ队列保持2/5，继续满5项统一验收。
 
-2026-10-28输出量排序：已实现[按窗口内已知输出量排序](docs/local-admin/model-request-statistics.md#按窗口内已知输出量排序)，77项相关离线回归通过，最终部署与上传进度见[验收清单](docs/local-admin/task-output-sort-acceptance.md)。本批已部署并通过独立检查，真实非空与QQ验收登记1/5，累计5项统一安排，尚未合入master。
+2026-10-28请求关联类型筛选：已按[详细计划](docs/local-admin/post-pr50-development-plan.md)实现，80项相关回归、最终150项隔离及备份部署独立检查通过，使用方式见[说明](docs/local-admin/model-request-statistics.md#按请求关联类型筛选)，部署及集中验收状态见[本批清单](docs/local-admin/task-association-filter-acceptance.md)。当前队列2/5，真实非空与QQ配合继续累计5项统一进行，尚未合入master。
+
+上一批记录（2026-10-28输出量排序）：已实现[按窗口内已知输出量排序](docs/local-admin/model-request-statistics.md#按窗口内已知输出量排序)，77项相关离线回归通过，最终部署与上传进度见[验收清单](docs/local-admin/task-output-sort-acceptance.md)。本批已部署并通过独立检查，真实非空与QQ验收登记1/5，累计5项统一安排，尚未合入master。
 
 此前规划基线（2026-10-28）：PR #46～#49已集中验收并合入master，QQ配合队列0/5。下一批规划为[按窗口内已知输出量排序](docs/local-admin/post-pr49-development-plan.md)，含4个工作包、10项验收标准，预计3～5小时有效工时；尚未实现，本轮文档不计入队列，继续累计5项统一验收。
 

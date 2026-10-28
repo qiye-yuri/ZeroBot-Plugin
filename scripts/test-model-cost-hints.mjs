@@ -289,3 +289,26 @@ test('matching request coverage sums complete selected groups once within the re
  const window=c.modelTaskUsage([rows[1],...Array.from({length:255},()=>rows[0]),rows[2]],meta);assert.match(c.modelTaskUsageText(window,c.selectModelTaskGroups(window,'all','original',settings,'all','single')),/匹配任务 1\/2；匹配任务内窗口请求 1\/256次/);
  assert.doesNotMatch(c.modelTaskUsageText(null),/匹配任务内/);assert.doesNotMatch(c.modelTaskUsageText(c.modelTaskUsage([],meta)),/匹配任务内/);
 });
+
+test('association filtering distinguishes single linked tasks and retains whole group intersections',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},settings={large:100,minimum:100,missPercent:80};
+ const r=(id,task,input,output,outcome='completed')=>({...row(input,input,0,output),id,session:'a'.repeat(24),task:task.repeat(24),outcome});
+ const rows=[r(1,'b',1,20),r(2,'c',100,10),r(3,'c',1,1,'failed'),{...r(4,'d',2,0),task:null},{...r(5,'e',3,null),session:null}];
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),ids=gs=>Array.from(gs,g=>Array.from(g.requests,r=>r.id));
+ const select=(association,count='all',risk='all',outcome='all',sort='original')=>c.selectModelTaskGroups(v,risk,sort,settings,outcome,count,association);
+ assert.deepEqual(ids(select('all')),[[1],[2,3],[4],[5]]);assert.deepEqual(ids(select('linked')),[[1],[2,3]]);assert.deepEqual(ids(select('independent')),[[4],[5]]);
+ assert.deepEqual(ids(select('linked','single')),[[1]]);assert.deepEqual(ids(select('linked','multiple')),[[2,3]]);assert.equal(select('independent','multiple').length,0);
+ assert.match(c.modelTaskUsageText(v,select('linked')),/匹配任务 2\/4；匹配任务内窗口请求 3\/5次/);assert.match(c.modelTaskUsageText(v,select('independent')),/窗口请求 2\/5次/);assert.match(c.modelTaskUsageText(v,select('independent','multiple')),/匹配任务 0\/4；匹配任务内窗口请求 0\/5次/);
+ for(const sort of ['original','count','input','miss','output'])assert.deepEqual(ids(select('linked','multiple','anyRisk','failed',sort)),[[2,3]]);
+ assert.deepEqual(ids(select('linked','all','all','all','output')),[[1],[2,3]]);assert.deepEqual(ids(select('linked','all','all','all','input')),[[2,3],[1]]);
+ assert.equal(JSON.stringify(v),before);assert.deepEqual(ids(c.selectModelTaskGroups(v)),ids(select('all')));
+});
+
+test('association classification reuses exact group identities and current bounded snapshot',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},base={...row(1,1,0),id:1,session:'a'.repeat(24),task:'b'.repeat(24)};
+ const rows=[base,{...base,id:2,session:'c'.repeat(24)},{...base,id:3,task:'B'.repeat(24)},{...base,session:null},{...base,task:null},{...base,task:'invalid'},{...base,session:'invalid'}];
+ const select=v=>c.selectModelTaskGroups(v,'all','original',undefined,'all','all','independent');const v=c.modelTaskUsage(rows,meta);
+ assert.equal(v.groups.length,7);assert.equal(select(v).length,4);assert.ok(select(v).every(g=>g.count===1));
+ const window=c.modelTaskUsage([base,...Array.from({length:256},(_,i)=>({...base,id:i+2,task:null}))],meta);assert.equal(window.count,256);assert.equal(select(window).length,256);
+ const next=c.modelTaskUsage([{...rows[3],session:'a'.repeat(24)}],meta);assert.equal(select(next).length,0);assert.equal(next.groups[0].grouped,true);
+});
