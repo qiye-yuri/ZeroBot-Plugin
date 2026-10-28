@@ -1,6 +1,6 @@
 # 任务用量汇总表展示验收清单
 
-执行更新（2026-10-29）：本轮五项集中真实验收通过，用户确认QQ收件；实际样本及合成覆盖边界见[集中记录](task-usage-batch-20261029.md)。以下保留各批历史状态，合入结果以集中记录为准。
+执行更新（2026-10-29）：本轮五项集中真实验收通过，用户确认QQ收件；实际样本及合成覆盖边界见[集中记录](task-usage-batch-20261029.md)。以下保留各批历史状态，本批已合入master，队列0/5；合并SHA见集中记录。
 
 日期：2026-10-28（Asia/Shanghai）。实际基线master d4f8ea843ec1c42c363994ed4f11a9ed8eebd703，分支codex/task-usage-table，base master。设计见[计划](post-pr54-development-plan.md)，操作见[使用说明](model-request-statistics.md#任务用量汇总表展示)。
 

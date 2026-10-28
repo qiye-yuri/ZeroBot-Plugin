@@ -1,6 +1,6 @@
 # 窗口内最慢请求耗时排序验收清单
 
-执行更新（2026-10-29）：本轮五项集中真实验收通过，用户确认QQ收件；实际样本及合成覆盖边界见[集中记录](task-usage-batch-20261029.md)。以下保留各批历史状态，合入结果以集中记录为准。
+执行更新（2026-10-29）：本轮五项集中真实验收通过，用户确认QQ收件；实际样本及合成覆盖边界见[集中记录](task-usage-batch-20261029.md)。以下保留各批历史状态，本批已合入master，队列0/5；合并SHA见集中记录。
 
 日期：2026-10-29（Asia/Shanghai）。实际基线PR #58头71835f2c6569e716ae6c05a5779afa564e09ed90，分支codex/task-slowest-sort，base codex/task-request-duration，依赖#55～#58。设计见[计划](post-pr58-development-plan.md)，操作见[说明](model-request-statistics.md#按窗口内最慢请求耗时排序)。
 
