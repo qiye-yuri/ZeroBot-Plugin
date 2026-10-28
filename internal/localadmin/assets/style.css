@@ -81,7 +81,7 @@
 #uw-runtime{min-width:0;overflow-wrap:anywhere}#uw-runtime dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 16px;margin:20px 0}#uw-runtime dt{font-weight:600}#uw-runtime dd{margin:0;min-width:0}#uw-runtime h3{font-size:14px;margin:20px 0 8px}#uw-runtime p,#uw-runtime strong{white-space:pre-wrap}#uw-runtime ul{padding-left:20px;margin:8px 0}#uw-runtime li{margin:12px 0}#uw-runtime li p{margin:4px 0}@media(max-width:700px){#uw-runtime dl{grid-template-columns:minmax(0,1fr);gap:6px}#uw-runtime dd{margin-bottom:8px}}
 
 /* Keep task controls and summaries readable without changing native disclosure. */
-.model-task-toolbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:12px;align-items:end;margin:12px 0}
+.model-task-toolbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:12px;align-items:end;margin:12px 0}
 .model-task-field{min-width:0}
 .model-task-field label{display:block;margin-bottom:6px;font-size:13px;font-weight:600}
 .model-task-field select{width:100%;max-width:100%;min-height:44px;padding:10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:var(--surface);color:var(--text)}
