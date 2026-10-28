@@ -1,3 +1,5 @@
+2026-10-28输出量排序：已实现[按窗口内已知输出量排序](docs/local-admin/model-request-statistics.md#按窗口内已知输出量排序)，77项相关离线回归通过，最终部署与上传进度见[验收清单](docs/local-admin/task-output-sort-acceptance.md)。本批真实非空验收按累计5项安排，尚未合入master。
+
 2026-10-28当前状态：PR #46～#49已集中验收并合入master，QQ配合队列0/5。下一批规划为[按窗口内已知输出量排序](docs/local-admin/post-pr49-development-plan.md)，含4个工作包、10项验收标准，预计3～5小时有效工时；尚未实现，本轮文档不计入队列，继续累计5项统一验收。
 
 ## 本地机器人管理后台 v0.1

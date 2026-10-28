@@ -10,6 +10,25 @@ function fixture(){
  vm.runInContext(fs.readFileSync('internal/localadmin/assets/overview.js','utf8'),c);return {c,$};
 }
 const row=(input,hit,miss,output=10)=>({id:1,model:'fixture',usage:{input,hit,miss,output}});
+
+test('output sorting uses known partial totals, stable ties and exact large sums after group filters',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},settings={large:100,minimum:50,missPercent:80};
+ const r=(id,task,output,input=1,outcome='completed')=>({...row(input,input,0,output),id,session:'a'.repeat(24),task:task.repeat(24),outcome});
+ const rows=[r(1,'a',10,100),r(2,'a',null,1,'failed'),r(3,'b',0),r(4,'c',null),r(5,'d',20),r(6,'e',10),r(7,'f',null)];
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),ids=gs=>Array.from(gs,g=>g.requests[0].id);
+ const sorted=c.selectModelTaskGroups(v,'all','output',settings);
+ assert.deepEqual(ids(sorted),[5,1,6,3,4,7]);assert.equal(v.groups[0].totals.output.known,1);
+ assert.match(c.modelTaskSummaryText(v.groups[0]),/输出 10（已知1\/2次）/);
+ assert.deepEqual(ids(c.selectModelTaskGroups(v,'anyRisk','output',settings,'failed','multiple')),[1]);
+ assert.match(c.modelTaskUsageText(v,c.selectModelTaskGroups(v,'anyRisk','output',settings,'failed','multiple')),/窗口请求 2\/7次/);
+ assert.equal(JSON.stringify(v),before);assert.deepEqual(Array.from(sorted[1].requests,r=>r.id),[1,2]);
+ const n=Number.MAX_SAFE_INTEGER,large=c.modelTaskUsage([r(1,'a',n),r(2,'a',1),r(3,'b',n),r(4,'b',2)],meta);
+ assert.deepEqual(ids(c.selectModelTaskGroups(large,'all','output')),[3,1]);
+ const singles=c.modelTaskUsage([{...row(1,1,0,2),id:1},{...row(1,1,0,3),id:1},r(3,'a',4),{...r(4,'a',5),session:'b'.repeat(24)}],meta);
+ assert.deepEqual(Array.from(c.selectModelTaskGroups(singles,'all','output'),g=>g.totals.output.value),['5','4','3','2']);
+ const window=c.modelTaskUsage(Array.from({length:257},(_,i)=>({...row(1,1,0,257-i),id:i})),meta);
+ assert.equal(window.count,256);assert.equal(c.selectModelTaskGroups(window,'all','output')[0].requests[0].id,1);
+});
 test('threshold boundaries and unknown amount',()=>{
  const {c}=fixture();const s=c.modelCostHints([row(100000,20000,80000),row(99999,80000,19999),row(10000,2000,8000),row(9999,0,9999)]);
  assert.match(s,/大输入1次，高未命中2次/);assert.match(s,/输入最多：#1 fixture，输入100000/);assert.match(s,/金额未知/);
