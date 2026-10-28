@@ -343,7 +343,7 @@ function modelTaskSummaryText(g,settings=modelCostSettings){
 }
 function modelTaskRequestsText(g,settings=modelCostSettings){
   const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
-  return g.requests.map(r=>`#${r.id??"未知"} · 客户端请求序号${r.sequence??"未知"} · ${r.kind??"类别未知"} · ${r.provider??"提供商未知"} / ${r.model??"模型未知"} · ${r.outcome??"状态未知"} · ${r.startedAt??"时间未知"}\n`+Object.entries(names).map(([f,n])=>`${n} ${Number.isSafeInteger(r.usage?.[f]) && r.usage[f]>=0?r.usage[f]:"未知"}`).join(" / ")+`\n提示：${modelRequestRiskText(r,settings)}`).join("\n");
+  return g.requests.map(r=>`#${r.id??"未知"} · 客户端请求序号${r.sequence??"未知"} · ${r.kind??"类别未知"} · ${r.provider??"提供商未知"} / ${r.model??"模型未知"} · ${r.outcome??"状态未知"} · ${r.startedAt??"时间未知"}\n接口耗时：${Number.isFinite(r.milliseconds)&&r.milliseconds>=0?r.milliseconds.toFixed(0)+" ms":"未知"}。\n`+Object.entries(names).map(([f,n])=>`${n} ${Number.isSafeInteger(r.usage?.[f]) && r.usage[f]>=0?r.usage[f]:"未知"}`).join(" / ")+`\n提示：${modelRequestRiskText(r,settings)}`).join("\n");
 }
 
 // Shared with the existing hint summary; the offline report checker stays independent.

@@ -413,3 +413,14 @@ test('unknown kind classification preserves original values and follows retained
  const rows=[undefined,null,'GPT','future','gpt','gpt'].map((kind,i)=>({...row(1,1,0),id:i+1,session:s,task:t,kind})),v=c.modelTaskUsage(rows,meta),before=JSON.stringify(rows);assert.equal(select(v,'gpt').length,1);assert.equal(select(v,'unknown').length,1);assert.equal(select(v,'unknown')[0].count,6);assert.equal(select(v,'chat').length,0);assert.equal(JSON.stringify(rows),before);
  const bounded=c.modelTaskUsage([{...rows[0],kind:'agent'},...Array.from({length:256},(_,i)=>({...rows[4],id:i+10}))],meta);assert.equal(select(bounded,'agent').length,0);assert.equal(select(bounded,'gpt')[0].count,256);assert.equal(select(c.modelTaskUsage([],meta),'gpt').length,0);assert.equal(select(null,'gpt').length,0);
 });
+
+test('task request duration distinguishes zero unknown and rounded values independently of outcome',()=>{
+ const {c}=fixture(),values=[1199.6,0,undefined,0.4,null,-1,NaN,Infinity,'1200',1e21],expected=['1200 ms','0 ms','未知','0 ms','未知','未知','未知','未知','未知','1e+21 ms'];
+ const rows=values.map((milliseconds,i)=>({...row(100,60,40),id:i+1,milliseconds,outcome:['completed','failed','incomplete','unknown'][i%4]})),g={requests:rows};
+ const text=c.modelTaskRequestsText(g);assert.deepEqual(Array.from(text.matchAll(/接口耗时：([^。]+)。/g),m=>m[1]),expected);assert.match(text,/#1[^\n]+\n接口耗时：1200 ms。\n输入 100/);assert.match(text,/#2[^\n]*failed[^\n]*\n接口耗时：0 ms。/);assert.doesNotMatch(text,/NaN ms|Infinity ms/);rows.forEach((r,i)=>assert.equal(Object.is(r.milliseconds,values[i]),true));
+});
+test('duration details keep complete filtered groups and fresh bounded request order',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},rows=[{...row(100,100,0),id:1,session:'a'.repeat(24),task:'b'.repeat(24),kind:'agent',outcome:'completed',milliseconds:1200},{...row(1,1,0),id:2,session:'a'.repeat(24),task:'b'.repeat(24),kind:'vision',outcome:'failed',milliseconds:0}];const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v);
+ for(const sort of ['original','count','input','miss','output']){const gs=c.selectModelTaskGroups(v,'large',sort,{large:100,minimum:100,missPercent:80},'failed','multiple','linked','all','b'.repeat(24),'agent');assert.equal(gs.length,1);assert.deepEqual(Array.from(c.modelTaskRequestsText(gs[0]).matchAll(/接口耗时：([^。]+)。/g),m=>m[1]),['1200 ms','0 ms']);}assert.equal(JSON.stringify(v),before);
+ const bounded=c.modelTaskUsage([rows[0],...Array.from({length:256},(_,i)=>({...rows[1],id:i+10,milliseconds:2}))],meta);assert.doesNotMatch(c.modelTaskRequestsText(bounded.groups[0]),/1200 ms/);assert.equal(bounded.groups[0].requests.length,256);
+});
