@@ -398,3 +398,18 @@ test('identity query does not merge case variants, double count OR matches or se
  const v=c.modelTaskUsage(rows,meta);assert.equal(select(v,lower).length,1);assert.equal(select(v,lower)[0].count,1);assert.equal(select(v,upper)[0].requests[0].id,2);
  const bounded=c.modelTaskUsage([rows[0],...Array.from({length:256},(_,i)=>({...rows[2],id:i+10}))],meta);assert.equal(select(bounded,lower).length,0);assert.equal(select(c.modelTaskUsage([],meta),lower).length,0);assert.equal(select(null,lower).length,0);
 });
+
+test('kind filtering keeps whole mixed groups through cross-request intersections',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},s='a'.repeat(24),t='b'.repeat(24),settings={large:100,minimum:100,missPercent:80};
+ const r=(id,task,kind,input,output,outcome='completed')=>({id,session:s,task,kind,outcome,usage:{input,hit:input,miss:0,output}}),rows=[r(1,t,'agent',100,10),r(2,t,'vision',1,null,'failed'),r(3,'c'.repeat(24),'gpt',1,0),r(4,null,'chat',1,20),r(5,null,undefined,1,null,'unknown')],v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v);
+ const select=(kind,identity='',risk='all',outcome='all',count='all',assoc='all',coverage='all',sort='original')=>c.selectModelTaskGroups(v,risk,sort,settings,outcome,count,assoc,coverage,identity,kind),ids=gs=>Array.from(gs,g=>g.requests[0].id);
+ for(const [kind,expected] of [['all',[1,3,4,5]],['agent',[1]],['vision',[1]],['gpt',[3]],['chat',[4]],['unknown',[5]]])assert.deepEqual(ids(select(kind)),expected);
+ for(const sort of ['original','count','input','miss','output']){const gs=select('agent',t,'large','failed','multiple','linked','partial',sort);assert.deepEqual(ids(gs),[1]);assert.equal(gs[0].count,2);assert.equal(c.modelTaskTokenTotal(gs,'input').value,'101');assert.equal(c.modelTaskTokenTotal(gs,'output').known,1);}
+ for(const args of [['vision','','all','all','all','independent'],['vision','','all','all','single'],['vision','','all','all','all','all','complete'],['agent','c'.repeat(24)]])assert.deepEqual(ids(select(...args)),[]);
+ assert.match(taskTableText(c,v,select('gpt')),/匹配任务已知输出：0 Token（已知1\/1次）/);assert.match(taskTableText(c,v,select('unknown')),/匹配任务已知输出：未知（已知0\/1次）/);assert.match(taskTableText(c,v,select('vision','','all','all','single')),/全窗口已知输出：30 Token（已知3\/5次）/);assert.equal(JSON.stringify(v),before);
+});
+test('unknown kind classification preserves original values and follows retained snapshots',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},s='a'.repeat(24),t='b'.repeat(24),select=(v,kind)=>c.selectModelTaskGroups(v,'all','original',undefined,'all','all','all','all','',kind);
+ const rows=[undefined,null,'GPT','future','gpt','gpt'].map((kind,i)=>({...row(1,1,0),id:i+1,session:s,task:t,kind})),v=c.modelTaskUsage(rows,meta),before=JSON.stringify(rows);assert.equal(select(v,'gpt').length,1);assert.equal(select(v,'unknown').length,1);assert.equal(select(v,'unknown')[0].count,6);assert.equal(select(v,'chat').length,0);assert.equal(JSON.stringify(rows),before);
+ const bounded=c.modelTaskUsage([{...rows[0],kind:'agent'},...Array.from({length:256},(_,i)=>({...rows[4],id:i+10}))],meta);assert.equal(select(bounded,'agent').length,0);assert.equal(select(bounded,'gpt')[0].count,256);assert.equal(select(c.modelTaskUsage([],meta),'gpt').length,0);assert.equal(select(null,'gpt').length,0);
+});

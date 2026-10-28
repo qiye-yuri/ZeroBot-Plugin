@@ -1,5 +1,7 @@
 # PR56之后的开发计划：按请求类别筛选任务
 
+执行更新：用户已授权实施，实际基线PR #56头96e3283b，96项回归通过；最终部署及集中验收以[本批清单](task-kind-filter-acceptance.md)为准。下文保留设计时点。
+
 日期：2026-10-28（Asia/Shanghai）。设计基线为codex/task-identity-filter的9da23f5c456c948ada9e7cfcac4b76d3092dd926，已核对origin一致。[PR #56](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/56)为开放草稿，base codex/task-usage-table，依赖#55。两批已完成部署独立检查，真实非空及QQ收件待集中验收，当前2/5。本轮仅规划，不实现、不部署、不增加计数。
 
 ## 1 目标和范围
