@@ -2170,3 +2170,7 @@ node --check internal/localadmin/assets/overview.js通过；node --test scripts/
 新增[按窗口内最慢请求耗时排序计划](post-pr58-development-plan.md)，同步9份公开文档。node --test scripts/test-doc-links.mjs共18通过、0失败、0跳过；200份文档链接/锚点零错误，差异检查通过。人工复核A/C/E/F/B/D顺序、原值与显示舍入差异、known/count、未知末尾、完整组/报告保持、依赖及4/5队列一致。
 
 本轮只有文档，未构建、部署、重启或重跑业务测试，未发送QQ或调用付费模型。文档检查不代表新功能已实现；外部链接不由文档检查器联网验证，PR #58及远端基线已另行核对。
+
+## 最慢请求耗时排序开发（2026-10-29）
+
+基于PR #58头71835f2c实现，102项相关回归、语法及四宽度明暗8份截图通过。共用组级最大值，原值稳定排序、摘要单独显示known/count，不改Token表格或完整报告，无采集和框架扩展。说明已同步，最终隔离、部署及真实验收见[本批清单](task-slowest-sort-acceptance.md)。当前4/5，独立检查后按实际缺口登记第五项，统一QQ配合后依次合入。

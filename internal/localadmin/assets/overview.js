@@ -329,7 +329,17 @@ function modelTaskUsageTable(value,groups){
   }
   table.append(caption,head,body);return table;
 }
+function modelTaskDurationSummary(g){
+  let milliseconds=null,known=0;
+  for(const r of g.requests){
+    if(Number.isFinite(r.milliseconds)&&r.milliseconds>=0){
+      known++;if(milliseconds===null||r.milliseconds>milliseconds)milliseconds=r.milliseconds;
+    }
+  }
+  return {milliseconds,known,count:g.count};
+}
 function modelTaskSummaryText(g,settings=modelCostSettings){
+  const duration=modelTaskDurationSummary(g);
   const risks={large:0,highMiss:0,incomplete:0,inconsistent:0};
   for(const r of g.requests){const risk=modelRequestRisk(r,settings);for(const key of Object.keys(risks))if(risk[key])risks[key]++;}
   const outcomes={completed:0,failed:0,incomplete:0,unknown:0};
@@ -337,6 +347,7 @@ function modelTaskSummaryText(g,settings=modelCostSettings){
   const names={input:"输入",hit:"命中",miss:"未命中",output:"输出"};
   return [g.grouped?`会话${g.session} · 任务${g.task} · 窗口内${g.count}次请求`:`独立请求 #${g.requests[0].id??"未知"}（缺少有效关联标识） · 窗口内${g.count}次请求`,
     `窗口内请求结果：接口完成 ${outcomes.completed} · 失败 ${outcomes.failed} · 提前关闭 ${outcomes.incomplete} · 未知 ${outcomes.unknown}`,
+    `窗口内最慢已知接口耗时：${duration.milliseconds===null?"未知":duration.milliseconds.toFixed(0)+" ms"}（已知${duration.known}/${duration.count}次）。`,
     `窗口内用量提示（可重叠）：大输入 ${risks.large}次 · 高未命中 ${risks.highMiss}次 · 字段不完整 ${risks.incomplete}次 · 分项不一致 ${risks.inconsistent}次`,
     Object.entries(names).map(([f,n])=>`${n} ${g.totals[f].value??"未知"}（已知${g.totals[f].known}/${g.count}次）`).join(" / "),
     `有效缓存统计${g.cacheSummary.valid}次 · 加权命中率${g.cacheSummary.hitRate??"未知"} · 分项不一致${g.cacheSummary.inconsistent}次`].join("\n");
@@ -368,6 +379,14 @@ function selectModelTaskGroups(value,filter="all",sort="original",settings=model
     (!["anyRisk","large","highMiss","invalid"].includes(filter)||g.requests.some(r=>{
     const risk=modelRequestRisk(r,settings);if(filter==="anyRisk")return risk.large||risk.highMiss||risk.incomplete||risk.inconsistent;return filter==="invalid"?risk.incomplete||risk.inconsistent:risk[filter];
   })));
+  if(sort==="slowest"){
+    const durations=new Map(groups.map(g=>[g,modelTaskDurationSummary(g).milliseconds]));
+    groups.sort((a,b)=>{
+      const x=durations.get(a),y=durations.get(b);
+      if(x===null)return y===null?0:1;if(y===null)return -1;
+      return x===y?0:x>y?-1:1;
+    });
+  }
   if(sort==="count")groups.sort((a,b)=>b.count-a.count);
   if(sort==="input"||sort==="miss"||sort==="output")groups.sort((a,b)=>{
     const x=a.totals[sort].value,y=b.totals[sort].value;

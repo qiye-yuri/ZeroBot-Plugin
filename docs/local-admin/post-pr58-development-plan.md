@@ -1,5 +1,7 @@
 # PR58之后的开发计划：按窗口内最慢请求耗时排序
 
+执行更新：用户已授权实施，实际基线PR #58头71835f2c，102项回归通过；最终部署与集中验收见[本批清单](task-slowest-sort-acceptance.md)。下文保留设计时点。
+
 日期：2026-10-29（Asia/Shanghai）。设计基线为codex/task-request-duration的1284a7cdf8a58799d66c0e3c3ae5376480920c38，已核对origin一致。[PR #58](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/58)为开放草稿，base codex/task-kind-filter，依赖#55～#57。四批已完成部署独立检查，真实非空及QQ收件待集中验收，当前4/5。本轮仅规划，不实现、不部署、不增加计数。
 
 ## 1 目标与边界
