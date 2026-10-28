@@ -300,7 +300,7 @@ function modelTaskUsageText(value,groups=value?.groups){
   if(!value)return "任务用量未知，缺少有效统计窗口。";
   if(!value.count)return "暂无近期请求，任务用量未知。";
   const lines=[`统计起点：${value.startedAt}。当前窗口${value.count}次请求，${value.groups.length}组。仅包含最近最多256条已结束请求，可能缺少早期轮次；不代表任务完整用量、任务完成状态或费用。缺少有效会话/任务标识的请求逐条显示。`];
-  lines.push(`匹配任务 ${groups.length}/${value.groups.length}；展开任务查看全部窗口内请求。`);
+  lines.push(`匹配任务 ${groups.length}/${value.groups.length}；匹配任务内窗口请求 ${groups.reduce((n,g)=>n+g.count,0)}/${value.count}次；展开任务查看全部窗口内请求。`);
   if(!groups.length)lines.push("当前条件无匹配任务。");
   return lines.join("\n");
 }

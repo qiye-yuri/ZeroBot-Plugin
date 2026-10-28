@@ -258,3 +258,15 @@ test('count filtering intersects whole groups, preserves ordering and follows re
  const isolated=c.modelTaskUsage([{...rows[0],session:null},{...rows[0],session:null},{...rows[0],session:'f'.repeat(24)},rows[0]],meta);assert.equal(c.selectModelTaskGroups(isolated,'all','original',settings,'all','single').length,4);
  const window=c.modelTaskUsage([rows[1],...Array.from({length:255},()=>rows[0]),rows[2]],meta);assert.deepEqual(Array.from(c.selectModelTaskGroups(window,'all','original',settings,'all','single'),g=>g.count),[1]);assert.equal(c.selectModelTaskGroups(window,'all','original',settings,'all','single')[0].session,rows[1].session);
 });
+
+test('matching request coverage sums complete selected groups once within the retained window',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},settings={large:100,minimum:100,missPercent:80};
+ const rows=[1,2,3].flatMap((n,i)=>Array.from({length:n},(_,j)=>({...row(i===1&&j===0?100:1,i===1&&j===0?0:1,i===1&&j===0?100:0),id:i*10+j+1,session:String(i+1).repeat(24),task:'a'.repeat(24),outcome:j===1?'failed':'completed'})));
+ const v=c.modelTaskUsage(rows,meta),original=JSON.stringify(v),text=(count='all',risk='all',outcome='all',sort='original')=>c.modelTaskUsageText(v,c.selectModelTaskGroups(v,risk,sort,settings,outcome,count));
+ assert.match(text(),/匹配任务 3\/3；匹配任务内窗口请求 6\/6次/);assert.match(text('single'),/匹配任务 1\/3；匹配任务内窗口请求 1\/6次/);assert.match(text('multiple'),/匹配任务 2\/3；匹配任务内窗口请求 5\/6次/);
+ for(const sort of ['original','count','input','miss'])assert.match(text('multiple','anyRisk','failed',sort),/匹配任务 1\/3；匹配任务内窗口请求 2\/6次/);
+ assert.match(text('single','anyRisk'),/匹配任务 0\/3；匹配任务内窗口请求 0\/6次[\s\S]*当前条件无匹配任务/);assert.equal(JSON.stringify(v),original);
+ const independent=c.modelTaskUsage([{...rows[0],session:null,usage:{}},{...rows[0],session:null,usage:{}},{...rows[0],session:'f'.repeat(24)},rows[0]],meta);assert.match(c.modelTaskUsageText(independent),/匹配任务 4\/4；匹配任务内窗口请求 4\/4次/);
+ const window=c.modelTaskUsage([rows[1],...Array.from({length:255},()=>rows[0]),rows[2]],meta);assert.match(c.modelTaskUsageText(window,c.selectModelTaskGroups(window,'all','original',settings,'all','single')),/匹配任务 1\/2；匹配任务内窗口请求 1\/256次/);
+ assert.doesNotMatch(c.modelTaskUsageText(null),/匹配任务内/);assert.doesNotMatch(c.modelTaskUsageText(c.modelTaskUsage([],meta)),/匹配任务内/);
+});
