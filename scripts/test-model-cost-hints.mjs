@@ -236,3 +236,11 @@ test('any risk selects the union once and intersects results at task scope',()=>
  const small=c.modelTaskUsage([row(60,60,0),row(60,60,0)].map(r=>({...r,session:'a'.repeat(24),task:'b'.repeat(24)})),meta);assert.equal(select(small).length,0);
  const window=c.modelTaskUsage([rows[5],...Array.from({length:256},()=>rows[0])],meta);assert.equal(select(window).length,0);assert.equal(c.selectModelTaskGroups(v,'anyRisk','original',settings,'failed').length,0);
 });
+
+test('count sorting is stable after filtering and never mutates original groups',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-27',checkedAt:'2026-10-28'},settings={large:100,minimum:100,missPercent:80};
+ const rows=[1,3,2,3].flatMap((n,i)=>Array.from({length:n},(_,j)=>({...row(i===3?200:100,0,i===3?200:100),id:1,session:String(i+1).repeat(24),task:'a'.repeat(24),outcome:j===1?'failed':'completed'})));const original=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v);
+ const ids=gs=>Array.from(gs,g=>g.session[0]);assert.deepEqual(ids(c.selectModelTaskGroups(v,'all','count')),['2','4','3','1']);assert.deepEqual(ids(c.selectModelTaskGroups(v,'anyRisk','count',settings,'failed')),['2','4','3']);assert.deepEqual(ids(c.selectModelTaskGroups(v,'all','original')),['1','2','3','4']);assert.equal(JSON.stringify(v),before);assert.equal(JSON.stringify(rows),original);
+ const independent=c.modelTaskUsage([{...rows[0],session:null},{...rows[0],session:null}],meta);assert.equal(c.selectModelTaskGroups(independent,'all','count').length,2);
+ const window=c.modelTaskUsage([...Array.from({length:255},()=>rows[0]),...Array.from({length:2},()=>rows[1])],meta);assert.deepEqual(Array.from(c.selectModelTaskGroups(window,'all','count'),g=>g.count),[254,2]);
+});

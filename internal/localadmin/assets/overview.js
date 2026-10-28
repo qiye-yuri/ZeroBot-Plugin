@@ -342,6 +342,7 @@ function selectModelTaskGroups(value,filter="all",sort="original",settings=model
     (!["anyRisk","large","highMiss","invalid"].includes(filter)||g.requests.some(r=>{
     const risk=modelRequestRisk(r,settings);if(filter==="anyRisk")return risk.large||risk.highMiss||risk.incomplete||risk.inconsistent;return filter==="invalid"?risk.incomplete||risk.inconsistent:risk[filter];
   })));
+  if(sort==="count")groups.sort((a,b)=>b.count-a.count);
   if(sort==="input"||sort==="miss")groups.sort((a,b)=>{
     const x=a.totals[sort].value,y=b.totals[sort].value;
     if(x===null)return y===null?0:1;if(y===null)return -1;

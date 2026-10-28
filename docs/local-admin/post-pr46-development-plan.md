@@ -1,6 +1,6 @@
 # PR46之后的开发计划：按窗口内请求次数排序
 
-日期：2026-10-27（Asia/Shanghai）。设计基线为codex/task-any-risk的aa6dfd0ec762f1fac6a63e0a0ede699674d816c7；master仍为02fc0e78。PR #46已实现并部署，非空验收按用户要求等待集中安排，尚未合入。当前状态见[验收清单](task-any-risk-acceptance.md)。本次仅规划，新增排序尚未实现。
+日期：2026-10-27（Asia/Shanghai）。设计基线为codex/task-any-risk的aa6dfd0ec762f1fac6a63e0a0ede699674d816c7；master仍为02fc0e78。PR #46已实现并部署，非空验收按用户要求等待集中安排，尚未合入。当前状态见[验收清单](task-any-risk-acceptance.md)。本计划最初仅规划；现已实现并通过72项回归，部署及集中验收状态见[本批清单](task-count-sort-acceptance.md)。下文保留设计阶段工作包与历史边界。
 
 ## 1 目标与范围
 

@@ -10,7 +10,7 @@ PR #45任务摘要用量提示计数已完成开发、部署验收及合入，�
 
 ## 当前版本与计划
 
-下一批设计见[PR46后详细开发计划](post-pr46-development-plan.md)：按窗口内请求次数降序排序，4个工作包、10项验收标准，预计3～5小时有效工时，尚未实现。依赖PR #46分支；单条QQ集中验收队列仍为1/5，规划不计数。
+上一批设计见[PR46后详细开发计划](post-pr46-development-plan.md)：按窗口内请求次数降序排序，4个工作包、10项验收标准，预计3～5小时有效工时，本批已实现并通过72项回归，依赖PR #46；部署及集中验收状态见[排序清单](task-count-sort-acceptance.md)。
 
 当前待验收批次见[PR45后详细开发计划](post-pr45-development-plan.md)：包含任意用量提示的任务筛选。复用四类提示的并集，保留整组范围、结果交集及完整报告；4个工作包、10项验收标准，预计3～5小时有效工时，本批已实现，测试、部署和合入状态见[验收清单](task-any-risk-acceptance.md)。
 
@@ -89,7 +89,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 | 查阅内容 | 入口 |
 | --- | --- |
-| 当前工作包与开发约定 | [下一批请求次数排序计划](post-pr46-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
+| 当前工作包与开发约定 | [下一批请求次数筛选计划](post-pr47-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
 | 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
@@ -142,3 +142,5 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 新增功能的使用步骤见[任务风险筛选与排序](model-request-statistics.md#任务风险筛选与排序)及[校验结果中文说明](model-request-statistics.md#校验结果中文说明本地工具)，当前日常实例已安装本批功能。
 
 最新功能“任务摘要与按需展开”已完成开发、部署及非空实机验收，并通过[PR #40](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/40)合入master。使用见[任务摘要](model-request-statistics.md#任务摘要与按需展开)，范围和交付记录见[自测](self-test.md)与[交付](github-delivery.md)。
+
+下一批设计见[PR47后详细开发计划](post-pr47-development-plan.md)：窗口内请求次数筛选（全部、仅1次、至少2次），4个工作包、10项验收标准，预计3～5小时有效工时。尚未实现，集中验收仍2/5；规划不计数。
