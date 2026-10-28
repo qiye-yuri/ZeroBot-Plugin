@@ -1,5 +1,7 @@
 # 按请求类别筛选任务验收清单
 
+执行更新（2026-10-29）：本轮五项集中真实验收通过，用户确认QQ收件；实际样本及合成覆盖边界见[集中记录](task-usage-batch-20261029.md)。以下保留各批历史状态，合入结果以集中记录为准。
+
 日期：2026-10-28（Asia/Shanghai）。实际基线PR #56头96e3283b7d66a0b0e5c1f751785bc66bfad87365，分支codex/task-kind-filter，base codex/task-identity-filter，依赖#55/#56。设计见[计划](post-pr56-development-plan.md)，操作见[使用说明](model-request-statistics.md#按请求类别筛选任务)。
 
 新增原生类别选择，直接复用组内kind及现有筛选/刷新/禁用/重置流程，保留整个任务与汇总表；无新增接口、存储、校验框架、状态缓存或CSS。
