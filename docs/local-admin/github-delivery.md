@@ -490,4 +490,7 @@ PR #46、#47、#48、#49已在真实非空验收和用户收件确认后依次�
 
 ## 输出量排序交付（2026-10-28）
 
-功能提交8ead8e13，开发分支codex/task-output-sort，目标用户origin的master。已完成局部实现、77项相关回归及使用说明；当前尚未上传或合入。部署与独立检查、集中验收状态见[本批清单](task-output-sort-acceptance.md)。公开范围仅源码、测试和整理后的说明，原data运行变化及两份无关测试修改保持本机，不创建正式标签。
+功能提交8ead8e13，开发分支codex/task-output-sort，目标用户origin的master。已完成局部实现、77项相关回归及使用说明；已上传至用户origin/codex/task-output-sort并创建[草稿PR #50](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/50)，base为master，尚未合入。部署与独立检查、集中验收状态见[本批清单](task-output-sort-acceptance.md)。公开范围仅源码、测试和整理后的说明，原data运行变化及两份无关测试修改保持本机，不创建正式标签。
+
+
+PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈希、首次失败回退和复验结果见本批清单。初次上传头25fb8fc4；本次随后同步上传结果。QQ待验收1/5，真实非空与收件累计5项统一完成；未将本地测试记为GitHub CI通过。
