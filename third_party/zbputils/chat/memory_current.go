@@ -45,6 +45,9 @@ func (s *MemoryStore) ReadCurrent(ctx context.Context, grp, id int64) (v MemoryV
 	item.SourceSeq = strconv.FormatInt(seq, 10)
 	item.Active = active == 1
 	item.Text = cfg.Redact(item.Text)
+	if err = s.memoryMetadata(ctx, &item); err != nil {
+		return v, err
+	}
 	v.Items = append(v.Items, item)
 	return v, nil
 }

@@ -178,7 +178,7 @@ func init() {
 			}
 			ag := chat.AgentOf(ctx.Event.SelfID, c.Service)
 			persona, _ := cfg.Persona(ctx.Event.SelfID, gid)
-			character := goba.Config{Nickname: strings.Join(zero.BotConfig.NickName, "/"), Chars: persona.Character, Sex: persona.Sex, WebSearch: webSearch.Allowed()}
+			character := goba.Config{Nickname: strings.Join(zero.BotConfig.NickName, "/"), Chars: persona.Character, Sex: persona.Sex, WebSearch: webSearch.Allowed(), MemoryLayers: true}
 			logrus.Debugln("[aichat] got agent")
 			if cfg.ImageAPI != "" && !ag.CanViewImage() {
 				imageParams := cfg.RequestParams("Image")
@@ -206,6 +206,7 @@ func init() {
 				if e := run.Model(); e != nil {
 					return nil, false, e
 				}
+				chat.ScheduleAgentSummary(ctx.Event.SelfID, gid, summaryModel(cfg, ctx.Event.SelfID, gid))
 				reqs, ended, e := chat.NextAgentActionsChecked(ag, zero.SuperUserPermission(ctx), iter, x, mod.Clone(), gid, role, func() error {
 					if generation != chat.AgentGeneration() {
 						return chat.ErrAgentReloaded
@@ -251,14 +252,18 @@ func init() {
 						return err
 					}
 					text, ok := req.Params["text"].(string)
-					if !ok || len(req.Params) != 1 {
+					if !ok {
 						return chat.ErrMemoryInput
+					}
+					spec, err := parseMemorySpec(req.Params)
+					if err != nil {
+						return err
 					}
 					store, err := chat.AgentMemories(ctx.Event.SelfID)
 					if err != nil {
 						return err
 					}
-					saved, err := store.SaveFromSequenceResult(gid, text, sourceSeq)
+					saved, err := store.SaveLayered(gid, text, sourceSeq, spec, zero.SuperUserPermission(ctx))
 					if err != nil {
 						return err
 					}

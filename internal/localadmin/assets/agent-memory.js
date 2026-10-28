@@ -3,6 +3,7 @@ let memoryScope=null,memoryItems=[],memoryNext="",memoryMode="",memoryPreview=nu
 let memoryFilter="all";
 let memorySearchContinue=null;
 let memoryCurrent=null;
+function memoryLayerLabel(item){return " · "+({permanent:"永久知识（本机器人跨会话共享）",personal:"个人记忆（仅本会话）",long:"长期记忆（仅本会话）"}[item.kind]||"长期记忆（仅本会话）")+(item.subject?" · QQ "+item.subject:"")+(item.attribute?" · 属性 "+item.attribute:"");}
 function clearCurrentMemory(clearID=false){memoryCurrent=null;$("memory-current-detail").replaceChildren();$("memory-current-state").textContent="按编号读取当前版本，可定位列表页之外或已停用的记忆。";if(clearID)$("memory-current-id").value="";}
 function clearMemorySearchContinue(){memorySearchContinue=null;$("memory-search-continue").hidden=true;$("memory-search-continue").disabled=true;}
 function memoryTarget(scope=agentScope){return scope?{botId:scope.botId,type:scope.type,id:scope.id}:null;}
@@ -180,7 +181,7 @@ function memoryRows(items,versions=false,targetID=""){
   const target=$(targetID||(versions?"memory-versions":"memory-list"));target.replaceChildren();
   for(const item of items){
     const row=document.createElement("section");row.className="panel";
-    const h=document.createElement("h3");h.textContent="#"+item.id+" · v"+item.revision+" · "+(item.active?"启用":"停用");
+    const h=document.createElement("h3");h.textContent="#"+item.id+" · v"+item.revision+" · "+(item.active?"启用":"停用")+memoryLayerLabel(item);
     const note=document.createElement("p");note.textContent=({agent:"Agent 保存",admin:"后台修订",legacy:"旧文件导入，原始来源未知"}[item.source]||"来源未知")+(item.sourceSeq!=="0"?" · 档案 #"+item.sourceSeq:"")+" · "+item.updatedAt;
     const text=document.createElement("pre");text.className="agent-record";text.textContent=item.text;row.append(h,note,text);
     if(!versions){

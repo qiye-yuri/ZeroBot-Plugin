@@ -61,6 +61,18 @@ func main() {
 var uiWait = flag.Bool("ui-wait", false, "Wait for local browser QA after integration checks.")
 var binaryName = flag.String("binary-name", "zerobot.exe", "Windows binary filename under .local/bin.")
 
+var rollingSummaryRequests atomic.Int32
+
+func isRollingSummary(body map[string]any) bool {
+	messages, _ := body["messages"].([]any)
+	if len(messages) == 0 {
+		return false
+	}
+	first, _ := messages[0].(map[string]any)
+	content, _ := first["content"].(string)
+	return first["role"] == "system" && strings.HasPrefix(content, "你是对话压缩器。")
+}
+
 func run() error {
 	root, err := os.Getwd()
 	if err != nil {
@@ -160,6 +172,13 @@ func run() error {
 		}
 		modelMu.Lock()
 		modelRequests = append(modelRequests, body)
+		if isRollingSummary(body) {
+			modelMu.Unlock()
+			rollingSummaryRequests.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"SMOKE_ROLLING_SUMMARY：较早的合成事件已归档，不能凭摘要编造原话。"}}]}`))
+			return
+		}
 		modelRounds[fmt.Sprint(body["model"])]++
 		round := modelRounds[fmt.Sprint(body["model"])]
 		modelMu.Unlock()
@@ -602,8 +621,15 @@ func run() error {
 	}
 	modelMu.Lock()
 	chatCalls, agentCalls, taskCalls, knowledgeCalls, visionCalls, preparationCalls, descriptionCalls, outputCalls, namedCalls, probeCalls := 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	summaryInjected := false
 	for _, request := range modelRequests {
+		if isRollingSummary(request) {
+			continue
+		}
 		body, _ := json.Marshal(request)
+		if bytes.Contains(body, []byte("SMOKE_ROLLING_SUMMARY")) {
+			summaryInjected = true
+		}
 		if bytes.Contains(body, []byte("这是后台模型连通性测试。请只回复 OK。")) {
 			probeCalls++
 			continue
@@ -653,6 +679,9 @@ func run() error {
 		return fmt.Errorf("model did not use group temperature/shared config/quoted query")
 	}
 	modelMu.Unlock()
+	if rollingSummaryRequests.Load() == 0 || !summaryInjected {
+		return fmt.Errorf("rolling summary request/injection missing")
+	}
 	if text, err := sendControl(12345678, "/全局响应xxx"); err != nil || text != "" {
 		return fmt.Errorf("global response prefix accepted: %v", err)
 	}
@@ -789,6 +818,8 @@ func run() error {
 	result["agentModelTextPartsAndInvalidOutputPassed"] = true
 	result["agentVisionTextPartsPassed"] = true
 	result["agentMemorySaveReferenceRoundTripPassed"] = true
+	result["agentRollingSummaryRequestAndInjectionPassed"] = true
+	result["rollingSummaryRequests"] = rollingSummaryRequests.Load()
 	result["agentMemoryAndTaskFilteredPaginationPassed"] = true
 	result["aiAgentGroupIsolationPassed"] = true
 	result["aiAgentMemberAtAllDeniedPassed"] = true
@@ -2062,14 +2093,15 @@ func verifyAdmin(baseURL, dataDir, modelURL string, sendControl func(int64, stri
 		return fmt.Errorf("post-AI overview alerts unavailable")
 	}
 	stats, ok := updatedOverview["modelRequests"].(map[string]any)
-	if !ok || stats["started"] != float64(53) || stats["completed"] != float64(50) || stats["active"] != float64(0) || stats["failed"] != float64(3) || stats["incomplete"] != float64(0) {
+	summaries := float64(rollingSummaryRequests.Load())
+	if !ok || stats["started"] != 53+summaries || stats["completed"] != 50+summaries || stats["active"] != float64(0) || stats["failed"] != float64(3) || stats["incomplete"] != float64(0) {
 		return fmt.Errorf("post-AI model statistics disagree with 53 synthetic requests (two oversized responses and one HTTP 503 expected): started=%v completed=%v active=%v failed=%v incomplete=%v", stats["started"], stats["completed"], stats["active"], stats["failed"], stats["incomplete"])
 	}
 	rows, ok := stats["categories"].([]any)
 	if !ok || len(rows) != 4 {
 		return fmt.Errorf("post-AI model categories missing")
 	}
-	for i, want := range []float64{4, 3, 41, 5} {
+	for i, want := range []float64{4 + summaries, 3, 41, 5} {
 		row, ok := rows[i].(map[string]any)
 		failed := float64(0)
 		if i == 2 {

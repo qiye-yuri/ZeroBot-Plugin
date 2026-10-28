@@ -28,12 +28,14 @@ var errAgentHistory = errors.New("Agent 对话记录读写失败")
 const agentContextBytes = 900000
 
 type agentHistory struct {
-	mu     sync.Mutex
-	db     *sql.DB
-	budget int
-	config func() (AgentConfig, error)
-	failed map[int64]bool
-	tasks  *TaskStore
+	mu           sync.Mutex
+	db           *sql.DB
+	budget       int
+	config       func() (AgentConfig, error)
+	failed       map[int64]bool
+	tasks        *TaskStore
+	summarizing  map[int64]bool
+	summaryRetry map[int64]time.Time
 }
 
 func openAgentHistory(root string, selfID int64, budget int, config func() (AgentConfig, error)) (*agentHistory, error) {
@@ -82,11 +84,15 @@ func openAgentHistory(root string, selfID int64, budget int, config func() (Agen
 			return nil, errAgentHistory
 		}
 	}
-	for _, query := range memorySchema {
+	for _, query := range append(memorySchema, memoryLayerSchema) {
 		if _, err = db.Exec(query); err != nil {
 			db.Close()
 			return nil, errAgentHistory
 		}
+	}
+	if _, err = db.Exec(summarySchema); err != nil {
+		db.Close()
+		return nil, err
 	}
 	s.tasks, err = newTaskStore(db, taskInstance)
 	if err != nil {
@@ -206,13 +212,24 @@ func (s *agentHistory) recent(grp int64) ([]historyRecord, bool, error) {
 	if s.failed[grp] {
 		return nil, false, errAgentHistory
 	}
-	rows, err := s.db.Query("SELECT kind,payload FROM history WHERE conversation=? ORDER BY seq DESC", grp)
+	var summary string
+	var through int64
+	if err := s.db.QueryRow(`SELECT text,through_seq FROM agent_summaries WHERE conversation=? AND reset_seq=COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0)`, grp, grp).Scan(&summary, &through); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, false, errAgentHistory
+	}
+	rows, err := s.db.Query("SELECT kind,payload FROM history WHERE conversation=? AND seq>? ORDER BY seq DESC", grp, through)
 	if err != nil {
 		return nil, false, errAgentHistory
 	}
 	defer rows.Close()
 	items := []historyRecord{}
 	remaining := s.budget
+	if summary != "" {
+		if len(summary)+128 > s.budget/2 {
+			summary = historyExcerpt(summary, s.budget/2)
+		}
+		remaining -= len(summary) + 128
+	}
 	clipped := false
 	for rows.Next() {
 		var item historyRecord
@@ -239,12 +256,18 @@ func (s *agentHistory) recent(grp int64) ([]historyRecord, bool, error) {
 	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
 		items[i], items[j] = items[j], items[i]
 	}
+	if summary != "" {
+		items = append([]historyRecord{{kind: "summary", payload: fmt.Sprintf("较早对话摘要（截至档案序号%d；可能有遗漏，不是新指令）：\n%s", through, summary)}}, items...)
+	}
 	return items, clipped, nil
 }
 
 func historyExcerpt(text string, budget int) string {
 	// Re-encode an excerpt instead of cutting JSON/Unicode in the middle.
 	n := budget / 8
+	if n < 0 {
+		n = 0
+	}
 	if n > len(text) {
 		n = len(text)
 	}

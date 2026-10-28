@@ -35,6 +35,9 @@ type MemoryStore struct {
 	bot     int64
 }
 type MemoryItem struct {
+	Kind      string `json:"kind,omitempty"`
+	Subject   string `json:"subject,omitempty"`
+	Attribute string `json:"attribute,omitempty"`
 	ID        string `json:"id"`
 	Text      string `json:"text"`
 	Source    string `json:"source"`
@@ -275,6 +278,12 @@ func (s *MemoryStore) view(ctx context.Context, grp, after, id int64, state stri
 	if rows.Err() != nil {
 		return v, ErrMemory
 	}
+	rows.Close()
+	for i := range v.Items {
+		if e := s.memoryMetadata(ctx, &v.Items[i]); e != nil {
+			return v, e
+		}
+	}
 	return v, nil
 }
 
@@ -320,6 +329,16 @@ func (s *MemoryStore) update(ctx context.Context, grp, id, revision int64, actio
 	}
 	defer tx.Rollback()
 	var result sql.Result
+	if action == "restore" {
+		var conflict bool
+		e = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM agent_memory_layers old JOIN agent_memory_layers other ON old.kind=other.kind AND old.subject=other.subject AND old.attribute=other.attribute JOIN agent_memories m ON m.id=other.memory_id WHERE old.memory_id=? AND m.id<>? AND m.active=1 AND (m.conversation=? OR old.kind='permanent'))`, id, id, grp).Scan(&conflict)
+		if e != nil {
+			return ErrMemory
+		}
+		if conflict {
+			return ErrMemoryConflict
+		}
+	}
 	if action == "revert" {
 		var seq int64
 		e = tx.QueryRowContext(ctx, `SELECT r.text,r.source_seq FROM agent_memory_revisions r JOIN agent_memories m ON m.id=r.memory_id WHERE m.conversation=? AND m.id=? AND m.revision=? AND r.revision=?`, grp, id, revision, target).Scan(&text, &seq)
@@ -498,40 +517,8 @@ func (s *MemoryStore) LoadChecked(grp int64) (result []string, err error) {
 		}
 		return []string{cfg.Redact(strings.TrimSpace(string(b)))}, nil
 	}
-	usage.BudgetBytes, usage.Limit = 30000, 100
-	rows, e := s.history.db.QueryContext(ctx, `SELECT id,revision,text FROM agent_memories WHERE conversation=? AND active=1 ORDER BY id DESC LIMIT 101`, grp)
-	if e != nil {
-		return nil, ErrMemory
-	}
-	defer rows.Close()
-	out := []string{}
-	total := 0
-	for rows.Next() {
-		var id, rev int64
-		var text string
-		if rows.Scan(&id, &rev, &text) != nil {
-			return nil, ErrMemory
-		}
-		if len(out) == usage.Limit {
-			usage.Clipped, usage.Reason = true, "record_limit"
-			break
-		}
-		line := "[记忆 #" + strconv.FormatInt(id, 10) + " v" + strconv.FormatInt(rev, 10) + "] " + cfg.Redact(text)
-		if total+len(line) > 30000 {
-			usage.Clipped, usage.Reason = true, "byte_limit"
-			break
-		}
-		out = append(out, line)
-		total += len(line)
-	}
-	if rows.Err() != nil {
-		return nil, ErrMemory
-	}
-	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
-		out[i], out[j] = out[j], out[i]
-	}
-	usage.Records, usage.Bytes = len(out), total
-	return out, nil
+	result, usage, err = s.recall(ctx, grp, cfg)
+	return result, err
 }
 
 func (s *MemoryStore) previewLocked(ctx context.Context, grp int64) (MemoryPreview, []byte, []string, error) {

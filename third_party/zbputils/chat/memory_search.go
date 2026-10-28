@@ -44,7 +44,7 @@ func (s *MemoryStore) ReadEnabled(ctx context.Context, grp, id, revision int64) 
 	}
 	var source, stamp, raw string
 	var seq int64
-	e = s.history.db.QueryRowContext(ctx, `SELECT source,source_seq,updated_at,CASE WHEN length(CAST(text AS BLOB))<=65536 THEN text ELSE '' END FROM agent_memories WHERE conversation=? AND id=? AND revision=? AND active=1`, grp, id, revision).Scan(&source, &seq, &stamp, &raw)
+	e = s.history.db.QueryRowContext(ctx, `SELECT source,CASE WHEN conversation=? THEN source_seq ELSE 0 END,updated_at,CASE WHEN length(CAST(text AS BLOB))<=65536 THEN text ELSE '' END FROM agent_memories WHERE (conversation=? OR id IN (SELECT memory_id FROM agent_memory_layers WHERE kind='permanent')) AND id=? AND revision=? AND active=1`, grp, grp, id, revision).Scan(&source, &seq, &stamp, &raw)
 	page.Available = true
 	if errors.Is(e, sql.ErrNoRows) {
 		return page, nil
@@ -68,6 +68,9 @@ func (s *MemoryStore) ReadEnabled(ctx context.Context, grp, id, revision int64) 
 	}
 	page.Partial = clipped
 	page.Memories = append(page.Memories, MemoryMatch{MemoryItem: MemoryItem{ID: strconv.FormatInt(id, 10), Revision: strconv.FormatInt(revision, 10), Source: source, SourceSeq: strconv.FormatInt(seq, 10), Active: true, UpdatedAt: stamp, Text: text}, Truncated: clipped})
+	if e = s.memoryMetadata(ctx, &page.Memories[0].MemoryItem); e != nil {
+		return page, e
+	}
 	return page, nil
 }
 
@@ -108,7 +111,7 @@ func (s *MemoryStore) SearchEnabledFromSource(ctx context.Context, grp int64, ke
 }
 
 func (s *MemoryStore) SearchEnabledInRange(ctx context.Context, grp int64, keyword string, limit int, before int64, source, from, until string) (page MemorySearchPage, err error) {
-	page, err = s.SearchCurrentInRange(ctx, grp, keyword, limit, before, source, "active", from, until)
+	page, err = s.searchCurrentInRange(ctx, grp, keyword, limit, before, source, "active", from, until, true)
 	page.State = ""
 	return page, err
 }
@@ -126,6 +129,10 @@ func (s *MemoryStore) SearchCurrent(ctx context.Context, grp int64, keyword stri
 // Time conditions refer to the current revision's updated_at, including state
 // changes. Filter inside the bounded scan: RFC3339 offsets cannot sort as text.
 func (s *MemoryStore) SearchCurrentInRange(ctx context.Context, grp int64, keyword string, limit int, before int64, source, state, from, until string) (page MemorySearchPage, err error) {
+	return s.searchCurrentInRange(ctx, grp, keyword, limit, before, source, state, from, until, false)
+}
+
+func (s *MemoryStore) searchCurrentInRange(ctx context.Context, grp int64, keyword string, limit int, before int64, source, state, from, until string, shared bool) (page MemorySearchPage, err error) {
 	page.Memories = []MemoryMatch{}
 	keyword = strings.TrimSpace(keyword)
 	start, end, rangeErr := ParseArchiveSearchRange(from, until)
@@ -178,6 +185,11 @@ func (s *MemoryStore) SearchCurrentInRange(ctx context.Context, grp int64, keywo
 	}
 	query := `SELECT id,revision,source,source_seq,updated_at,active,CASE WHEN length(CAST(text AS BLOB))<=65536 THEN text ELSE '' END FROM agent_memories WHERE conversation=?`
 	args := []any{grp}
+	if shared {
+		query = `SELECT id,revision,source,CASE WHEN conversation=? THEN source_seq ELSE 0 END,updated_at,active,CASE WHEN length(CAST(text AS BLOB))<=65536 THEN text ELSE '' END FROM agent_memories WHERE (conversation=? OR id IN (SELECT memory_id FROM agent_memory_layers WHERE kind='permanent'))`
+		args = []any{grp, grp}
+		page.Note += " 包含主人显式共享的永久知识；跨会话共享条目不提供原会话来源读取权限。"
+	}
 	if state != "all" {
 		active := 1
 		if state == "disabled" {
@@ -278,6 +290,12 @@ func (s *MemoryStore) SearchCurrentInRange(ctx context.Context, grp int64, keywo
 	}
 	if rows.Err() != nil {
 		return page, ErrMemory
+	}
+	rows.Close()
+	for i := range page.Memories {
+		if e := s.memoryMetadata(ctx, &page.Memories[i].MemoryItem); e != nil {
+			return page, e
+		}
 	}
 	return page, nil
 }

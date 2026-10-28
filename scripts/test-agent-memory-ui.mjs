@@ -22,6 +22,14 @@ async function fixture(t){
 }
 async function load(page,value=managed){await page.evaluate(value=>replies.push(value),value);await page.locator('#memory-load').click();await page.waitForFunction(()=>!agentBusy);}
 
+test('layered memory labels show scope and personal attributes without markup',async t=>{
+ const page=await fixture(t);await page.setViewportSize({width:320,height:800});
+ await load(page,{...managed,items:[{...item,kind:'personal',subject:'12345678',attribute:'preference.tea'},{...item,id:'2',kind:'permanent',attribute:'style'},{...item,id:'3'}]});
+ const text=await page.locator('#memory-list').textContent();assert.match(text,/个人记忆（仅本会话）/);assert.match(text,/QQ 12345678/);assert.match(text,/preference.tea/);assert.match(text,/永久知识（本机器人跨会话共享）/);assert.match(text,/长期记忆（仅本会话）/);
+ assert.equal(await page.locator('#memory-list img').count(),0);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+ await fs.mkdir('.local/layered-memory-ui',{recursive:true});await page.locator('#memory-list').scrollIntoViewIfNeeded();await page.screenshot({path:'.local/layered-memory-ui/320.png'});
+});
+
 test('historical revision comparison reads two exact revisions without changing current memory or pagination',async t=>{
  const page=await fixture(t),current={...item,revision:'9007199254740995'},base={...item,revision:'9007199254740993',text:'共同🙂旧<script>x</script>结尾'},other={...item,revision:'9007199254740994',text:'共同🙂新<img src=x>结尾',active:false};await load(page,{...managed,items:[current],more:true,next:item.id});const original=await page.locator('#memory-list').textContent();
  await page.evaluate(value=>replies.push(value),{...managed,items:[other,base],more:true,next:base.revision});await page.getByRole('button',{name:'查看版本',exact:true}).click();await page.waitForFunction(()=>!agentBusy);assert.equal(await page.locator('.memory-compare-to').inputValue(),other.revision);await page.locator('.memory-compare-from').fill(base.revision);await page.evaluate(()=>{agentScope={botId:'87654321',type:'private',id:'20'}});const count=await page.evaluate(()=>requests.length);
