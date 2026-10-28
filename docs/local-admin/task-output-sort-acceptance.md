@@ -1,6 +1,6 @@
 # 按窗口内已知输出量排序验收清单
 
-执行更新（2026-10-28晚）：五项集中真实非空验收通过，用户确认QQ收件；最终重置回读及实机截图已补齐，详见[集中验收记录](pr50-54-batch-acceptance.md)。下文保留各批历史状态，合入结果以集中记录为准。
+执行更新（2026-10-28晚）：五项集中真实非空验收通过，用户确认QQ收件；最终重置回读及实机截图已补齐，详见[集中验收记录](pr50-54-batch-acceptance.md)。下文保留各批历史状态，本批已合入master，队列已清空为0/5；合并SHA见集中记录。
 
 日期：2026-10-28（Asia/Shanghai）。基线master `c2505e6f1a2cea9849ddf796fabc423ab3f6654b`；开发分支`codex/task-output-sort`。设计见[详细计划](post-pr49-development-plan.md)，操作见[使用说明](model-request-statistics.md#按窗口内已知输出量排序)。
 

@@ -1,6 +1,6 @@
 # 按请求关联类型筛选验收清单
 
-执行更新（2026-10-28晚）：五项集中真实非空验收通过，用户确认QQ收件；最终重置回读及实机截图已补齐，详见[集中验收记录](pr50-54-batch-acceptance.md)。下文保留各批历史状态，合入结果以集中记录为准。
+执行更新（2026-10-28晚）：五项集中真实非空验收通过，用户确认QQ收件；最终重置回读及实机截图已补齐，详见[集中验收记录](pr50-54-batch-acceptance.md)。下文保留各批历史状态，本批已合入master，队列已清空为0/5；合并SHA见集中记录。
 
 日期：2026-10-28（Asia/Shanghai）。基线PR #50的`fdbc39f0299dec31ed58adacdaa994b94e6e1d4f`；分支`codex/task-association-filter`，依赖`codex/task-output-sort`。设计见[详细计划](post-pr50-development-plan.md)，操作见[使用说明](model-request-statistics.md#按请求关联类型筛选)。
 
