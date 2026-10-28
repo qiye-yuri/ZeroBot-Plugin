@@ -61,6 +61,7 @@ type MemoryUsage struct {
 	Reason      string `json:"reason"`
 }
 type AgentTaskInfo struct {
+	TestRun   string `json:"testRun,omitempty"`
 	ID        string `json:"taskId"`
 	SourceSeq string `json:"sourceSeq,omitempty"`
 	Instance  string `json:"instance"`
@@ -286,6 +287,12 @@ func (s *TaskStore) BeginFrom(grp, sourceSeq int64) (*AgentTask, error) {
 		}
 	}
 	t := &AgentTask{store: s, grp: grp, info: AgentTaskInfo{ID: taskID(), SourceSeq: strconv.FormatInt(sourceSeq, 10), Instance: s.instance, Version: "1", Status: "running", Phase: "starting", StartedAt: taskNow(), Persisted: true}}
+	if sourceSeq > 0 {
+		e := s.db.QueryRow(`SELECT run_id FROM history_test_records WHERE seq=?`, sourceSeq).Scan(&t.info.TestRun)
+		if e != nil && !errors.Is(e, sql.ErrNoRows) {
+			return nil, ErrAgentTaskStore
+		}
+	}
 	t.info.PhaseStartedAt = t.info.StartedAt
 	t.info.Activity.Available = true
 	t.info.Results.Available = true

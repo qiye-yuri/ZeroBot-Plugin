@@ -19,6 +19,7 @@ import (
 // ArchiveQuery is a read-only, bounded query. Conversation zero lists scopes.
 // Snapshot zero starts a new snapshot; Before is an exclusive sequence cursor.
 type ArchiveQuery struct {
+	TestRun string // Host-bound test scope. Never accepted from model parameters.
 	// Sequence selects a single bounded record within the same scope/reset rules.
 	Sequence int64
 	// Context includes up to this many neighboring events on each side of an
@@ -214,6 +215,17 @@ func readArchive(ctx context.Context, root string, bot int64, q ArchiveQuery, co
 		}
 	}
 	limit := 51
+	var hasIsolation int
+	if tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='history_test_records'`).Scan(&hasIsolation) != nil {
+		return page, ErrArchive
+	}
+	if q.TestRun != "" && (!testRunPattern.MatchString(q.TestRun) || hasIsolation == 0) {
+		return page, nil
+	}
+	historySource := "history"
+	if hasIsolation != 0 {
+		historySource = "(SELECT * FROM history WHERE 1" + testHistoryPredicate(q.TestRun) + ") AS history"
+	}
 	if q.Search {
 		limit = 5001
 	}
@@ -225,7 +237,7 @@ func readArchive(ctx context.Context, root string, bot int64, q ArchiveQuery, co
 	}
 	if q.Context > 0 {
 		var exists int
-		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM history WHERE seq=? AND conversation=? AND kind='event' AND seq<=? AND seq>?)", q.Sequence, q.Conversation, page.Snapshot, reset).Scan(&exists); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM "+historySource+" WHERE seq=? AND conversation=? AND kind='event' AND seq<=? AND seq>?)", q.Sequence, q.Conversation, page.Snapshot, reset).Scan(&exists); err != nil {
 			return page, ErrArchive
 		}
 		if exists == 0 {
@@ -237,6 +249,7 @@ func readArchive(ctx context.Context, root string, bot int64, q ArchiveQuery, co
 		WHERE seq IN (SELECT seq FROM older UNION ALL SELECT seq FROM newer) ORDER BY seq DESC`
 		args = []any{q.Conversation, q.Sequence, reset, q.Context + 1, q.Conversation, q.Sequence, page.Snapshot, q.Context}
 	}
+	query = strings.ReplaceAll(query, "FROM history", "FROM "+historySource)
 	rows, e := tx.QueryContext(ctx, query, args...)
 	if e != nil {
 		return page, ErrArchive

@@ -43,6 +43,29 @@ func NewTaskHistorySearch(bot, conversation int64, task *AgentTask) (*HistorySea
 		return nil, ErrAgentTaskConflict
 	}
 	s := NewHistorySearch(bot, conversation)
+	if task.info.TestRun != "" {
+		run := task.info.TestRun
+		store, e := AgentMemories(bot)
+		if e != nil {
+			return nil, e
+		}
+		// Do not read task state again while holding its mutex.
+		seq, _ := strconv.ParseInt(task.info.SourceSeq, 10, 64)
+		child, e := store.history.testMemory(run, conversation, seq)
+		if e != nil {
+			return nil, e
+		}
+		s.read = func(ctx context.Context, bot int64, q ArchiveQuery) (ArchivePage, error) {
+			q.TestRun = run
+			return ReadAgentArchive(ctx, bot, q)
+		}
+		s.memory = func(ctx context.Context, bot, grp int64, keyword string, limit int, before int64, source, from, until string) (MemorySearchPage, error) {
+			return child.SearchEnabledInRange(ctx, grp, keyword, limit, before, source, from, until)
+		}
+		s.readMemory = func(ctx context.Context, bot, grp, id, revision int64) (MemorySearchPage, error) {
+			return child.ReadEnabled(ctx, grp, id, revision)
+		}
+	}
 	s.task = task
 	s.usage, s.used = task.info.Queries, task.info.Queries.Used
 	return s, nil

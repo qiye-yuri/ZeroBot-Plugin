@@ -65,9 +65,31 @@ func init() {
 		}
 
 		var messages []string
+		testRun, _ := ctx.State[chat.StateKeyTestRun].(string)
+		testIDs, scopeErr := chat.TestMessageIDs(ctx.Event.SelfID, gid, testRun)
+		cutoff, cutoffErr := chat.TestIsolationCutoff(ctx.Event.SelfID)
+		if cutoffErr != nil {
+			scopeErr = cutoffErr
+		}
+		if scopeErr != nil {
+			task.Fail()
+			ctx.SendChain(message.Text("ERROR: 测试隔离状态不可用，未提交群聊总结"))
+			return
+		}
 
 		h := ctx.GetGroupMessageHistory(gid, 0, p, false)
 		h.Get("messages").ForEach(func(_, msgObj gjson.Result) bool {
+			isTest := testIDs[msgObj.Get("message_id").String()]
+			old := cutoff > 0 && msgObj.Get("time").Int() <= cutoff
+			if testRun == "" && old {
+				return true
+			}
+			if testRun == "historical" && old {
+				isTest = true
+			}
+			if (testRun == "" && isTest) || (testRun != "" && !isTest) {
+				return true
+			}
 			nickname := msgObj.Get("sender.nickname").Str
 			text := strings.TrimSpace(message.ParseMessageFromString(msgObj.Get("raw_message").Str).ExtractPlainText())
 			if text != "" {
@@ -148,6 +170,12 @@ func init() {
 				replyIDStr := elem.Data["id"]
 				replyID, err := strconv.ParseInt(replyIDStr, 10, 64)
 				if err == nil {
+					run, _ := ctx.State[chat.StateKeyTestRun].(string)
+					allowed, e := chat.TestMessageReadAllowed(ctx.Event.SelfID, gid, replyIDStr, run)
+					if e != nil || !allowed {
+						ctx.SendChain(message.Text("该引用属于其他测试范围，未提交日常模型。"))
+						return
+					}
 					// 获取被回复的消息内容
 					replyMsg := ctx.GetMessage(replyID)
 					if replyMsg.Elements != nil {

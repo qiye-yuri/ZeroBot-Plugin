@@ -36,6 +36,9 @@ func init() {
 		ctx.State["__zbputil_chat_txt__"] = txt
 		return txt != ""
 	}).FirstPriority().SetBlock(false).Handle(func(ctx *zero.Ctx) {
+		if IsTestEvent(ctx) {
+			return
+		}
 		// 计算群组 ID（私聊时使用负的 UserID）
 		gid := ctx.Event.GroupID
 		if gid == 0 {

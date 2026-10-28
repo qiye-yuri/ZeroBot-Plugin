@@ -36,6 +36,11 @@ type agentHistory struct {
 	tasks        *TaskStore
 	summarizing  map[int64]bool
 	summaryRetry map[int64]time.Time
+	root         string
+	bot          int64
+	testRun      string
+	testMu       sync.Mutex
+	testStores   map[string]*MemoryStore
 }
 
 func openAgentHistory(root string, selfID int64, budget int, config func() (AgentConfig, error)) (*agentHistory, error) {
@@ -73,7 +78,7 @@ func openAgentHistory(root string, selfID int64, budget int, config func() (Agen
 		return nil, errAgentHistory
 	}
 	db.SetMaxOpenConns(1)
-	s := &agentHistory{db: db, budget: budget, config: config, failed: map[int64]bool{}}
+	s := &agentHistory{db: db, budget: budget, config: config, failed: map[int64]bool{}, root: root, bot: selfID}
 	for _, query := range []string{
 		"PRAGMA busy_timeout=5000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL",
 		"CREATE TABLE IF NOT EXISTS history (seq INTEGER PRIMARY KEY AUTOINCREMENT, conversation INTEGER NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL)",
@@ -94,6 +99,10 @@ func openAgentHistory(root string, selfID int64, budget int, config func() (Agen
 		db.Close()
 		return nil, err
 	}
+	if err = InitializeTestIsolation(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	s.tasks, err = newTaskStore(db, taskInstance)
 	if err != nil {
 		db.Close()
@@ -109,7 +118,14 @@ func OpenAgentHistory(root string, selfID int64, config func() (AgentConfig, err
 	return openAgentHistory(root, selfID, agentContextBytes, config)
 }
 
-func (s *agentHistory) Close() error { return s.db.Close() }
+func (s *agentHistory) Close() error {
+	s.testMu.Lock()
+	defer s.testMu.Unlock()
+	for _, child := range s.testStores {
+		_ = child.history.Close()
+	}
+	return s.db.Close()
+}
 
 func (s *agentHistory) Append(grp int64, kind string, item fmt.Stringer) error {
 	_, err := s.appendWithSequence(grp, kind, item)
@@ -118,7 +134,7 @@ func (s *agentHistory) Append(grp int64, kind string, item fmt.Stringer) error {
 
 // appendWithSequence returns this insert's exact sequence, not a later event's
 // sequence or a guess based on repeated provider message IDs.
-func (s *agentHistory) appendWithSequence(grp int64, kind string, item fmt.Stringer) (int64, error) {
+func (s *agentHistory) appendWithSequence(grp int64, kind string, item fmt.Stringer, scope ...string) (int64, error) {
 	if grp == 0 {
 		return 0, errAgentHistory
 	}
@@ -159,9 +175,35 @@ func (s *agentHistory) appendWithSequence(grp int64, kind string, item fmt.Strin
 		s.markFailed(grp)
 		return 0, errAgentHistory
 	}
+	run := ""
+	root := int64(0)
+	if kind != "event" {
+		run = s.activeTestRun(grp)
+		if s.tasks != nil {
+			s.tasks.mu.Lock()
+			if t := s.tasks.active[grp]; t != nil {
+				root, _ = strconv.ParseInt(t.info.SourceSeq, 10, 64)
+			}
+			s.tasks.mu.Unlock()
+		}
+	}
+	if len(scope) > 0 {
+		run = scope[0]
+	}
+	if len(scope) > 1 {
+		root, _ = strconv.ParseInt(scope[1], 10, 64)
+	}
+	if run != "" && !testRunPattern.MatchString(run) {
+		return 0, errAgentHistory
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	result, err := s.db.Exec("INSERT INTO history(conversation,kind,payload,created_at) VALUES(?,?,?,?)", grp, kind, string(encoded), time.Now().UTC().Format(time.RFC3339Nano))
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec("INSERT INTO history(conversation,kind,payload,created_at) VALUES(?,?,?,?)", grp, kind, string(encoded), time.Now().UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		s.failed[grp] = true
 		return 0, errAgentHistory
@@ -170,6 +212,23 @@ func (s *agentHistory) appendWithSequence(grp int64, kind string, item fmt.Strin
 	if err != nil || seq <= 0 {
 		s.failed[grp] = true
 		return 0, errAgentHistory
+	}
+	if run != "" {
+		if root == 0 {
+			root = seq
+		}
+		if _, err = tx.Exec(`INSERT INTO history_test_records VALUES(?,?,?,'host test scope')`, seq, run, root); err != nil {
+			s.failed[grp] = true
+			return 0, err
+		}
+		if err = rememberTestMessage(tx, grp, seq, kind, string(encoded), run); err != nil {
+			s.failed[grp] = true
+			return 0, err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		s.failed[grp] = true
+		return 0, err
 	}
 	// A prior missing record remains visible as a failure until explicit reset
 	// or reload. Do not silently claim a complete history after a failed write.
@@ -207,6 +266,7 @@ func containsKeySetting(v any) bool {
 type historyRecord struct{ kind, payload string }
 
 func (s *agentHistory) recent(grp int64) ([]historyRecord, bool, error) {
+	run := s.activeTestRun(grp)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.failed[grp] {
@@ -214,10 +274,10 @@ func (s *agentHistory) recent(grp int64) ([]historyRecord, bool, error) {
 	}
 	var summary string
 	var through int64
-	if err := s.db.QueryRow(`SELECT text,through_seq FROM agent_summaries WHERE conversation=? AND reset_seq=COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0)`, grp, grp).Scan(&summary, &through); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err := s.db.QueryRow(`SELECT text,through_seq FROM agent_summaries WHERE conversation=? AND ?='' AND reset_seq=COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0)`, grp, run, grp).Scan(&summary, &through); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, false, errAgentHistory
 	}
-	rows, err := s.db.Query("SELECT kind,payload FROM history WHERE conversation=? AND seq>? ORDER BY seq DESC", grp, through)
+	rows, err := s.db.Query("SELECT kind,payload FROM history WHERE conversation=? AND seq>?"+testHistoryPredicate(run)+" ORDER BY seq DESC", grp, through)
 	if err != nil {
 		return nil, false, errAgentHistory
 	}

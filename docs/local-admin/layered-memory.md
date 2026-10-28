@@ -1,5 +1,7 @@
 # 分层记忆与滚动摘要
 
+测试数据隔离、主人测试命令及历史提取要求见[测试数据隔离](test-data-isolation.md)。
+
 状态：2026-10-29，`codex/layered-memory` 已部署日常服务，核心实机验收通过；实际验证与待观察范围见[部署验收记录](layered-memory-acceptance.md)，尚未合入master。
 
 ## 使用范围与入口

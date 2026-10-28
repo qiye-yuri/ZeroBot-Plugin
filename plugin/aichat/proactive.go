@@ -138,6 +138,9 @@ func relatedWithClient(cfg chat.AgentConfig, turns []string, input string, clien
 
 // Only accepted messages to this group open/extend the follow-up window.
 func recordProactiveDelivery(ctx *zero.Ctx, action string, params zero.Params, rsp zero.APIResponse) {
+	if chat.IsTestEvent(ctx) {
+		return
+	}
 	if ctx.Event.GroupID == 0 || rsp.Status != "ok" || rsp.RetCode != 0 || !sameProactiveGroup(params["group_id"], ctx.Event.GroupID) {
 		return
 	}

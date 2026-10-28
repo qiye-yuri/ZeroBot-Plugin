@@ -1,5 +1,7 @@
 # Agent 历史检索与长期记忆
 
+测试数据隔离、主人测试命令及历史提取要求见[测试数据隔离](test-data-isolation.md)。
+
 分层记忆已部署；范围、操作及限制见[分层记忆与滚动摘要](layered-memory.md)，实际验证范围见[部署与实机验收](layered-memory-acceptance.md)。
 
 状态：M2 已于 2026-10-16 部署到日常服务。新构建增加 Agent 当前会话历史检索、后台长期记忆管理和旧文件显式迁移。M1 档案浏览仍按[会话档案说明](agent-archive.md)使用。

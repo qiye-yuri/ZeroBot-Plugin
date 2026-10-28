@@ -354,10 +354,26 @@ func logev(ctx *zero.Ctx) {
 	agentsMu.Lock()
 	history := histories[ctx.Event.SelfID]
 	agentsMu.Unlock()
+	testRun, controlReply := "", ""
 	if history != nil {
-		seq, err := history.appendWithSequence(gid, "event", ev)
+		var scopeErr error
+		testRun, controlReply, scopeErr = history.prepareTestEvent(gid, ctx.ExtractPlainText(), zero.SuperUserPermission(ctx))
+		if scopeErr == nil && testRun == "" && controlReply == "" {
+			testRun, scopeErr = history.inheritedTestRun(gid, ctx)
+		}
+		if scopeErr != nil {
+			ctx.Block()
+			logrus.Warnln("[chat] 测试隔离状态不可用，停止本次处理。")
+			return
+		}
+		if controlReply != "" && testRun == "" {
+			testRun = "control"
+		}
+		ctx.State[StateKeyTestRun] = testRun
+		seq, err := history.appendWithSequence(gid, "event", ev, testRun)
 		if err != nil {
 			logrus.Warnln("[chat] 对话事件保存失败，未绑定任务来源。")
+			ctx.Block();return
 		} else {
 			mp.Store(stateKeyAgentEventSource, agentEventSource{event: ctx.Event, bot: ctx.Event.SelfID, conversation: gid, sequence: seq})
 		}
@@ -388,17 +404,30 @@ func logev(ctx *zero.Ctx) {
 			}
 			ag := AgentOf(ctx.Event.SelfID, "aichat")
 			logrus.Debugln("[chat] agent others", gid, "add requ:", &req)
-			ag.AddRequest(gid, &req)
+			if history != nil {
+				_, _ = history.appendWithSequence(gid, "request", &req, testRun, strconv.FormatInt(AgentEventSequence(ctx), 10))
+			} else {
+				ag.AddRequest(gid, &req)
+			}
 			logrus.Debugln("[chat] agent others", gid, "add resp:", &rsp)
-			ag.AddResponse(gid, &goba.APIResponse{
+			response := &goba.APIResponse{
 				Status:  rsp.Status,
 				Data:    json.RawMessage(rsp.Data.Raw),
 				Message: rsp.Message,
 				Wording: rsp.Wording,
 				RetCode: rsp.RetCode,
-			})
+			}
+			if history != nil {
+				_, _ = history.appendWithSequence(gid, "response", response, testRun, strconv.FormatInt(AgentEventSequence(ctx), 10))
+			} else {
+				ag.AddResponse(gid, response)
+			}
 		}),
 	)
+	if controlReply != "" {
+		ctx.SendChain(message.Text(controlReply))
+		ctx.Block()
+	}
 }
 
 func init() {

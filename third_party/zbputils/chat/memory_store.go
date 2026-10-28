@@ -35,6 +35,7 @@ type MemoryStore struct {
 	bot     int64
 }
 type MemoryItem struct {
+	TestRun   string `json:"testRun,omitempty"`
 	Kind      string `json:"kind,omitempty"`
 	Subject   string `json:"subject,omitempty"`
 	Attribute string `json:"attribute,omitempty"`
@@ -58,6 +59,7 @@ type MemoryReference struct {
 // Legacy text files have no independently addressable records. Created and
 // Memory are omitted in that mode rather than inventing an ID or dedup result.
 type MemorySaveResult struct {
+	TestRun string           `json:"testRun,omitempty"`
 	Mode    string           `json:"mode"`
 	Created *bool            `json:"created,omitempty"`
 	Memory  *MemoryReference `json:"memory,omitempty"`
@@ -393,6 +395,16 @@ func (s *MemoryStore) SaveFromSequence(grp int64, text string, sourceSeq int64) 
 // SaveFromSequenceResult returns only metadata after a committed insertion or
 // scoped dedup read. A later edit may invalidate the returned revision.
 func (s *MemoryStore) SaveFromSequenceResult(grp int64, text string, sourceSeq int64) (result MemorySaveResult, err error) {
+	target, e := s.testSaveTarget(grp, sourceSeq)
+	if e != nil {
+		return result, e
+	}
+	if target != s {
+		v, e := target.SaveFromSequenceResult(grp, text, sourceSeq)
+		v.Mode = "test"
+		v.TestRun = target.history.testRun
+		return v, e
+	}
 	if grp == 0 || sourceSeq < 0 || !memoryText(text) {
 		return result, ErrMemoryInput
 	}
@@ -475,6 +487,11 @@ func (s *MemoryStore) SaveFromSequenceResult(grp int64, text string, sourceSeq i
 
 func (s *MemoryStore) Load(grp int64) []string { v, _ := s.LoadChecked(grp); return v }
 func (s *MemoryStore) LoadChecked(grp int64) (result []string, err error) {
+	if child, e := s.history.testLoadTarget(grp); e != nil {
+		return nil, e
+	} else if child != nil {
+		return child.LoadChecked(grp)
+	}
 	usage := MemoryUsage{}
 	defer func() {
 		if err != nil {
@@ -515,7 +532,21 @@ func (s *MemoryStore) LoadChecked(grp int64) (result []string, err error) {
 		if e != nil {
 			return nil, ErrMemory
 		}
-		return []string{cfg.Redact(strings.TrimSpace(string(b)))}, nil
+		lines := []string{}
+		for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+			line = strings.TrimSpace(line)
+			var excluded bool
+			if s.history.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM legacy_test_memory WHERE conversation=? AND text=?)`, grp, line).Scan(&excluded) != nil {
+				return nil, ErrMemory
+			}
+			if !excluded {
+				lines = append(lines, cfg.Redact(line))
+			}
+		}
+		if len(lines) == 0 {
+			return nil, nil
+		}
+		return []string{strings.Join(lines, "\n")}, nil
 	}
 	result, usage, err = s.recall(ctx, grp, cfg)
 	return result, err
@@ -659,6 +690,9 @@ func (s *MemoryStore) Migrate(ctx context.Context, grp int64, digest string) err
 		}
 		id, e := r.LastInsertId()
 		if e != nil || memoryRevision(ctx, tx, id) != nil {
+			return ErrMemory
+		}
+		if _, e = tx.ExecContext(ctx, `INSERT OR IGNORE INTO memory_test_records SELECT ?,'historical','isolated legacy test line' WHERE EXISTS(SELECT 1 FROM legacy_test_memory WHERE conversation=? AND text=?)`, id, grp, line); e != nil {
 			return ErrMemory
 		}
 	}

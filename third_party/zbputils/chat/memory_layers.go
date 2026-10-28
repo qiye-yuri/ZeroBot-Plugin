@@ -20,6 +20,9 @@ const memoryLayerSchema = `CREATE TABLE IF NOT EXISTS agent_memory_layers (memor
 var memoryAttribute = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,79}$`)
 
 func (s *MemoryStore) memoryMetadata(ctx context.Context, item *MemoryItem) error {
+	if e := s.history.db.QueryRowContext(ctx, `SELECT run_id FROM memory_test_records WHERE memory_id=?`, item.ID).Scan(&item.TestRun); e != nil && !errors.Is(e, sql.ErrNoRows) {
+		return ErrMemory
+	}
 	var subject int64
 	err := s.history.db.QueryRowContext(ctx, `SELECT kind,subject,attribute FROM agent_memory_layers WHERE memory_id=?`, item.ID).Scan(&item.Kind, &subject, &item.Attribute)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -42,6 +45,16 @@ type MemorySpec struct {
 // SaveLayered stores explicit facts or role states. Only a host-authorized owner
 // can promote knowledge to permanent/shared scope. Personal records remain scoped.
 func (s *MemoryStore) SaveLayered(grp int64, text string, seq int64, spec MemorySpec, owner bool) (MemorySaveResult, error) {
+	target, routeErr := s.testSaveTarget(grp, seq)
+	if routeErr != nil {
+		return MemorySaveResult{}, routeErr
+	}
+	if target != s {
+		v, e := target.SaveLayered(grp, text, seq, spec, owner)
+		v.Mode = "test"
+		v.TestRun = target.history.testRun
+		return v, e
+	}
 	if spec.Kind == "" || (spec.Kind == "long" && spec.Attribute == "") {
 		if spec.Subject != 0 || spec.Revision != 0 || spec.Attribute != "" {
 			return MemorySaveResult{}, ErrMemoryInput
@@ -173,7 +186,7 @@ func memoryTerms(text string) map[string]bool {
 func (s *MemoryStore) recall(ctx context.Context, grp int64, cfg AgentConfig) ([]string, MemoryUsage, error) {
 	usage := MemoryUsage{Available: true, Mode: "managed", BudgetBytes: 30000, Limit: 100}
 	var payload string
-	e := s.history.db.QueryRowContext(ctx, `SELECT payload FROM history WHERE conversation=? AND kind='event' AND seq>COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0) ORDER BY seq DESC LIMIT 1`, grp, grp).Scan(&payload)
+	e := s.history.db.QueryRowContext(ctx, `SELECT payload FROM history WHERE conversation=? AND kind='event' AND seq NOT IN (SELECT seq FROM history_test_records) AND seq>COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0) ORDER BY seq DESC LIMIT 1`, grp, grp).Scan(&payload)
 	if e != nil && !errors.Is(e, sql.ErrNoRows) {
 		return nil, usage, e
 	}
@@ -194,7 +207,7 @@ func (s *MemoryStore) recall(ctx context.Context, grp int64, cfg AgentConfig) ([
 		}
 	}
 	terms := memoryTerms(query)
-	rows, e := s.history.db.QueryContext(ctx, `SELECT m.id,m.revision,m.text,COALESCE(l.kind,'long'),COALESCE(l.subject,0),COALESCE(l.attribute,'') FROM agent_memories m LEFT JOIN agent_memory_layers l ON l.memory_id=m.id WHERE m.active=1 AND (m.conversation=? OR l.kind='permanent') ORDER BY m.id DESC LIMIT 1001`, grp)
+	rows, e := s.history.db.QueryContext(ctx, `SELECT m.id,m.revision,m.text,COALESCE(l.kind,'long'),COALESCE(l.subject,0),COALESCE(l.attribute,'') FROM agent_memories m LEFT JOIN agent_memory_layers l ON l.memory_id=m.id WHERE m.active=1`+s.dailyMemoryFilter("m.")+` AND (m.conversation=? OR l.kind='permanent') ORDER BY m.id DESC LIMIT 1001`, grp)
 	if e != nil {
 		return nil, usage, e
 	}

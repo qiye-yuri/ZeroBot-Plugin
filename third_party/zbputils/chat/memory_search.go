@@ -44,7 +44,7 @@ func (s *MemoryStore) ReadEnabled(ctx context.Context, grp, id, revision int64) 
 	}
 	var source, stamp, raw string
 	var seq int64
-	e = s.history.db.QueryRowContext(ctx, `SELECT source,CASE WHEN conversation=? THEN source_seq ELSE 0 END,updated_at,CASE WHEN length(CAST(text AS BLOB))<=65536 THEN text ELSE '' END FROM agent_memories WHERE (conversation=? OR id IN (SELECT memory_id FROM agent_memory_layers WHERE kind='permanent')) AND id=? AND revision=? AND active=1`, grp, grp, id, revision).Scan(&source, &seq, &stamp, &raw)
+	e = s.history.db.QueryRowContext(ctx, `SELECT source,CASE WHEN conversation=? THEN source_seq ELSE 0 END,updated_at,CASE WHEN length(CAST(text AS BLOB))<=65536 THEN text ELSE '' END FROM agent_memories WHERE (conversation=? OR id IN (SELECT memory_id FROM agent_memory_layers WHERE kind='permanent')) AND id=? AND revision=? AND active=1`+s.dailyMemoryFilter(""), grp, grp, id, revision).Scan(&source, &seq, &stamp, &raw)
 	page.Available = true
 	if errors.Is(e, sql.ErrNoRows) {
 		return page, nil
@@ -191,6 +191,9 @@ func (s *MemoryStore) searchCurrentInRange(ctx context.Context, grp int64, keywo
 		page.Note += " 包含主人显式共享的永久知识；跨会话共享条目不提供原会话来源读取权限。"
 	}
 	if state != "all" {
+		if shared {
+			query += s.dailyMemoryFilter("")
+		}
 		active := 1
 		if state == "disabled" {
 			active = 0

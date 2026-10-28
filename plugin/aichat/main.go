@@ -14,6 +14,7 @@ import (
 
 	"github.com/RomiChan/syncx"
 	"github.com/fumiama/deepinfra"
+	"github.com/fumiama/deepinfra/model"
 	goba "github.com/fumiama/go-onebot-agent"
 	"github.com/sirupsen/logrus"
 
@@ -153,6 +154,10 @@ func init() {
 				return
 			}
 			sourceSeq := chat.AgentEventSequence(ctx)
+			if chat.IsTestEvent(ctx) && sourceSeq == 0 {
+				task.Fail()
+				return
+			}
 			run, taskErr := store.BeginFrom(gid, sourceSeq)
 			if taskErr != nil {
 				task.Fail()
@@ -179,6 +184,7 @@ func init() {
 			ag := chat.AgentOf(ctx.Event.SelfID, c.Service)
 			persona, _ := cfg.Persona(ctx.Event.SelfID, gid)
 			character := goba.Config{Nickname: strings.Join(zero.BotConfig.NickName, "/"), Chars: persona.Character, Sex: persona.Sex, WebSearch: webSearch.Allowed(), MemoryLayers: true}
+			character.TestRun, _ = ctx.State[chat.StateKeyTestRun].(string)
 			logrus.Debugln("[aichat] got agent")
 			if cfg.ImageAPI != "" && !ag.CanViewImage() {
 				imageParams := cfg.RequestParams("Image")
@@ -278,6 +284,12 @@ func init() {
 					return nil
 				}
 				req = webSearch.WithSources(req)
+				if req.Action == "get_msg" {
+					allowed, e := chat.TestMessageReadAllowed(ctx.Event.SelfID, gid, fmt.Sprint(req.Params["message_id"]), character.TestRun)
+					if e != nil || !allowed {
+						return errors.New("消息属于其他测试范围，不能读入当前上下文")
+					}
+				}
 				logrus.Debugln("[chat] agent triggered", gid, "add requ:", &req)
 				if err := ag.AddRequest(gid, &req); err != nil {
 					return err
@@ -285,6 +297,12 @@ func init() {
 				hasresp = true
 				outcome = "unknown"
 				rsp := task.Call(req.Action, req.Params, ctx.CallAction)
+				if req.Action == "get_msg" && character.TestRun == "" {
+					cutoff, e := chat.TestIsolationCutoff(ctx.Event.SelfID)
+					if e != nil || (cutoff > 0 && rsp.Data.Get("time").Int() > 0 && rsp.Data.Get("time").Int() <= cutoff) {
+						return errors.New("历史测试消息不得注入日常上下文")
+					}
+				}
 				recordProactiveDelivery(ctx, req.Action, req.Params, rsp)
 				outcome = "unknown"
 				if rsp.Status == "ok" && rsp.RetCode == 0 {
@@ -396,7 +414,14 @@ func init() {
 			logrus.Warnln("ERROR: ", err)
 			return
 		}
-		data, err := modelrequest.Request(x, chat.GetChatContext(mod, gid, cfg.SystemP, bool(cfg.NoSystemP)))
+		var input deepinfra.Model
+		if chat.IsTestEvent(ctx) {
+			mod.System(cfg.SystemP)
+			input = mod.User(model.NewContentText(ctx.ExtractPlainText()))
+		} else {
+			input = chat.GetChatContext(mod, gid, cfg.SystemP, bool(cfg.NoSystemP))
+		}
+		data, err := modelrequest.Request(x, input)
 		if err != nil {
 			task.Fail()
 			logrus.Warnln("[aichat] 模型请求失败，请检查接口、密钥及网络。")
@@ -411,7 +436,9 @@ func init() {
 
 		txt := chat.Sanitize(strings.Trim(data, "\n 　"))
 		if len(txt) > 0 {
-			chat.AddChatReply(gid, txt)
+			if !chat.IsTestEvent(ctx) {
+				chat.AddChatReply(gid, txt)
+			}
 			nick := zero.BotConfig.NickName[rand.Intn(len(zero.BotConfig.NickName))]
 			txt = strings.ReplaceAll(txt, "{name}", ctx.CardOrNickName(ctx.Event.UserID))
 			txt = strings.ReplaceAll(txt, "{me}", nick)

@@ -27,7 +27,7 @@ func ScheduleAgentSummary(bot, conversation int64, summarize Summarizer) {
 }
 
 func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
-	if summarize == nil {
+	if summarize == nil || s.activeTestRun(grp) != "" {
 		return
 	}
 	s.mu.Lock()
@@ -43,7 +43,10 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 	if s.budget < 16384 {
 		return
 	}
-	var reset, through int64
+	var reset, through, isolationRevision int64
+	if s.db.QueryRow(`SELECT revision FROM test_isolation_state WHERE id=1`).Scan(&isolationRevision) != nil {
+		return
+	}
 	if s.db.QueryRow(`SELECT COALESCE(MAX(seq),0) FROM history WHERE conversation=? AND kind='reset'`, grp).Scan(&reset) != nil {
 		return
 	}
@@ -56,17 +59,17 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 		through = reset
 	}
 	var size int64
-	if s.db.QueryRow(`SELECT COALESCE(SUM(length(CAST(payload AS BLOB))+64),0) FROM history WHERE conversation=? AND seq>?`, grp, through).Scan(&size) != nil || size+int64(len(previous)) < int64(s.budget)*3/5 {
+	if s.db.QueryRow(`SELECT COALESCE(SUM(length(CAST(payload AS BLOB))+64),0) FROM history WHERE conversation=? AND seq>? AND seq NOT IN (SELECT seq FROM history_test_records)`, grp, through).Scan(&size) != nil || size+int64(len(previous)) < int64(s.budget)*3/5 {
 		return
 	}
 	// Keep at least eight whole message turns. The prefix ends immediately before
 	// an event, so a pending tool request/response is never split by compaction.
 	var tail int64
-	err = s.db.QueryRow(`SELECT seq FROM history WHERE conversation=? AND seq>? AND kind='event' ORDER BY seq DESC LIMIT 1 OFFSET 7`, grp, through).Scan(&tail)
+	err = s.db.QueryRow(`SELECT seq FROM history WHERE conversation=? AND seq>? AND kind='event' AND seq NOT IN (SELECT seq FROM history_test_records) ORDER BY seq DESC LIMIT 1 OFFSET 7`, grp, through).Scan(&tail)
 	if err != nil {
 		return
 	}
-	rows, err := s.db.Query(`SELECT seq,kind,payload FROM history WHERE conversation=? AND seq>? AND seq<? ORDER BY seq LIMIT 2048`, grp, through, tail)
+	rows, err := s.db.Query(`SELECT seq,kind,payload FROM history WHERE conversation=? AND seq>? AND seq<? AND seq NOT IN (SELECT seq FROM history_test_records) ORDER BY seq LIMIT 2048`, grp, through, tail)
 	if err != nil {
 		return
 	}
@@ -99,7 +102,7 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 	}
 	// If the whole prefix fits, include the last complete turn as well.
 	var last int64
-	if s.db.QueryRow(`SELECT COALESCE(MAX(seq),0) FROM history WHERE conversation=? AND seq>? AND seq<?`, grp, through, tail).Scan(&last) != nil {
+	if s.db.QueryRow(`SELECT COALESCE(MAX(seq),0) FROM history WHERE conversation=? AND seq>? AND seq<? AND seq NOT IN (SELECT seq FROM history_test_records)`, grp, through, tail).Scan(&last) != nil {
 		return
 	}
 	// A bounded query must never claim coverage of an unexamined record.
@@ -130,9 +133,9 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 		result = cfg.Redact(result)
 		// Reset and previous-prefix checks make late results harmless.
 		_, e = s.db.Exec(`INSERT INTO agent_summaries(conversation,reset_seq,through_seq,text,updated_at)
-   SELECT ?,?,?,?,? WHERE COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0)=?
+   SELECT ?,?,?,?,? WHERE COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0)=? AND (SELECT revision FROM test_isolation_state WHERE id=1)=?
    ON CONFLICT(conversation) DO UPDATE SET reset_seq=excluded.reset_seq,through_seq=excluded.through_seq,text=excluded.text,updated_at=excluded.updated_at
-   WHERE agent_summaries.through_seq<=? OR agent_summaries.reset_seq<>excluded.reset_seq`, grp, reset, boundary, result, time.Now().UTC().Format(time.RFC3339Nano), grp, reset, through)
+   WHERE agent_summaries.through_seq<=? OR agent_summaries.reset_seq<>excluded.reset_seq`, grp, reset, boundary, result, time.Now().UTC().Format(time.RFC3339Nano), grp, reset, isolationRevision, through)
 		if e != nil {
 			logrus.Warnln("[chat] 滚动摘要保存失败，保留原始档案。")
 		}

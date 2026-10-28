@@ -41,7 +41,7 @@ function renderAgentTasks(items,scope,next="",older=false,filter="all",reason="a
 }
 function taskSummaryRow(item,scope,listEntry=true,observedAt=item.observedAt){
     const row=document.createElement("section");row.className="panel";
-    const title=document.createElement("h3");title.textContent=({running:"运行中",cancel_requested:"已请求停止，等待在途请求返回",cancelled:"已停止",completed:"已完成",failed:"失败",interrupted:"进程中断，未重放"}[item.status]||"状态未知")+" · v"+item.version;
+    const title=document.createElement("h3");title.textContent=({running:"运行中",cancel_requested:"已请求停止，等待在途请求返回",cancelled:"已停止",completed:"已完成",failed:"失败",interrupted:"进程中断，未重放"}[item.status]||"状态未知")+" · v"+item.version+(item.testRun?" · 测试隔离："+item.testRun:"");
     const identity=document.createElement("p");identity.className="agent-record";identity.textContent="任务 "+item.taskId+" · 实例 "+item.instance;
     const detail=document.createElement("p");detail.textContent="阶段："+(taskPhaseNames[item.phase]||"未知")+(item.action?" · 最近动作 "+item.action:"")+(item.outcome?" · "+({in_flight:"等待回执",ok:"成功",rejected:"平台拒绝",unknown:"结果未知，不自动重发",local_error:"本地动作失败"}[item.outcome]||"结果未知"):"");
     const time=document.createElement("p");time.textContent="开始 "+item.startedAt+(item.endedAt?" · 结束 "+item.endedAt:"");
