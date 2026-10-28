@@ -285,3 +285,67 @@ func TestCopyTestArchiveKeepsNormalDataOut(t *testing.T) {
 		t.Fatal(count, e)
 	}
 }
+
+func TestLateTestEchoInvalidatesTargetSummary(t *testing.T) {
+	a, _ := memoryFixture(t)
+	h := a.history
+	root, e := h.appendWithSequence(10, "event", historyEvent(10, "test"), "batch")
+	if e != nil {
+		t.Fatal(e)
+	}
+	run, e := h.tasks.BeginFrom(10, root)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer run.Finish(nil)
+	if e = h.Append(10, "request", &zero.APIRequest{Action: "send_group_msg", Params: zero.Params{"group_id": 20, "message": "TEST_ECHO"}}); e != nil {
+		t.Fatal(e)
+	}
+	echo := historyEvent(20, "TEST_ECHO")
+	echo.UserID = echo.SelfID
+	echo.MessageID = 999
+	seq, e := h.appendWithSequence(20, "event", echo)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = h.db.Exec(`INSERT INTO agent_summaries VALUES(20,0,?,'TAINTED','now')`, seq); e != nil {
+		t.Fatal(e)
+	}
+	if e = h.Append(10, "response", &goba.APIResponse{Status: "ok", Data: []byte(`{"message_id":999}`)}); e != nil {
+		t.Fatal(e)
+	}
+	var n int
+	if e = h.db.QueryRow(`SELECT COUNT(*) FROM history_test_records WHERE seq=?`, seq).Scan(&n); e != nil || n != 1 {
+		t.Fatal("echo not isolated", n, e)
+	}
+	if e = h.db.QueryRow(`SELECT COUNT(*) FROM agent_summaries WHERE conversation=20`).Scan(&n); e != nil || n != 0 {
+		t.Fatal("target summary survived", n, e)
+	}
+	if e = h.db.QueryRow(`SELECT revision FROM test_isolation_state WHERE id=1`).Scan(&n); e != nil || n == 0 {
+		t.Fatal("in-flight epoch unchanged", n, e)
+	}
+}
+
+func TestDailySaveDoesNotReuseQuarantinedMemory(t *testing.T) {
+	a, _ := memoryFixture(t)
+	h := a.history
+	old, e := h.appendWithSequence(10, "event", historyEvent(10, "old test"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	first, e := a.SaveFromSequenceResult(10, "same words", old)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = IsolateTestRecords(context.Background(), h.db, []IsolationMark{{old, "historical", old, "reviewed"}}, nil); e != nil {
+		t.Fatal(e)
+	}
+	fresh, e := h.appendWithSequence(10, "event", historyEvent(10, "new explicit normal fact"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	second, e := a.SaveFromSequenceResult(10, "same words", fresh)
+	if e != nil || !*second.Created || first.Memory.ID == second.Memory.ID {
+		t.Fatal("test row reused by daily save", second, e)
+	}
+}

@@ -30,6 +30,10 @@ test('layered memory labels show scope and personal attributes without markup',a
  await fs.mkdir('.local/layered-memory-ui',{recursive:true});await page.locator('#memory-list').scrollIntoViewIfNeeded();await page.screenshot({path:'.local/layered-memory-ui/320.png'});
 });
 
+test('historical test memory is visibly excluded from daily injection',async t=>{
+ const page=await fixture(t);await load(page,{...managed,items:[{...item,testRun:'historical'}]});assert.match(await page.locator('#memory-list').innerText(),/测试隔离（不注入日常）：historical/);
+});
+
 test('historical revision comparison reads two exact revisions without changing current memory or pagination',async t=>{
  const page=await fixture(t),current={...item,revision:'9007199254740995'},base={...item,revision:'9007199254740993',text:'共同🙂旧<script>x</script>结尾'},other={...item,revision:'9007199254740994',text:'共同🙂新<img src=x>结尾',active:false};await load(page,{...managed,items:[current],more:true,next:item.id});const original=await page.locator('#memory-list').textContent();
  await page.evaluate(value=>replies.push(value),{...managed,items:[other,base],more:true,next:base.revision});await page.getByRole('button',{name:'查看版本',exact:true}).click();await page.waitForFunction(()=>!agentBusy);assert.equal(await page.locator('.memory-compare-to').inputValue(),other.revision);await page.locator('.memory-compare-from').fill(base.revision);await page.evaluate(()=>{agentScope={botId:'87654321',type:'private',id:'20'}});const count=await page.evaluate(()=>requests.length);

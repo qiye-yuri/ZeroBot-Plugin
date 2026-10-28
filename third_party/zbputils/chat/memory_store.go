@@ -455,7 +455,7 @@ func (s *MemoryStore) SaveFromSequenceResult(grp int64, text string, sourceSeq i
 	text = cfg.Redact(strings.TrimSpace(text))
 	var id, revision, seq int64
 	var source string
-	e = tx.QueryRowContext(ctx, `SELECT id,revision,source,source_seq FROM agent_memories WHERE conversation=? AND active=1 AND text=? ORDER BY id DESC LIMIT 1`, grp, text).Scan(&id, &revision, &source, &seq)
+	e = tx.QueryRowContext(ctx, `SELECT id,revision,source,source_seq FROM agent_memories WHERE conversation=? AND active=1 AND text=?`+s.dailyMemoryFilter("")+` ORDER BY id DESC LIMIT 1`, grp, text).Scan(&id, &revision, &source, &seq)
 	if e == nil {
 		if id <= 0 || revision <= 0 || seq < 0 || (source != "agent" && source != "admin" && source != "legacy") {
 			return result, ErrMemory

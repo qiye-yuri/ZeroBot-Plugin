@@ -37,7 +37,7 @@ func (s *MemoryStore) CreateManual(ctx context.Context, grp int64, text string) 
 	}
 	defer tx.Rollback()
 	var id, revision, seq int64
-	e = tx.QueryRowContext(ctx, `SELECT id,revision,source,source_seq,updated_at,text FROM agent_memories WHERE conversation=? AND active=1 AND text=? ORDER BY id DESC LIMIT 1`, grp, text).Scan(&id, &revision, &item.Source, &seq, &item.UpdatedAt, &item.Text)
+	e = tx.QueryRowContext(ctx, `SELECT id,revision,source,source_seq,updated_at,text FROM agent_memories WHERE conversation=? AND active=1 AND text=?`+s.dailyMemoryFilter("")+` ORDER BY id DESC LIMIT 1`, grp, text).Scan(&id, &revision, &item.Source, &seq, &item.UpdatedAt, &item.Text)
 	if e == nil {
 		item.ID = strconv.FormatInt(id, 10)
 		item.Revision = strconv.FormatInt(revision, 10)

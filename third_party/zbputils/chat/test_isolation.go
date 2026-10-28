@@ -232,7 +232,23 @@ func rememberTestMessage(tx *sql.Tx, grp, seq int64, kind, payload, run string) 
 	}
 	// QQ may echo a bot message before its send API returns. Tag that already
 	// archived echo too; matching is by platform ID, never by similar text.
-	_, e = tx.Exec(`INSERT OR IGNORE INTO history_test_records SELECT seq,?,?,'echo of test message' FROM history WHERE conversation=? AND kind='event' AND json_valid(payload) AND CAST(json_extract(payload,'$.message_id') AS TEXT)=? AND json_extract(payload,'$.user_id')=json_extract(payload,'$.self_id') AND json_extract(payload,'$.self_id')>0`, run, seq, grp, id)
+	result, e := tx.Exec(`INSERT OR IGNORE INTO history_test_records SELECT seq,?,?,'echo of test message' FROM history WHERE conversation=? AND kind='event' AND json_valid(payload) AND CAST(json_extract(payload,'$.message_id') AS TEXT)=? AND json_extract(payload,'$.user_id')=json_extract(payload,'$.self_id') AND json_extract(payload,'$.self_id')>0`, run, seq, grp, id)
+	if e != nil {
+		return e
+	}
+	n, e := result.RowsAffected()
+	if e != nil || n == 0 {
+		return e
+	}
+	// A late classification may invalidate a summary in the target conversation,
+	// including a summary already in flight when the echo arrived.
+	if _, e = tx.Exec(`INSERT INTO quarantined_summaries SELECT conversation,reset_seq,through_seq,text,updated_at,'late test echo' FROM agent_summaries WHERE conversation=?`, grp); e != nil {
+		return e
+	}
+	if _, e = tx.Exec(`DELETE FROM agent_summaries WHERE conversation=?`, grp); e != nil {
+		return e
+	}
+	_, e = tx.Exec(`UPDATE test_isolation_state SET revision=revision+1 WHERE id=1`)
 	return e
 }
 

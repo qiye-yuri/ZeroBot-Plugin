@@ -21,6 +21,11 @@ async function fixture(t){
 }
 async function load(page,items=[item]){await page.evaluate(items=>replies.push({items}),items);await page.locator('#tasks-load').click();await page.waitForFunction(()=>!agentBusy);}
 
+test('test isolation batch label is visible and fits a narrow task card',async t=>{
+ const page=await fixture(t);await page.setViewportSize({width:320,height:800});await load(page,[{...item,testRun:'isolation_'+ 'a'.repeat(38)}]);
+ assert.match(await page.locator('#tasks-list').innerText(),/测试隔离：isolation_/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+});
+
 test('task outcome filters combine with applied conditions and preserve paging and independent exact reads',async t=>{
  const page=await fixture(t),task={...item,outcome:'in_flight',phase:'action_wait'},scope={botId:'12345678',type:'group',id:'10'};await page.locator('#tasks-filter').selectOption('running');await page.locator('#tasks-reason').selectOption('none');await page.locator('#tasks-phase').selectOption('action_wait');await page.locator('#tasks-outcome').selectOption('in_flight');await page.locator('#tasks-from').fill('2026-10-16T00:00');assert.equal(await page.evaluate(()=>requests.length),0);const from=await page.evaluate(()=>new Date(document.getElementById('tasks-from').value).toISOString());
  await page.evaluate(value=>replies.push(value),{items:[task],more:true,next:'9007199254740993'});await page.locator('#tasks-load').click();await page.waitForFunction(()=>!agentBusy);const expected={...scope,state:'running',reason:'none',phase:'action_wait',outcome:'in_flight',from};assert.deepEqual(Object.fromEntries(new URL(await page.evaluate(()=>requests.at(-1).url),'http://fixture').searchParams),expected);assert.match(await page.locator('#tasks-status').textContent(),/最近动作结果：等待回执（非累计结果）/);

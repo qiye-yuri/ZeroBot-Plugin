@@ -101,6 +101,11 @@ func run() error {
 	if *dbFile == "" || *output == "" {
 		return errors.New("-db and -out required")
 	}
+	absolute, e := filepath.Abs(*dbFile)
+	if e != nil {
+		return e
+	}
+	*dbFile = absolute
 	if e := os.MkdirAll(*output, 0700); e != nil {
 		return e
 	}

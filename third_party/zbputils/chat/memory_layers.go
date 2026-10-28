@@ -113,7 +113,7 @@ func (s *MemoryStore) SaveLayered(grp int64, text string, seq int64, spec Memory
 	if spec.Kind == "permanent" {
 		scope = 0
 	}
-	e = tx.QueryRowContext(ctx, `SELECT m.id,m.revision,m.text,m.source,m.source_seq FROM agent_memories m JOIN agent_memory_layers l ON l.memory_id=m.id WHERE (m.conversation=? OR (?=0 AND l.kind='permanent')) AND l.kind=? AND l.subject=? AND l.attribute=? AND m.active=1 ORDER BY m.id DESC LIMIT 1`, scope, scope, spec.Kind, spec.Subject, spec.Attribute).Scan(&id, &rev, &old, &source, &sourceSeq)
+	e = tx.QueryRowContext(ctx, `SELECT m.id,m.revision,m.text,m.source,m.source_seq FROM agent_memories m JOIN agent_memory_layers l ON l.memory_id=m.id WHERE (m.conversation=? OR (?=0 AND l.kind='permanent')) AND l.kind=? AND l.subject=? AND l.attribute=? AND m.active=1`+s.dailyMemoryFilter("m.")+` ORDER BY m.id DESC LIMIT 1`, scope, scope, spec.Kind, spec.Subject, spec.Attribute).Scan(&id, &rev, &old, &source, &sourceSeq)
 	stamp := time.Now().UTC().Format(time.RFC3339Nano)
 	created := false
 	if e == nil {
