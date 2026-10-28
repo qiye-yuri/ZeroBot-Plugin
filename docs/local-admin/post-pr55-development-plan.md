@@ -1,5 +1,7 @@
 # PR55之后的开发计划：按会话或任务标识筛选
 
+执行更新：用户已授权实施，实际基线PR #55头b6002329，93项回归通过；最终部署和集中验收以[本批清单](task-identity-filter-acceptance.md)为准。下文保留设计时点。
+
 日期：2026-10-28（Asia/Shanghai）。设计基线为codex/task-usage-table的73e0aa2284618e322dae50807b448ff9d8fb9cd1，已核对origin一致。[PR #55](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/55)为开放草稿，base master。汇总表已通过开发、隔离、备份部署与实机独立检查，真实非空及QQ收件待集中验收，当前1/5。本轮仅规划，不修改程序、不部署、不新增验收计数。
 
 ## 1 目标和边界
