@@ -505,3 +505,5 @@ PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈�
 基于PR #50头fdbc39f0创建codex/task-association-filter，实现提交9634a444。只增加现有grouped筛选、控件生命周期和必要列宽调整，同步使用说明与验收记录。80项相关回归、150项最终完整隔离、14:19备份部署及实际空窗口/报告检查通过；具体哈希和证据见[本批清单](task-association-filter-acceptance.md)。
 
 上传目标为用户origin，草稿PR的base为codex/task-output-sort。当前待集中配合2/5，累计5项统一验收；上传不等于合入。仅显式暂存功能源码、测试和公开文档，保留data及两份无关测试修改，程序、配置、密钥、运行数据及私有证据不上传。
+
+上传完成：[草稿PR #51](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/51)，base codex/task-output-sort，head codex/task-association-filter；功能9634a444、部署记录5309d74b已上传。尚未合入，依赖PR #50，队列2/5；后续追加仅同步本次上传结果，不改变已验收程序。

@@ -28,3 +28,5 @@
 实际Chrome重新登录后，关联类型三选项、空窗口、independent与multiple/output组合、手动刷新保留条件、重置恢复全部条件和原始顺序通过；实际页面截图确认选项文字完整，结束恢复默认视图。实际下载报告独立校验passed=true、issues=[]、requestCount=0，未知用量保持null；按准确文件名和哈希核对后已删除下载副本，最小报告与截图仅留本机忽略目录。
 
 本批V09通过，登记新一轮第2项，累计2/5（输出量排序、请求关联类型筛选）。V10真实非空及QQ收件待累计5项统一配合，V11待验收后按依赖顺序合入。未发送真实QQ或发起付费模型测试，历史PR #46～#49不重复计入。
+
+上传结果：[草稿PR #51](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/51)，head codex/task-association-filter，base codex/task-output-sort。源码和公开文档已上传，未合入；V10/V11继续待集中验收和依赖顺序合入，当前2/5。
