@@ -351,3 +351,27 @@ test('output coverage follows upstream known values and new bounded snapshots',(
  const linked={...r(Number.MAX_SAFE_INTEGER),session:'a'.repeat(24),task:'b'.repeat(24)};const big=c.modelTaskUsage([linked,linked],meta);assert.equal(select(big,'complete').length,1);assert.equal(big.groups[0].totals.output.value,'18014398509481982');
  const old=c.modelTaskUsage([{...linked,usage:{output:null}},...Array.from({length:255},()=>linked)],meta);assert.equal(select(old,'partial').length,1);const next=c.modelTaskUsage([{...linked,usage:{output:null}},...Array.from({length:256},()=>linked)],meta);assert.equal(select(next,'partial').length,0);assert.equal(select(next,'complete').length,1);
 });
+
+test('token subtotals use independent field coverage and complete selected groups',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'};
+ const r=(id,task,input,hit,miss,output,outcome='completed')=>({id,session:'a'.repeat(24),task:task?.repeat(24),outcome,usage:{input,hit,miss,output}});
+ const rows=[r(1,'b',100,60,40,10),r(2,'b',null,0,null,null,'failed'),r(3,'c',0,null,0,0),r(4,null,30,10,20,5)],snapshot=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta);
+ const check=(groups,expected)=>{const text=c.modelTaskUsageText(v,groups);for(const [i,label] of ['输入','缓存命中','缓存未命中','输出'].entries()){assert.ok(text.includes('匹配任务已知'+label+'：'+expected[i]),text);assert.ok(text.includes('全窗口已知'+label+'：'+['130','70','60','15'][i]+' Token（已知3/4次）'),text);}};
+ check(v.groups,['130 Token（已知3/4次）','70 Token（已知3/4次）','60 Token（已知3/4次）','15 Token（已知3/4次）']);
+ const partial=['100 Token（已知1/2次）','60 Token（已知2/2次）','40 Token（已知1/2次）','10 Token（已知1/2次）'];
+ check(c.selectModelTaskGroups(v,'all','original',undefined,'all','all','all','partial'),partial);
+ check(c.selectModelTaskGroups(v,'all','original',undefined,'all','single','linked'),['0 Token（已知1/1次）','未知（已知0/1次）','0 Token（已知1/1次）','0 Token（已知1/1次）']);
+ check(c.selectModelTaskGroups(v,'all','original',undefined,'all','all','independent','partial'),Array(4).fill('未知（已知0/0次）'));
+ for(const sort of ['original','count','input','miss','output'])check(c.selectModelTaskGroups(v,'large',sort,{large:100,minimum:100,missPercent:50},'failed','multiple','linked','partial'),partial);
+ assert.equal(JSON.stringify(rows),snapshot);
+ const bounded=c.modelTaskUsage([r(1,null,999,999,999,999),...Array.from({length:256},(_,i)=>r(i+2,null,1,0,null,null))],meta);
+ assert.match(c.modelTaskUsageText(bounded),/全窗口已知输入：256 Token（已知256\/256次）/);assert.match(c.modelTaskUsageText(bounded),/全窗口已知缓存未命中：未知（已知0\/256次）/);
+});
+test('token subtotals keep inconsistent fields and exact integers without inference',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'};
+ const text=rs=>c.modelTaskUsageText(c.modelTaskUsage(rs,meta));
+ const inconsistent=text([row(7,0,100,null)]);assert.match(inconsistent,/全窗口已知输入：7 Token（已知1\/1次）/);assert.match(inconsistent,/全窗口已知缓存命中：0 Token（已知1\/1次）/);assert.match(inconsistent,/全窗口已知缓存未命中：100 Token（已知1\/1次）/);
+ const huge=text([row(Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER),row(Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER),row(Number.MAX_SAFE_INTEGER+1,-1,'2')]);
+ for(const label of ['输入','缓存命中','缓存未命中'])assert.ok(huge.includes('全窗口已知'+label+'：18014398509481982 Token（已知2/3次）'));
+ assert.doesNotMatch(text([]),/已知输入|已知缓存/);assert.doesNotMatch(c.modelTaskUsageText(null),/已知输入|已知缓存/);
+});
