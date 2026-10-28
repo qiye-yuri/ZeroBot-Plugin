@@ -2039,3 +2039,5 @@ PR #45非空验收通过：用户确认QQ收件，实际Chrome五段摘要与逐
 从PR #48分支ac16649d创建codex/task-request-coverage，在现有匹配行汇总完整组g.count并使用value.count作为分母；无新增控件、接口、存储、报告字段或防御性分支。用户明确本轮提前验收累计4项。测试、部署、集中验收和合入状态见[本批清单](task-request-coverage-acceptance.md)。依赖#46→#47→#48，本批草稿以codex/task-count-filter为base，未验收前不合入。
 
 本批75项相关回归全部通过，0失败、0跳过；宽窄明暗截图已人工复核，原生控件操作和报告下载独立校验通过。最终构建完成，完整隔离及实机结果待本批清单记录。
+
+[PR #49](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/49)已上传为依赖#48的草稿；75项回归、最终完整隔离及08:23备份部署通过，实际后台空窗口操作、资源源码和配置保持检查通过。本轮提前集中验收4项，已请求空闲时段一次QQ配合，待真实样本及收件确认，尚未合入。详见[本批清单](task-request-coverage-acceptance.md)。
