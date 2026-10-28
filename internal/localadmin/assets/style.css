@@ -92,3 +92,13 @@
 #model-task-usage>details>summary:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
 #model-task-usage>details>p{white-space:pre-line;overflow-wrap:anywhere}
 @media(max-width:640px){.model-task-toolbar{grid-template-columns:minmax(0,1fr)}.model-task-field select{font-size:16px}}
+
+/* Compare the selected task scope with the complete window. */
+.model-task-totals{width:100%;table-layout:fixed;border-collapse:collapse;margin:12px 0;white-space:normal;font-size:13px;line-height:1.7}
+.model-task-totals caption{text-align:left;font-weight:600;color:var(--text);padding-bottom:8px}
+.model-task-totals th,.model-task-totals td{text-align:left;vertical-align:top;padding:8px;border:1px solid var(--line);white-space:normal;overflow-wrap:anywhere}
+.model-task-totals th{color:var(--text);background:var(--surface-alt);font-weight:600}
+.model-task-totals th:first-child{width:24%}
+.model-task-totals td>span{display:block}
+.model-task-totals .model-task-coverage{color:var(--muted);font-size:12px;margin-top:4px}
+@media(max-width:480px){.model-task-totals th:first-child{width:34%}.model-task-totals th,.model-task-totals td{padding:6px}}

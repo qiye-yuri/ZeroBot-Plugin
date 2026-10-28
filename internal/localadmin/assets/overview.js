@@ -309,14 +309,25 @@ function modelTaskUsageText(value,groups=value?.groups){
   if(!value.count)return "暂无近期请求，任务用量未知。";
   const lines=[`统计起点：${value.startedAt}。当前窗口${value.count}次请求，${value.groups.length}组。仅包含最近最多256条已结束请求，可能缺少早期轮次；不代表任务完整用量、任务完成状态或费用。缺少有效会话/任务标识的请求逐条显示。`];
   lines.push(`匹配任务 ${groups.length}/${value.groups.length}；匹配任务内窗口请求 ${groups.reduce((n,g)=>n+g.count,0)}/${value.count}次；展开任务查看全部窗口内请求。`);
-  for(const [field,label] of [["input","输入"],["hit","缓存命中"],["miss","缓存未命中"],["output","输出"]]){
-    const matched=modelTaskTokenTotal(groups,field),all=modelTaskTokenTotal(value.groups,field);
-    lines.push(`匹配任务已知${label}：${matched.value===null?"未知":matched.value+" Token"}（已知${matched.known}/${matched.count}次）。`);
-    lines.push(`全窗口已知${label}：${all.value===null?"未知":all.value+" Token"}（已知${all.known}/${all.count}次）。`);
-  }
-  lines.push("各字段仅合计已返回的有效Token值，已知次数分别计算；未知不补零，缓存分项不反推输入，不代表完整用量或费用。");
   if(!groups.length)lines.push("当前条件无匹配任务。");
   return lines.join("\n");
+}
+function modelTaskUsageTable(value,groups){
+  const table=document.createElement("table"),caption=document.createElement("caption"),head=document.createElement("thead"),header=document.createElement("tr"),body=document.createElement("tbody");
+  table.className="model-task-totals";caption.textContent="当前窗口任务用量小计";
+  for(const label of ["用量字段","匹配任务","全窗口"]){const th=document.createElement("th");th.scope="col";th.textContent=label;header.append(th);}
+  head.append(header);
+  for(const [field,label] of [["input","输入"],["hit","缓存命中"],["miss","缓存未命中"],["output","输出"]]){
+    const row=document.createElement("tr"),title=document.createElement("th");title.scope="row";title.textContent=label;row.append(title);
+    for(const source of [groups,value.groups]){
+      const total=modelTaskTokenTotal(source,field),cell=document.createElement("td"),amount=document.createElement("span"),coverage=document.createElement("span");
+      amount.textContent=total.value===null?"未知":total.value+" Token";
+      coverage.className="model-task-coverage";coverage.textContent=`已知${total.known}/${total.count}次`;
+      cell.append(amount,coverage);row.append(cell);
+    }
+    body.append(row);
+  }
+  table.append(caption,head,body);return table;
 }
 function modelTaskSummaryText(g,settings=modelCostSettings){
   const risks={large:0,highMiss:0,incomplete:0,inconsistent:0};
@@ -379,14 +390,16 @@ function renderModelTaskView(){
   const container=$("model-task-usage");
   if(!container)return;
   const groups=selectModelTaskGroups(value,$("model-task-filter")?.value,$("model-task-sort")?.value,modelCostSettings,$("model-task-outcome")?.value,$("model-task-count")?.value,$("model-task-association")?.value,$("model-task-output-coverage")?.value);
-  if(!groups.length){container.textContent=modelTaskUsageText(value,groups);return;}
+  if(!value?.count){container.textContent=modelTaskUsageText(value,groups);return;}
   const opened=new Set(Array.from(container.querySelectorAll("details[open][data-task-key]"),e=>e.dataset.taskKey));
   const focused=document.activeElement;
   const focusKey=focused?.tagName==="SUMMARY" && container.contains(focused)?focused.parentElement.dataset.taskKey:null;
   const ids=new Map();
   for(const g of value.groups)if(!g.grouped){const id=g.requests[0].id;ids.set(id,(ids.get(id)||0)+1);}
   const fragment=document.createDocumentFragment(),intro=document.createElement("p");
-  intro.textContent=modelTaskUsageText(value,groups);fragment.append(intro);
+  intro.textContent=modelTaskUsageText(value,groups);
+  const note=document.createElement("p");note.textContent="各字段仅合计已返回的有效Token值，已知次数分别计算；未知不补零，缓存分项不反推输入，不代表完整用量或费用。";
+  fragment.append(intro,modelTaskUsageTable(value,groups),note);
   let restoreFocus=null;
   for(const g of groups){
     const item=document.createElement("details"),summary=document.createElement("summary"),body=document.createElement("p");
