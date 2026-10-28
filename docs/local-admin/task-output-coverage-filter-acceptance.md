@@ -24,3 +24,5 @@
 实际Chrome用原凭据登录，三个分类选项、当前空窗口、unknown与独立关联/output排序组合、手动刷新保留和重置all/original通过。实际截图确认新标签和控件完整；结束恢复默认视图。实际下载独立校验passed=true、issues=[]、requestCount=0，未知保持null；按准确文件名和哈希清理下载副本，最小证据留本机，不将合成分类数据记作真实非空。
 
 86项相关回归、JavaScript语法、188份文档链接/锚点及差异检查通过。320/640/768/1280px明暗共8份截图复核通过，无CSS修改。C09通过，登记第4项，当前4/5；C10/C11待累计5项统一配合及依赖顺序合入。未发送真实QQ或调用付费模型，历史#46～#49不重复计数。
+
+上传结果：[草稿PR #53](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/53)，head codex/task-output-coverage-filter，base codex/task-output-summary，源码与公开文档已上传，未合入；C10/C11继续待满5项集中配合及依赖顺序合入，当前4/5。

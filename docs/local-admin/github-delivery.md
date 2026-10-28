@@ -537,3 +537,5 @@ PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈�
 基于PR #52头27d6bcb0创建codex/task-output-coverage-filter，实现提交50fcd535。新增原生输出已知情况筛选，复用known/count及现有生命周期，完整组、小计和报告保持。86项相关回归、最终150项隔离、15:48备份部署及实际空窗口/报告检查通过，详见[本批清单](task-output-coverage-filter-acceptance.md)。
 
 说明文档、开发状态、维护队列及自测同步。上传用户origin，草稿PR base为codex/task-output-summary，依赖#50～#52，当前4/5，满5项集中验收后再合入。仅显式暂存本批源码、测试和公开文档；data及两份无关测试修改留本机，配置、程序、截图及原始报告不上传。
+
+上传完成：[草稿PR #53](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/53)，base codex/task-output-summary，head codex/task-output-coverage-filter。功能50fcd535、部署记录8001e989已上传；后续追加仅登记实际上传结果，不改变已验收程序。依赖#50～#52，队列4/5，未合入。
