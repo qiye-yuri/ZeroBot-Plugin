@@ -1,5 +1,7 @@
 # PR53之后的开发计划：筛选结果已知输入与缓存用量小计
 
+执行更新：用户已授权实施，实际基线为PR #53头bf4b0d94。89项回归通过，最终部署与集中验收以[本批清单](task-token-summary-acceptance.md)为准。下文保留设计时点。
+
 日期：2026-10-28（Asia/Shanghai）。设计基线为codex/task-output-coverage-filter的`30b49ed15cf2200309855acb3f2c514d9243c1d9`，已核对origin一致。[PR #53](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/53)为开放草稿，base为codex/task-output-summary，依赖链#50→#51→#52→#53。四批已完成部署独立检查，真实非空与QQ收件待集中验收，当前4/5。本次仅规划，不实现功能、不部署、不增加计数。
 
 ## 1 目标与范围

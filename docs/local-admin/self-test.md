@@ -2104,3 +2104,7 @@ node --check internal/localadmin/assets/overview.js通过；node --test scripts/
 新增[筛选结果已知输入与缓存用量小计计划](post-pr53-development-plan.md)，同步共9份公开文档。node --test scripts/test-doc-links.mjs共18通过、0失败、0跳过；189份文档链接/锚点检查零错误，差异检查通过。人工复核四字段固定样例、known独立分母、已知0/未知、大整数期望、完整组交集、依赖链和4/5队列一致。
 
 本轮无产品代码变化，未构建、部署、重启或重跑机器人业务测试，未发送QQ或调用付费模型。文档检查不代表规划功能已实现；外部链接不由文档检查器联网验证，PR #53状态已另行通过GitHub核对。上传事实见交付记录。
+
+## 输入与缓存小计开发（2026-10-28）
+
+基于PR #53头bf4b0d94实现，89项相关回归、JavaScript语法通过。复用组级汇总，完整组交集、字段独立known、精确整数与完整报告保持，说明已同步。最终部署及QQ集中验收见[本批清单](task-token-summary-acceptance.md)。当前未合入；完成部署独立检查后登记第五项。
