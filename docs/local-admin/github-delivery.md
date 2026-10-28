@@ -531,3 +531,19 @@ PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈�
 文档专项18项通过，187份文档链接/锚点及差异检查通过。本轮仅规划，功能尚未实现，无需部署，不新增QQ验收计数、不合入；队列保持3/5，满5项统一配合。显式暂存文档并上传用户origin的codex/task-output-summary，随[草稿PR #52](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/52)保存，base仍为codex/task-association-filter。既有data及两份无关测试修改留在本机，不上传配置或私有证据。
 
 本轮规划已上传：提交3ad7354809deaa5bd7075c1777d4c954ee828dec，已核对本地与origin分支头一致，随草稿PR #52保存。后续追加仅登记本次上传事实；功能未实施，运行程序与3/5队列不变。
+
+## 输出用量已知情况筛选开发部署（2026-10-28）
+
+基于PR #52头27d6bcb0创建codex/task-output-coverage-filter，实现提交50fcd535。新增原生输出已知情况筛选，复用known/count及现有生命周期，完整组、小计和报告保持。86项相关回归、最终150项隔离、15:48备份部署及实际空窗口/报告检查通过，详见[本批清单](task-output-coverage-filter-acceptance.md)。
+
+说明文档、开发状态、维护队列及自测同步。上传用户origin，草稿PR base为codex/task-output-summary，依赖#50～#52，当前4/5，满5项集中验收后再合入。仅显式暂存本批源码、测试和公开文档；data及两份无关测试修改留本机，配置、程序、截图及原始报告不上传。
+
+上传完成：[草稿PR #53](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/53)，base codex/task-output-summary，head codex/task-output-coverage-filter。功能50fcd535、部署记录8001e989已上传；后续追加仅登记实际上传结果，不改变已验收程序。依赖#50～#52，队列4/5，未合入。
+
+## PR53后续规划文档交付（2026-10-28）
+
+以30b49ed15cf2200309855acb3f2c514d9243c1d9为基线，新增[筛选结果已知输入与缓存用量小计详细计划](post-pr53-development-plan.md)，同步9份公开文档。4个工作包、11项验收标准，预计4～6小时有效工时。本轮仅规划，程序与4/5队列保持，不部署、不合入。文档检查通过后显式暂存上传用户origin的codex/task-output-coverage-filter，随[草稿PR #53](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/53)保存，base为codex/task-output-summary。既有data与两份无关测试修改不上传，配置、程序及私有证据留本机。实际检查与上传结果随后登记。
+
+检查完成：文档专项18项通过、0失败、0跳过；189份文档链接/锚点零错误，差异检查通过。固定样例、字段独立已知次数、依赖和4/5状态已复核；仅文档交付，不将前批程序测试冒充本批功能结果。
+
+本轮规划已上传：提交cbeba1ca276a9ad1ea338ab8554a54b74bf1695a，已核对本地与origin分支头一致，随草稿PR #53保存。本次追加仅登记实际上传结果；规划未实施，运行程序与QQ队列4/5不变。

@@ -333,3 +333,21 @@ test('output summary distinguishes zero unknown no match and large exact totals'
  assert.match(text([7]),/全窗口已知输出：7 Token（已知1\/1次）/); // cache inconsistency does not discard known output
  assert.doesNotMatch(text([]),/已知输出/);assert.doesNotMatch(c.modelTaskUsageText(null),/已知输出/);
 });
+
+test('output coverage filter keeps whole groups and exact matching subtotals',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},settings={large:100,minimum:100,missPercent:80};
+ const r=(id,task,input,output,outcome='completed')=>({...row(input,input,0,output),id,session:'a'.repeat(24),task:task?.repeat(24),outcome});
+ const v=c.modelTaskUsage([r(1,'b',100,10),r(2,'b',1,null,'failed'),r(3,'c',1,0),r(4,null,1,20),r(5,null,1,null)],meta),before=JSON.stringify(v);
+ const select=(coverage,association='all',count='all',risk='all',outcome='all',sort='original')=>c.selectModelTaskGroups(v,risk,sort,settings,outcome,count,association,coverage),ids=gs=>Array.from(gs,g=>Array.from(g.requests,r=>r.id));
+ assert.deepEqual(ids(select('all')),[[1,2],[3],[4],[5]]);assert.deepEqual(ids(select('complete')),[[3],[4]]);assert.deepEqual(ids(select('partial')),[[1,2]]);assert.deepEqual(ids(select('unknown')),[[5]]);
+ for(const [type,assoc,count,expected] of [['complete','all','all','20 Token（已知2/2次）'],['partial','all','all','10 Token（已知1/2次）'],['unknown','all','all','未知（已知0/1次）'],['complete','linked','all','0 Token（已知1/1次）'],['partial','independent','all','未知（已知0/0次）'],['partial','all','single','未知（已知0/0次）']]){const text=c.modelTaskUsageText(v,select(type,assoc,count));assert.ok(text.includes('匹配任务已知输出：'+expected));assert.match(text,/全窗口已知输出：30 Token（已知3\/5次）/);}
+ for(const sort of ['original','count','input','miss','output'])assert.deepEqual(ids(select('partial','linked','multiple','anyRisk','failed',sort)),[[1,2]]);
+ assert.deepEqual(ids(select('complete','all','all','all','all','output')),[[4],[3]]);assert.equal(JSON.stringify(v),before);assert.deepEqual(ids(c.selectModelTaskGroups(v)),ids(select('all')));
+});
+
+test('output coverage follows upstream known values and new bounded snapshots',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},r=(output)=>({...row(1,0,0,output),id:1}),select=(v,type)=>c.selectModelTaskGroups(v,'all','original',undefined,'all','all','all',type);
+ const v=c.modelTaskUsage([0,null,-1,1.5,'2',Number.MAX_SAFE_INTEGER+1].map(r),meta);assert.equal(v.groups.length,6);assert.equal(select(v,'complete').length,1);assert.equal(select(v,'unknown').length,5);assert.equal(select(v,'partial').length,0);
+ const linked={...r(Number.MAX_SAFE_INTEGER),session:'a'.repeat(24),task:'b'.repeat(24)};const big=c.modelTaskUsage([linked,linked],meta);assert.equal(select(big,'complete').length,1);assert.equal(big.groups[0].totals.output.value,'18014398509481982');
+ const old=c.modelTaskUsage([{...linked,usage:{output:null}},...Array.from({length:255},()=>linked)],meta);assert.equal(select(old,'partial').length,1);const next=c.modelTaskUsage([{...linked,usage:{output:null}},...Array.from({length:256},()=>linked)],meta);assert.equal(select(next,'partial').length,0);assert.equal(select(next,'complete').length,1);
+});
