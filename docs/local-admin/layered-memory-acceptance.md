@@ -43,4 +43,4 @@
 
 本机最少证据保留在工作区 `.local/real-model/run-1922276223/`、`.local/real-summary-result.json`、`.local/live-memory-audit.json`、`.local/live-usage.txt` 和实际页面截图；部署结果在日常目录 `.local/layered-memory/result.json`。含身份、原文、密钥配置或逐条回执的证据不上传。
 
-本批部署及上述核心验收通过；长期自然对话质量和日常摘要的下一轮使用继续观察。暂未合入master：本分支依赖尚待集中验收的PR #55～#58，原4/5队列保持，不把本轮一条个人记忆消息自动视为所有历史批次已通过。
+本批部署及上述核心验收通过；长期自然对话质量和日常摘要的下一轮使用继续观察。上述依赖的PR #55～#59随后已独立完成验收并合入；本功能现随测试隔离合入本机master，未推送远端。旧消息现按用户后续授权统一隔离，详见[测试数据隔离](test-data-isolation.md)。
