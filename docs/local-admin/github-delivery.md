@@ -485,4 +485,4 @@ PR #46、#47、#48、#49已在真实非空验收和用户收件确认后依次�
 
 ## PR49后规划文档交付（2026-10-28）
 
-基于master aa35924d新增[输出量排序开发计划](post-pr49-development-plan.md)，同步主README、文档索引、使用指南规划入口、todo、operations、progress、self-test及本交付记录，共9份公开文档。功能尚未实现，队列仍0/5；本轮按纯文档检查上传origin/master，无程序部署、功能PR或正式标签。已有data及两份测试文件修改排除在交付外。上传结果待远端核对后补记。
+基于master aa35924d新增[输出量排序开发计划](post-pr49-development-plan.md)，同步主README、文档索引、使用指南规划入口、todo、operations、progress、self-test及本交付记录，共9份公开文档。功能尚未实现，队列仍0/5；本轮按纯文档检查上传origin/master，无程序部署、功能PR或正式标签。已有data及两份测试文件修改排除在交付外。文档专项18/18、全量181份文档的2167个本地引用及579个锚点、差异检查通过；首次沙箱测试失败及重跑范围见自测。计划提交3eec2af9590a5afd051f88ba15082fb91613a1c4已推送origin/master，并通过git ls-remote核对一致。本条为随后同步的上传结果记录；无程序变化，QQ队列保持0/5。
