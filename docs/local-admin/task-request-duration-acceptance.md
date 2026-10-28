@@ -1,5 +1,7 @@
 # 任务明细单次请求耗时验收清单
 
+执行更新（2026-10-29）：本轮五项集中真实验收通过，用户确认QQ收件；实际样本及合成覆盖边界见[集中记录](task-usage-batch-20261029.md)。以下保留各批历史状态，本批已合入master，队列0/5；合并SHA见集中记录。
+
 日期：2026-10-28（Asia/Shanghai）。实际基线PR #57头80a7cb61652157fabf62ab6ded0e98c2ff22e498，分支codex/task-request-duration，base codex/task-kind-filter，依赖#55～#57。设计见[计划](post-pr57-development-plan.md)，操作见[说明](model-request-statistics.md#任务明细显示单次请求耗时)。
 
 仅在每条请求标题与Token行之间显示已有milliseconds，局部使用现有非负有限值口径并舍入显示；无新增采集、汇总、排序、状态、接口、存储或CSS。

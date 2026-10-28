@@ -1,5 +1,7 @@
 # 按会话或任务标识筛选验收清单
 
+执行更新（2026-10-29）：本轮五项集中真实验收通过，用户确认QQ收件；实际样本及合成覆盖边界见[集中记录](task-usage-batch-20261029.md)。以下保留各批历史状态，本批已合入master，队列0/5；合并SHA见集中记录。
+
 日期：2026-10-28（Asia/Shanghai）。实际基线PR #55头b6002329c99846a2d892ae405a264943c8352f27，分支codex/task-identity-filter，base codex/task-usage-table。设计见[计划](post-pr55-development-plan.md)，操作见[使用说明](model-request-statistics.md#按会话或任务标识筛选)。
 
 新增原生搜索框，复用grouped/session/task完整精确匹配，trim首尾空白，保留大小写；纳入既有禁用、刷新、清空和重置流程。无新增状态、接口、存储、正则验证或历史查询。

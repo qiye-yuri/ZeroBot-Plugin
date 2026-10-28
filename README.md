@@ -1,3 +1,11 @@
+2026-10-29：PR #55～#59五项已完成集中真实非空验收、用户QQ收件确认并依次合入master，源码与已部署候选一致。详见[最终验收及合入记录](docs/local-admin/task-usage-batch-20261029.md)。QQ队列已清空为0/5，后续继续累计5项统一配合；下方保留历史登记过程。
+
+2026-10-29最慢耗时排序已完成102项回归、最终150项隔离、01:06备份部署及实际空窗口/排序/刷新/重置/报告检查。本轮QQ队列已累计5/5，统一安排真实非空及收件验收，未提前合入；见[本批清单](docs/local-admin/task-slowest-sort-acceptance.md)。
+
+2026-10-29最慢请求耗时排序：已实现，102项相关回归通过；操作见[使用说明](docs/local-admin/model-request-statistics.md#按窗口内最慢请求耗时排序)，部署及集中验收状态见[本批清单](docs/local-admin/task-slowest-sort-acceptance.md)。原值排序、未知末尾，QQ配合按实际缺口累计5项，未提前合入。
+
+2026-10-29后续规划：下一项为[按窗口内最慢请求耗时排序](docs/local-admin/post-pr58-development-plan.md)，4个工作包、11项验收标准，预计4～6小时有效工时。仅规划，尚未实现；复用已有耗时，摘要显示最慢已知值和覆盖，原值排序、未知末尾，不新增采集或通用统计框架。QQ队列保持4/5，继续满5项统一配合。
+
 2026-10-28单次请求耗时已完成99项回归、最终150项隔离、23:29备份部署及实际空窗口/口径/刷新/重置/报告检查。当前QQ队列4/5，真实非空继续满5项统一验收，未合入；见[本批清单](docs/local-admin/task-request-duration-acceptance.md)。
 
 2026-10-28任务明细单次请求耗时：已实现，99项相关回归通过；操作见[使用说明](docs/local-admin/model-request-statistics.md#任务明细显示单次请求耗时)，部署及验收状态见[本批清单](docs/local-admin/task-request-duration-acceptance.md)。复用已有字段，报告精度保持，QQ配合继续按实际缺口累计5项，未提前合入。
