@@ -515,3 +515,19 @@ PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈�
 文档专项18项通过，全量185份链接/锚点及差异检查通过。功能尚未实现，本轮不构建部署、不新增验收计数、不合入；QQ队列保持2/5，满5项统一配合。按显式文件清单上传codex/task-association-filter，随[草稿PR #51](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/51)保存，base仍为codex/task-output-sort。既有data及两份无关测试改动保持本机，不上传运行配置或私有证据。
 
 本轮规划已上传：提交1ad3ca169cfec6fec9275f035bd9142215ad4219，已核对本地与origin分支头一致，随草稿PR #51保存。后续追加仅登记本次上传事实；规划尚未实施，运行程序和2/5队列不变。
+
+## 筛选结果已知输出量小计开发部署（2026-10-28）
+
+基于PR #51头30e9daa8创建codex/task-output-summary，实现提交6d6d7695。新增组级BigInt汇总与两行摘要，复用现有生命周期，未改接口、存储、报告结构或样式。83项相关回归、最终150项隔离、14:49备份部署及实际空窗口/报告检查通过，哈希与证据见[本批清单](task-output-summary-acceptance.md)。
+
+使用说明、开发状态、维护队列及自测已同步。上传用户origin，草稿PR base为codex/task-association-filter，依赖#50/#51；当前3/5，满5项统一验收，未合入master。显式暂存本批源码、测试和公开文档，data及两份无关测试改动保持本机，配置/密钥/程序/原始报告与截图不上传。
+
+上传完成：[草稿PR #52](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/52)，base codex/task-association-filter，head codex/task-output-summary。功能6d6d7695、部署记录f6a5981f已上传；本次追加只登记上传结果，不改变已验收程序。未合入，依赖#50/#51，队列3/5。
+
+## PR52后续规划文档交付（2026-10-28）
+
+基线5a6cd154f0f51b16fdd25e4ae434a5f424d578a4，新增[按输出用量已知情况筛选详细计划](post-pr52-development-plan.md)，同步首页、索引、使用指南规划入口、todo、维护、进度和自测，共9份公开文档。计划含4个工作包、11项验收标准，预计4～6小时有效工时；复用已有known/count，不增加后端、存储、报告字段或重复校验。
+
+文档专项18项通过，187份文档链接/锚点及差异检查通过。本轮仅规划，功能尚未实现，无需部署，不新增QQ验收计数、不合入；队列保持3/5，满5项统一配合。显式暂存文档并上传用户origin的codex/task-output-summary，随[草稿PR #52](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/52)保存，base仍为codex/task-association-filter。既有data及两份无关测试修改留在本机，不上传配置或私有证据。
+
+本轮规划已上传：提交3ad7354809deaa5bd7075c1777d4c954ee828dec，已核对本地与origin分支头一致，随草稿PR #52保存。后续追加仅登记本次上传事实；功能未实施，运行程序与3/5队列不变。

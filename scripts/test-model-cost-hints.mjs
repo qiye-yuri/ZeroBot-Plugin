@@ -312,3 +312,24 @@ test('association classification reuses exact group identities and current bound
  const window=c.modelTaskUsage([base,...Array.from({length:256},(_,i)=>({...base,id:i+2,task:null}))],meta);assert.equal(window.count,256);assert.equal(select(window).length,256);
  const next=c.modelTaskUsage([{...rows[3],session:'a'.repeat(24)}],meta);assert.equal(select(next).length,0);assert.equal(next.groups[0].grouped,true);
 });
+
+test('filtered output summary totals whole groups with exact known coverage',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},settings={large:100,minimum:100,missPercent:80};
+ const r=(id,task,input,output,outcome='completed')=>({...row(input,input,0,output),id,session:'a'.repeat(24),task:task?.repeat(24),outcome});
+ const rows=[r(1,'b',100,10),r(2,'b',1,null,'failed'),r(3,'c',1,20),r(4,null,1,0),r(5,null,1,null)];
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),select=(association='all',count='all',risk='all',outcome='all',sort='original')=>c.selectModelTaskGroups(v,risk,sort,settings,outcome,count,association);
+ const check=(gs,expected)=>{const text=c.modelTaskUsageText(v,gs);assert.ok(text.includes('匹配任务已知输出：'+expected));assert.ok(text.includes('全窗口已知输出：30 Token（已知3/5次）。'));};
+ check(select(),'30 Token（已知3/5次）。');check(select('linked'),'30 Token（已知2/3次）。');check(select('independent'),'0 Token（已知1/2次）。');check(select('linked','multiple'),'10 Token（已知1/2次）。');check(select('independent','multiple'),'未知（已知0/0次）。');
+ for(const sort of ['original','count','input','miss','output']){check(select('linked','all','anyRisk','failed',sort),'10 Token（已知1/2次）。');check(select('all','all','all','all',sort),'30 Token（已知3/5次）。');}
+ assert.equal(JSON.stringify(v),before);
+ const bounded=c.modelTaskUsage([r(9,'d',1,999),...Array.from({length:256},(_,i)=>r(i+10,null,1,1))],meta);assert.match(c.modelTaskUsageText(bounded),/全窗口已知输出：256 Token（已知256\/256次）/);
+});
+
+test('output summary distinguishes zero unknown no match and large exact totals',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},text=outputs=>c.modelTaskUsageText(c.modelTaskUsage(outputs.map(output=>row(1,0,0,output)),meta));
+ assert.match(text([0]),/匹配任务已知输出：0 Token（已知1\/1次）/);
+ assert.match(text([null,-1,1.5,Number.MAX_SAFE_INTEGER+1,'2']),/匹配任务已知输出：未知（已知0\/5次）/);
+ assert.match(text([Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,null]),/全窗口已知输出：18014398509481982 Token（已知2\/3次）/);
+ assert.match(text([7]),/全窗口已知输出：7 Token（已知1\/1次）/); // cache inconsistency does not discard known output
+ assert.doesNotMatch(text([]),/已知输出/);assert.doesNotMatch(c.modelTaskUsageText(null),/已知输出/);
+});

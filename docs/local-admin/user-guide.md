@@ -1,6 +1,8 @@
-后续设计（2026-10-28）：[筛选结果已知输出量小计详细计划](post-pr51-development-plan.md)已整理，含4个工作包、11项验收标准，预计3～5小时有效工时。复用现有组级输出合计，区分已知零与未知，保留完整导出；尚未实现。本轮仅文档，QQ队列保持2/5，继续满5项统一验收。
+后续设计（2026-10-28）：[按输出用量已知情况筛选详细计划](post-pr52-development-plan.md)已整理，含4个工作包、11项验收标准，预计4～6小时有效工时。复用known/count区分全部已知、部分已知和全部未知，保持完整组与输出小计；尚未实现。本轮仅规划，QQ队列保持3/5，满5项统一验收。
 
-2026-10-28请求关联类型筛选：已按[详细计划](post-pr50-development-plan.md)实现，80项相关回归、最终150项隔离及备份部署独立检查通过，使用方式见[说明](model-request-statistics.md#按请求关联类型筛选)，部署及集中验收状态见[本批清单](task-association-filter-acceptance.md)。当前队列2/5，真实非空与QQ配合继续累计5项统一进行，尚未合入master。
+2026-10-28筛选结果已知输出量小计：已按[详细计划](post-pr51-development-plan.md)实现，83项相关回归、最终150项隔离及备份部署独立检查通过；操作见[使用说明](model-request-statistics.md#筛选结果已知输出量小计)，部署与集中验收状态见[本批清单](task-output-summary-acceptance.md)。当前队列3/5，真实非空及QQ配合继续满5项统一验收，尚未合入master。
+
+上一批记录（2026-10-28请求关联类型筛选）：已按[详细计划](post-pr50-development-plan.md)实现，80项相关回归、最终150项隔离及备份部署独立检查通过，使用方式见[说明](model-request-statistics.md#按请求关联类型筛选)，部署及集中验收状态见[本批清单](task-association-filter-acceptance.md)。当前队列2/5，真实非空与QQ配合继续累计5项统一进行，尚未合入master。
 
 上一批记录（2026-10-28输出量排序）：已实现[按窗口内已知输出量排序](model-request-statistics.md#按窗口内已知输出量排序)，77项相关离线回归通过，最终部署与上传进度见[验收清单](task-output-sort-acceptance.md)。本批已部署并通过独立检查，真实非空与QQ验收登记1/5，累计5项统一安排，尚未合入master。
 
@@ -561,4 +563,8 @@ AI费用风险提示支持[调整本页提示阈值](model-request-statistics.md
 
 ## 筛选结果输出小计规划
 
-下一批拟在任务视图展示匹配组和全窗口的已知输出小计及已知请求次数，详细口径、样例和实施步骤见[PR51后开发计划](post-pr51-development-plan.md)。功能尚未实现，当前界面及操作仍以[现有用量说明](model-request-statistics.md)为准；规划不改变运行程序，不新增QQ验收计数，当前2/5。
+已实现匹配组和全窗口的已知输出小计及已知请求次数。登录运行概览 → 模型接口请求 → AI费用风险提示 → 按任务查看用量即可查看；沿用后台权限，部署后刷新生效，无需保存。部分未知仅合计已知值，已知0与未知分别显示，完整导出不变。详见[使用说明](model-request-statistics.md#筛选结果已知输出量小计)；设计见[计划](post-pr51-development-plan.md)，实际部署及集中验收状态见[验收清单](task-output-summary-acceptance.md)。
+
+## 输出用量已知情况筛选规划
+
+下一批拟在任务视图增加输出全部已知、部分已知和全部未知的筛选，设计见[PR52后详细计划](post-pr52-development-plan.md)。已知0归为已知，匹配仍保留整组并更新现有小计，完整导出保持。功能尚未实现；当前操作仍以[模型用量说明](model-request-statistics.md)为准，本轮不部署，QQ队列3/5不变。
