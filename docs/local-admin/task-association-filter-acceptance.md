@@ -1,5 +1,7 @@
 # 按请求关联类型筛选验收清单
 
+执行更新（2026-10-28晚）：五项集中真实非空验收通过，用户确认QQ收件；最终重置回读及实机截图已补齐，详见[集中验收记录](pr50-54-batch-acceptance.md)。下文保留各批历史状态，合入结果以集中记录为准。
+
 日期：2026-10-28（Asia/Shanghai）。基线PR #50的`fdbc39f0299dec31ed58adacdaa994b94e6e1d4f`；分支`codex/task-association-filter`，依赖`codex/task-output-sort`。设计见[详细计划](post-pr50-development-plan.md)，操作见[使用说明](model-request-statistics.md#按请求关联类型筛选)。
 
 实现复用grouped布尔值，增加原生筛选控件并接入既有刷新、禁用、重置和导航流程；不重复解析标识，不增加接口、存储或报告字段。宽屏复核发现最长选项末尾裁剪，将本工具栏最小列宽从13rem增至15rem，保留窄屏单列及44px控件高度。

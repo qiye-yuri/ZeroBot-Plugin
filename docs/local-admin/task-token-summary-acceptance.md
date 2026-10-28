@@ -1,5 +1,7 @@
 # 筛选结果已知输入与缓存用量小计验收清单
 
+执行更新（2026-10-28晚）：五项集中真实非空验收通过，用户确认QQ收件；最终重置回读及实机截图已补齐，详见[集中验收记录](pr50-54-batch-acceptance.md)。下文保留各批历史状态，合入结果以集中记录为准。
+
 日期：2026-10-28（Asia/Shanghai）。实际基线PR #53头bf4b0d9467b79b6dca4e752b85704a840bc85d75，分支codex/task-token-summary，base为codex/task-output-coverage-filter。设计见[计划](post-pr53-development-plan.md)，操作见[使用说明](model-request-statistics.md#筛选结果已知输入与缓存用量小计)。
 
 复用已有组级totals及BigInt小计，字段独立统计known；新增六行输入/缓存摘要，保留原输出格式。无新接口、存储、状态、样式或重复校验。
