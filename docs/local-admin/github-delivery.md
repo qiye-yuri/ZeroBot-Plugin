@@ -521,3 +521,5 @@ PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈�
 基于PR #51头30e9daa8创建codex/task-output-summary，实现提交6d6d7695。新增组级BigInt汇总与两行摘要，复用现有生命周期，未改接口、存储、报告结构或样式。83项相关回归、最终150项隔离、14:49备份部署及实际空窗口/报告检查通过，哈希与证据见[本批清单](task-output-summary-acceptance.md)。
 
 使用说明、开发状态、维护队列及自测已同步。上传用户origin，草稿PR base为codex/task-association-filter，依赖#50/#51；当前3/5，满5项统一验收，未合入master。显式暂存本批源码、测试和公开文档，data及两份无关测试改动保持本机，配置/密钥/程序/原始报告与截图不上传。
+
+上传完成：[草稿PR #52](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/52)，base codex/task-association-filter，head codex/task-output-summary。功能6d6d7695、部署记录f6a5981f已上传；本次追加只登记上传结果，不改变已验收程序。未合入，依赖#50/#51，队列3/5。

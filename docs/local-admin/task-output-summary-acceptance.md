@@ -26,3 +26,5 @@
 实际Chrome使用原凭据登录，确认当前0次窗口保留未知提示、不伪造两行0小计；独立关联+多次+输出排序组合、手动刷新保留、重置恢复全部条件与原顺序通过。实际下载独立校验passed=true、issues=[]、requestCount=0，未知保持null；下载副本已按准确文件名和哈希清理，最小证据仅留本机。实际空态截图及8份合成布局截图已复核，不将合成非空写成真实非空。
 
 JavaScript语法、83项相关回归和186份文档链接/锚点及差异检查通过。W09通过，登记第3项，当前3/5；W10/W11仍待累计5项集中配合及依赖顺序合入。未发送真实QQ或调用付费模型，#46～#49已完成历史批次不重复计数。
+
+上传结果：[草稿PR #52](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/52)，head codex/task-output-summary，base codex/task-association-filter；源码与公开文档已上传，未合入。W10/W11继续待集中验收及依赖顺序合入，当前3/5。

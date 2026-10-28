@@ -543,7 +543,7 @@ R12只调整模型及搜索诊断结果渲染，已合并部署。安装经验�
 | --- | --- | --- | --- |
 | 1/5 | [PR #50](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/50) 按窗口内已知输出量排序 | 77项回归、150项最终隔离、部署及真实空窗口/报告 | 最终候选真实非空输出量核对、QQ收件确认 |
 | 2/5 | [PR #51](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/51) [请求关联类型筛选](task-association-filter-acceptance.md) | 80项回归、150项最终隔离、部署及真实空窗口/报告 | 最终候选真实关联类型、筛选覆盖/重置、报告及QQ收件 |
-| 3/5 | [筛选结果已知输出量小计](task-output-summary-acceptance.md) | 83项回归、150项最终隔离、部署及真实空窗口/报告 | 最终候选真实非空小计、已知次数、完整报告及QQ收件 |
+| 3/5 | [PR #52](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/52) [筛选结果已知输出量小计](task-output-summary-acceptance.md) | 83项回归、150项最终隔离、部署及真实空窗口/报告 | 最终候选真实非空小计、已知次数、完整报告及QQ收件 |
 
 当前累计3/5，继续累计到5项统一验收，不单独请求用户发送QQ。本轮未合入master；PR #46～#49保持已完成。未来候选需包含本批功能并逐项记录实际覆盖，单组真实样本不能代替多组排序合成证据。
 
