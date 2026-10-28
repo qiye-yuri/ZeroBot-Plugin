@@ -2092,3 +2092,9 @@ node --check internal/localadmin/assets/overview.js通过；node --test scripts/
 新增[按输出用量已知情况筛选计划](post-pr52-development-plan.md)，同步9份公开文档。node --test scripts/test-doc-links.mjs共18通过、0失败、0跳过；全量187份文档链接/锚点与差异检查通过。人工核对固定样例、known/count分类、已知0、完整组交集、小计分母、依赖链和3/5队列一致。
 
 本轮无产品代码变化，不构建、部署、重启或重跑机器人业务测试，未发送QQ或调用付费模型。前批部署证据保持；文档检查不代表规划功能已实现。实际上传结果见交付记录。
+
+## 输出已知情况筛选最终检查（2026-10-28）
+
+node --check internal/localadmin/assets/overview.js通过；node --test scripts/test-model-cost-hints.mjs scripts/test-model-cost-hints-ui.mjs scripts/test-model-usage-check.mjs scripts/test-overview-ui.mjs scripts/test-maintenance-navigation-ui.mjs共86通过、0失败、0跳过。既有键盘断言按新增控件扩展，分类/小计/完整导出、刷新变化、失败和认证路径通过；四宽度明暗8份截图复核通过，无CSS变更。188份文档链接/锚点及差异检查通过。
+
+最终隔离150个Passed全部为true，isolated=true、realQQMessagesSent=false。15:48一次部署成功，1324份备份、8份静态资源源码一致、401/403保护、单实例、原配置和OneBot保持通过。实际Chrome三个分类、空态、刷新保留与重置、截图及下载校验通过，requestCount=0；准确下载副本已清理。真实非空分类与QQ收件保持待验收，当前4/5，见[验收清单](task-output-coverage-filter-acceptance.md)。

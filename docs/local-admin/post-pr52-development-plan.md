@@ -1,5 +1,7 @@
 # PR52之后的开发计划：按输出用量已知情况筛选
 
+执行更新（2026-10-28）：已按用户授权实施，实际基线为PR #52头27d6bcb0。86项相关回归通过，部署与集中验收见[本批清单](task-output-coverage-filter-acceptance.md)。以下保留原设计时点，实时状态以验收清单为准。
+
 日期：2026-10-28（Asia/Shanghai）。设计基线为codex/task-output-summary的`5a6cd154f0f51b16fdd25e4ae434a5f424d578a4`，已核对远端一致。[PR #52](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/52)仍为草稿，base为codex/task-association-filter，依赖链#50→#51→#52。三批已完成部署独立检查，真实非空与QQ收件待集中验收，当前3/5。本轮仅规划，不实现、不部署、不增加计数。
 
 ## 1 目标与边界
