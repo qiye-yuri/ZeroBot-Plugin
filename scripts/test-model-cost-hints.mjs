@@ -9,6 +9,13 @@ function fixture(){
  const c=vm.createContext({$,document:{addEventListener(){},createElement:node,createDocumentFragment:node},Number,Date,setTimeout,clearTimeout});
  vm.runInContext(fs.readFileSync('internal/localadmin/assets/overview.js','utf8'),c);return {c,$};
 }
+
+function taskTableText(c,value,groups=value?.groups){
+ const intro=c.modelTaskUsageText(value,groups);if(!value?.count)return intro;
+ const table=c.modelTaskUsageTable(value,groups),rows=table.children[2].children;
+ return intro+'\n'+rows.map(row=>row.children.slice(1).map((cell,i)=>['匹配任务','全窗口'][i]+'已知'+row.children[0].textContent+'：'+cell.children[0].textContent+'（'+cell.children[1].textContent+'）。').join('\n')).join('\n');
+}
+
 const row=(input,hit,miss,output=10)=>({id:1,model:'fixture',usage:{input,hit,miss,output}});
 
 test('output sorting uses known partial totals, stable ties and exact large sums after group filters',()=>{
@@ -318,20 +325,20 @@ test('filtered output summary totals whole groups with exact known coverage',()=
  const r=(id,task,input,output,outcome='completed')=>({...row(input,input,0,output),id,session:'a'.repeat(24),task:task?.repeat(24),outcome});
  const rows=[r(1,'b',100,10),r(2,'b',1,null,'failed'),r(3,'c',1,20),r(4,null,1,0),r(5,null,1,null)];
  const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),select=(association='all',count='all',risk='all',outcome='all',sort='original')=>c.selectModelTaskGroups(v,risk,sort,settings,outcome,count,association);
- const check=(gs,expected)=>{const text=c.modelTaskUsageText(v,gs);assert.ok(text.includes('匹配任务已知输出：'+expected));assert.ok(text.includes('全窗口已知输出：30 Token（已知3/5次）。'));};
+ const check=(gs,expected)=>{const text=taskTableText(c,v,gs);assert.ok(text.includes('匹配任务已知输出：'+expected));assert.ok(text.includes('全窗口已知输出：30 Token（已知3/5次）。'));};
  check(select(),'30 Token（已知3/5次）。');check(select('linked'),'30 Token（已知2/3次）。');check(select('independent'),'0 Token（已知1/2次）。');check(select('linked','multiple'),'10 Token（已知1/2次）。');check(select('independent','multiple'),'未知（已知0/0次）。');
  for(const sort of ['original','count','input','miss','output']){check(select('linked','all','anyRisk','failed',sort),'10 Token（已知1/2次）。');check(select('all','all','all','all',sort),'30 Token（已知3/5次）。');}
  assert.equal(JSON.stringify(v),before);
- const bounded=c.modelTaskUsage([r(9,'d',1,999),...Array.from({length:256},(_,i)=>r(i+10,null,1,1))],meta);assert.match(c.modelTaskUsageText(bounded),/全窗口已知输出：256 Token（已知256\/256次）/);
+ const bounded=c.modelTaskUsage([r(9,'d',1,999),...Array.from({length:256},(_,i)=>r(i+10,null,1,1))],meta);assert.match(taskTableText(c,bounded),/全窗口已知输出：256 Token（已知256\/256次）/);
 });
 
 test('output summary distinguishes zero unknown no match and large exact totals',()=>{
- const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},text=outputs=>c.modelTaskUsageText(c.modelTaskUsage(outputs.map(output=>row(1,0,0,output)),meta));
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},text=outputs=>taskTableText(c,c.modelTaskUsage(outputs.map(output=>row(1,0,0,output)),meta));
  assert.match(text([0]),/匹配任务已知输出：0 Token（已知1\/1次）/);
  assert.match(text([null,-1,1.5,Number.MAX_SAFE_INTEGER+1,'2']),/匹配任务已知输出：未知（已知0\/5次）/);
  assert.match(text([Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,null]),/全窗口已知输出：18014398509481982 Token（已知2\/3次）/);
  assert.match(text([7]),/全窗口已知输出：7 Token（已知1\/1次）/); // cache inconsistency does not discard known output
- assert.doesNotMatch(text([]),/已知输出/);assert.doesNotMatch(c.modelTaskUsageText(null),/已知输出/);
+ assert.doesNotMatch(text([]),/已知输出/);assert.doesNotMatch(taskTableText(c,null),/已知输出/);
 });
 
 test('output coverage filter keeps whole groups and exact matching subtotals',()=>{
@@ -340,7 +347,7 @@ test('output coverage filter keeps whole groups and exact matching subtotals',()
  const v=c.modelTaskUsage([r(1,'b',100,10),r(2,'b',1,null,'failed'),r(3,'c',1,0),r(4,null,1,20),r(5,null,1,null)],meta),before=JSON.stringify(v);
  const select=(coverage,association='all',count='all',risk='all',outcome='all',sort='original')=>c.selectModelTaskGroups(v,risk,sort,settings,outcome,count,association,coverage),ids=gs=>Array.from(gs,g=>Array.from(g.requests,r=>r.id));
  assert.deepEqual(ids(select('all')),[[1,2],[3],[4],[5]]);assert.deepEqual(ids(select('complete')),[[3],[4]]);assert.deepEqual(ids(select('partial')),[[1,2]]);assert.deepEqual(ids(select('unknown')),[[5]]);
- for(const [type,assoc,count,expected] of [['complete','all','all','20 Token（已知2/2次）'],['partial','all','all','10 Token（已知1/2次）'],['unknown','all','all','未知（已知0/1次）'],['complete','linked','all','0 Token（已知1/1次）'],['partial','independent','all','未知（已知0/0次）'],['partial','all','single','未知（已知0/0次）']]){const text=c.modelTaskUsageText(v,select(type,assoc,count));assert.ok(text.includes('匹配任务已知输出：'+expected));assert.match(text,/全窗口已知输出：30 Token（已知3\/5次）/);}
+ for(const [type,assoc,count,expected] of [['complete','all','all','20 Token（已知2/2次）'],['partial','all','all','10 Token（已知1/2次）'],['unknown','all','all','未知（已知0/1次）'],['complete','linked','all','0 Token（已知1/1次）'],['partial','independent','all','未知（已知0/0次）'],['partial','all','single','未知（已知0/0次）']]){const text=taskTableText(c,v,select(type,assoc,count));assert.ok(text.includes('匹配任务已知输出：'+expected));assert.match(text,/全窗口已知输出：30 Token（已知3\/5次）/);}
  for(const sort of ['original','count','input','miss','output'])assert.deepEqual(ids(select('partial','linked','multiple','anyRisk','failed',sort)),[[1,2]]);
  assert.deepEqual(ids(select('complete','all','all','all','all','output')),[[4],[3]]);assert.equal(JSON.stringify(v),before);assert.deepEqual(ids(c.selectModelTaskGroups(v)),ids(select('all')));
 });
@@ -356,7 +363,7 @@ test('token subtotals use independent field coverage and complete selected group
  const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'};
  const r=(id,task,input,hit,miss,output,outcome='completed')=>({id,session:'a'.repeat(24),task:task?.repeat(24),outcome,usage:{input,hit,miss,output}});
  const rows=[r(1,'b',100,60,40,10),r(2,'b',null,0,null,null,'failed'),r(3,'c',0,null,0,0),r(4,null,30,10,20,5)],snapshot=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta);
- const check=(groups,expected)=>{const text=c.modelTaskUsageText(v,groups);for(const [i,label] of ['输入','缓存命中','缓存未命中','输出'].entries()){assert.ok(text.includes('匹配任务已知'+label+'：'+expected[i]),text);assert.ok(text.includes('全窗口已知'+label+'：'+['130','70','60','15'][i]+' Token（已知3/4次）'),text);}};
+ const check=(groups,expected)=>{const text=taskTableText(c,v,groups);for(const [i,label] of ['输入','缓存命中','缓存未命中','输出'].entries()){assert.ok(text.includes('匹配任务已知'+label+'：'+expected[i]),text);assert.ok(text.includes('全窗口已知'+label+'：'+['130','70','60','15'][i]+' Token（已知3/4次）'),text);}};
  check(v.groups,['130 Token（已知3/4次）','70 Token（已知3/4次）','60 Token（已知3/4次）','15 Token（已知3/4次）']);
  const partial=['100 Token（已知1/2次）','60 Token（已知2/2次）','40 Token（已知1/2次）','10 Token（已知1/2次）'];
  check(c.selectModelTaskGroups(v,'all','original',undefined,'all','all','all','partial'),partial);
@@ -365,13 +372,13 @@ test('token subtotals use independent field coverage and complete selected group
  for(const sort of ['original','count','input','miss','output'])check(c.selectModelTaskGroups(v,'large',sort,{large:100,minimum:100,missPercent:50},'failed','multiple','linked','partial'),partial);
  assert.equal(JSON.stringify(rows),snapshot);
  const bounded=c.modelTaskUsage([r(1,null,999,999,999,999),...Array.from({length:256},(_,i)=>r(i+2,null,1,0,null,null))],meta);
- assert.match(c.modelTaskUsageText(bounded),/全窗口已知输入：256 Token（已知256\/256次）/);assert.match(c.modelTaskUsageText(bounded),/全窗口已知缓存未命中：未知（已知0\/256次）/);
+ assert.match(taskTableText(c,bounded),/全窗口已知输入：256 Token（已知256\/256次）/);assert.match(taskTableText(c,bounded),/全窗口已知缓存未命中：未知（已知0\/256次）/);
 });
 test('token subtotals keep inconsistent fields and exact integers without inference',()=>{
  const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'};
- const text=rs=>c.modelTaskUsageText(c.modelTaskUsage(rs,meta));
+ const text=rs=>taskTableText(c,c.modelTaskUsage(rs,meta));
  const inconsistent=text([row(7,0,100,null)]);assert.match(inconsistent,/全窗口已知输入：7 Token（已知1\/1次）/);assert.match(inconsistent,/全窗口已知缓存命中：0 Token（已知1\/1次）/);assert.match(inconsistent,/全窗口已知缓存未命中：100 Token（已知1\/1次）/);
  const huge=text([row(Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER),row(Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER),row(Number.MAX_SAFE_INTEGER+1,-1,'2')]);
  for(const label of ['输入','缓存命中','缓存未命中'])assert.ok(huge.includes('全窗口已知'+label+'：18014398509481982 Token（已知2/3次）'));
- assert.doesNotMatch(text([]),/已知输入|已知缓存/);assert.doesNotMatch(c.modelTaskUsageText(null),/已知输入|已知缓存/);
+ assert.doesNotMatch(text([]),/已知输入|已知缓存/);assert.doesNotMatch(taskTableText(c,null),/已知输入|已知缓存/);
 });
