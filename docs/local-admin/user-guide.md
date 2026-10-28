@@ -1,3 +1,5 @@
+2026-10-28后续规划：下一项为[筛选结果已知输入与缓存用量小计](post-pr53-development-plan.md)，含4个工作包、11项验收标准，预计4～6小时有效工时。仅设计，尚未实现；现有功能与QQ队列4/5保持，完成第五项部署独立检查后再统一安排配合验收。
+
 2026-10-28按输出用量已知情况筛选：已按[详细计划](post-pr52-development-plan.md)实现，86项相关回归、最终150项隔离及备份部署独立检查通过；操作见[使用说明](model-request-statistics.md#按输出用量已知情况筛选)，部署与集中验收状态见[本批清单](task-output-coverage-filter-acceptance.md)。当前队列4/5，真实非空与QQ配合继续满5项统一验收，尚未合入master。
 
 上一批记录（2026-10-28筛选结果已知输出量小计）：已按[详细计划](post-pr51-development-plan.md)实现，83项相关回归、最终150项隔离及备份部署独立检查通过；操作见[使用说明](model-request-statistics.md#筛选结果已知输出量小计)，部署与集中验收状态见[本批清单](task-output-summary-acceptance.md)。当前队列3/5，真实非空及QQ配合继续满5项统一验收，尚未合入master。
