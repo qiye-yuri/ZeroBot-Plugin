@@ -89,7 +89,7 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 | 查阅内容 | 入口 |
 | --- | --- |
-| 当前工作包与开发约定 | [下一批请求次数筛选计划](post-pr47-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
+| 当前工作包与开发约定 | [下一批请求覆盖统计计划](post-pr48-development-plan.md)、[本批交付状态](#本批交付状态)、[仓库约定](../../AGENTS.md)、[需求](requirements.md) |
 | 自动化、隔离整机和真实验收范围 | [自测记录](self-test.md)、[统一验证方法](agent-integration-test.md)、[真实Agent验收](real-agent-acceptance.md)、[真实模型测试](real-model-test.md) |
 | 插件测试条件与已有结果 | [测试方案](feature-test-plan.md)、[结果清单](feature-test-results.md)、[剩余验收条件](remaining-acceptance.md) |
 | 文档链接、锚点与检查命令 | [文档链接检查](document-check.md) |
@@ -143,8 +143,10 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 
 最新功能“任务摘要与按需展开”已完成开发、部署及非空实机验收，并通过[PR #40](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/40)合入master。使用见[任务摘要](model-request-statistics.md#任务摘要与按需展开)，范围和交付记录见[自测](self-test.md)与[交付](github-delivery.md)。
 
-下一批设计见[PR47后详细开发计划](post-pr47-development-plan.md)：窗口内请求次数筛选（全部、仅1次、至少2次），4个工作包、10项验收标准，预计3～5小时有效工时。现已实现，最新状态见[验收清单](task-count-filter-acceptance.md)；规划本身不计数。
+上一批设计见[PR47后详细开发计划](post-pr47-development-plan.md)：窗口内请求次数筛选（全部、仅1次、至少2次），4个工作包、10项验收标准，预计3～5小时有效工时。现已实现，最新状态见[验收清单](task-count-filter-acceptance.md)；规划本身不计数。
 
 窗口内请求次数筛选已实现，使用见[次数筛选](model-request-statistics.md#按窗口内请求次数筛选)，测试与部署进度见[本批验收](task-count-filter-acceptance.md)。
 
 本批74项回归、最终隔离及部署独立检查通过，PR #48保持草稿，集中非空验收3/5。
+
+下一批设计见[PR48后详细开发计划](post-pr48-development-plan.md)：筛选结果请求覆盖统计，在匹配组数旁显示匹配任务包含的窗口请求数。4个工作包、10项验收标准，预计2.5～4小时有效工时。尚未实现，集中验收仍3/5，规划不计数。
