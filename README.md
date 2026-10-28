@@ -756,3 +756,5 @@ GOOS=linux GOARCH=mips GOMIPS=softfloat CGO_ENABLED=0 go build -ldflags "-s -w" 
 [PR #48](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/48)已完成次数筛选、74项回归和部署独立检查，QQ集中非空验收累计3/5；依赖#47保持草稿未合入。
 
 下一批见[筛选结果请求覆盖统计计划](docs/local-admin/post-pr48-development-plan.md)：复用完整匹配组计数，补充窗口请求覆盖范围。4个工作包、10项验收标准；现已实现，部署及本轮提前集中验收见[本批清单](docs/local-admin/task-request-coverage-acceptance.md)。
+
+四项最终交付（2026-10-28）：PR #46～#49已完成集中非空验收并按依赖顺序合入master，75项回归及完整隔离通过，报告下载副本已清理。队列清空0/5；此前草稿/待验收描述为历史阶段。详见[最终记录](docs/local-admin/task-request-coverage-acceptance.md#四项合入收尾2026-10-28)。
