@@ -1,6 +1,6 @@
 # PR48之后的开发计划：筛选结果请求覆盖统计
 
-日期：2026-10-28（Asia/Shanghai）。设计基线codex/task-count-filter的2750aeef8d17ae8d8f76837e862db8c3ad9b547d。当前PR #46→#47→#48为依赖草稿链，累计候选已部署，集中非空验收3/5。最新交付见[次数筛选验收](task-count-filter-acceptance.md)。本轮仅规划，功能尚未实现，不新增验收项。
+日期：2026-10-28（Asia/Shanghai）。设计基线codex/task-count-filter的2750aeef8d17ae8d8f76837e862db8c3ad9b547d。当前PR #46→#47→#48为依赖草稿链，累计候选已部署，集中非空验收3/5。最新交付见[次数筛选验收](task-count-filter-acceptance.md)。本计划最初仅规划，现已实现。用户明确本轮提前验收累计4项，最新状态见[本批清单](task-request-coverage-acceptance.md)；下文保留原设计阶段安排。
 
 ## 1 目标与现状
 
