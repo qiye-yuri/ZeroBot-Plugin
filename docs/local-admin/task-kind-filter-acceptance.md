@@ -24,3 +24,5 @@
 实际Chrome用已有填充登录，确认版本与空窗口，依次选择gpt/chat/agent/vision/unknown均保持正确空态；unknown+标识查询手动刷新后保留。重置查询为空、七个选项all/all/all/all/all/all/original，最终实机截图已保存。实际下载独立校验passed=true、issues=[]、requestCount=0，未知保持null；核对保留副本哈希后准确清理下载，最少证据留本机。
 
 96项相关回归、JavaScript语法、四宽度明暗8份截图及197份文档链接/锚点与差异检查通过。C09通过；实机尚无新请求，C10真实类别、完整组表格/报告及QQ收件登记第3项，当前3/5，继续满5项统一配合。C11待验收后按#55→#56→本批合入。混合类别与未知样例为合成证据，不声称真实覆盖；本轮未发送QQ或调用付费模型，历史#46～#54不重复计数。
+
+上传结果：[草稿PR #57](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/57)，head codex/task-kind-filter，base codex/task-identity-filter。源码与公开说明/交付记录已上传；C10/C11继续待满5项集中验收及依赖顺序合入，当前3/5。
