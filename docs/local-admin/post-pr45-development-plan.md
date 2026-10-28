@@ -1,6 +1,6 @@
 # PR45后的详细开发计划：包含任意用量提示的任务筛选
 
-核对日期：2026-10-27（Asia/Shanghai）。基线master `c99b9e2adb60275650ee43629c31d50e37f89f95`。PR #45已完成部署验收及合入，见[最终清单](task-risk-counts-acceptance.md)。本次仅交付设计；下述选项尚未实现，不表示已上线。
+核对日期：2026-10-27（Asia/Shanghai）。基线master `c99b9e2adb60275650ee43629c31d50e37f89f95`。PR #45已完成部署验收及合入，见[最终清单](task-risk-counts-acceptance.md)。本计划最初仅交付设计；现已实现选项，测试、部署和合入状态见[本批清单](task-any-risk-acceptance.md)。下文保留设计时工作包和交付边界。
 
 ## 1 问题与目标
 

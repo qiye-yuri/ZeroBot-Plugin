@@ -225,3 +225,14 @@ test('summary risk counts overlap, use per-request thresholds and preserve repor
  const window=group([row(100,0,100),...Array.from({length:256},()=>row(0,0,0,0))]);assert.match(c.modelTaskSummaryText(window,settings),/大输入 0次 · 高未命中 0次/);
  const isolated=c.modelTaskUsage([rows[0],{...rows[1],session:'c'.repeat(24)},{...rows[3],session:null}],meta);assert.equal(isolated.groups.length,3);assert.match(c.modelTaskSummaryText(isolated.groups[1],settings),/大输入 0次 · 高未命中 0次/);assert.match(c.modelTaskSummaryText(isolated.groups[2],settings),/字段不完整 1次 · 分项不一致 1次/);
 });
+
+test('any risk selects the union once and intersects results at task scope',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-27',checkedAt:'2026-10-28'},settings={large:100,minimum:10,missPercent:80};
+ const rows=[row(1,1,0),row(100,100,0),row(10,0,10),row(1,1,0,null),row(1,0,2),row(100,0,100)].map((r,i)=>({...r,id:i+1,outcome:'completed'}));
+ const original=JSON.stringify(rows),v=c.modelTaskUsage(rows,meta),select=value=>c.selectModelTaskGroups(value,'anyRisk','original',settings);
+ assert.deepEqual(Array.from(select(v),g=>g.requests[0].id),[2,3,4,5,6]);assert.equal(JSON.stringify(rows),original);
+ const grouped=[{...rows[5],session:'a'.repeat(24),task:'b'.repeat(24)},{...rows[0],id:6,outcome:'failed',session:'a'.repeat(24),task:'b'.repeat(24)},{...rows[0],session:'c'.repeat(24),task:'b'.repeat(24)}];
+ const g=c.modelTaskUsage(grouped,meta),before=JSON.stringify(g),selected=c.selectModelTaskGroups(g,'anyRisk','input',settings,'failed');assert.equal(selected.length,1);assert.equal(selected[0].requests.length,2);assert.match(c.modelTaskSummaryText(selected[0],settings),/接口完成 1 · 失败 1/);assert.equal(JSON.stringify(g),before);
+ const small=c.modelTaskUsage([row(60,60,0),row(60,60,0)].map(r=>({...r,session:'a'.repeat(24),task:'b'.repeat(24)})),meta);assert.equal(select(small).length,0);
+ const window=c.modelTaskUsage([rows[5],...Array.from({length:256},()=>rows[0])],meta);assert.equal(select(window).length,0);assert.equal(c.selectModelTaskGroups(v,'anyRisk','original',settings,'failed').length,0);
+});

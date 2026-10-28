@@ -504,4 +504,14 @@ AI费用风险提示支持[调整本页提示阈值](model-request-statistics.md
 
 ## 后续功能规划入口
 
-[PR45后开发计划](post-pr45-development-plan.md)设计“包含任意用量提示”的任务筛选，目前尚未实现。现有使用方式以[模型用量说明](model-request-statistics.md)为准，规划不代表新增选项已上线。
+[PR45后开发计划](post-pr45-development-plan.md)设计“包含任意用量提示”的任务筛选，本批已实现，部署与验收状态见[本批清单](task-any-risk-acceptance.md)。使用方式以[模型用量说明](model-request-statistics.md)为准，规划不代表新增选项已上线。
+
+
+## 一次查看全部有用量提示的任务
+
+登录运行概览 → 模型接口请求 → AI费用风险提示 → 按任务查看用量，在风险筛选中选“包含任意用量提示”，即可查看四类提示中任一命中的整组任务。它与请求结果条件取任务级交集；应用阈值后才重算，重置视图返回全部。无需额外权限，更新程序后刷新后台生效。详见[使用说明](model-request-statistics.md#包含任意用量提示的任务筛选)及[部署验收](task-any-risk-acceptance.md)。
+
+
+## 请求次数排序规划
+
+[PR46后开发计划](post-pr46-development-plan.md)拟增加“窗口内请求次数降序”，尚未实现；当前排序仍以[模型用量说明](model-request-statistics.md)为准。PR #46已部署未合入，正在等待累计5项后的集中非空验收；本规划不计入队列。
