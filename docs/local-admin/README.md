@@ -1,6 +1,6 @@
 2026-10-28单次请求耗时已完成99项回归、最终150项隔离、23:29备份部署及实际空窗口/口径/刷新/重置/报告检查。当前QQ队列4/5，真实非空继续满5项统一验收，未合入；见[本批清单](task-request-duration-acceptance.md)。
 
-分层记忆候选实现的范围、操作、限制与验收状态见[分层记忆与滚动摘要](layered-memory.md)。
+分层记忆已部署；范围、操作及限制见[分层记忆与滚动摘要](layered-memory.md)，实际验证范围见[部署与实机验收](layered-memory-acceptance.md)。
 
 2026-10-28任务明细单次请求耗时：已实现，99项相关回归通过；操作见[使用说明](model-request-statistics.md#任务明细显示单次请求耗时)，部署及验收状态见[本批清单](task-request-duration-acceptance.md)。复用已有字段，报告精度保持，QQ配合继续按实际缺口累计5项，未提前合入。
 

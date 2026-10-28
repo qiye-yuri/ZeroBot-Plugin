@@ -31,6 +31,7 @@ import (
 var execute = flag.Bool("run", false, "opt in to billable real-provider requests using locally configured credentials")
 var binaryName = flag.String("binary-name", "zerobot.exe", "executable under .local/bin")
 var caseNames = flag.String("cases", "gpt,chat,agent,memory-save,history,memory,vision", "comma-separated cases")
+var configRoot = flag.String("config-root", "", "optional existing instance root, used only to read provider configuration")
 
 type provider struct {
 	API, ModelName, Key string
@@ -146,7 +147,7 @@ func selectedCases(text string, providers map[string]provider) ([]string, error)
 			required = []string{"GPT"}
 		case "summary":
 			required = []string{"Summary"}
-		case "agent", "memory-save", "history", "memory":
+		case "agent", "memory-save", "history", "memory", "layered-memory":
 			required = []string{"Agent"}
 		case "vision":
 			required = []string{"Agent", "Image"}
@@ -177,7 +178,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	snapshot, err := readProviders(root)
+	providerRoot := root
+	if *configRoot != "" {
+		providerRoot = *configRoot
+	}
+	snapshot, err := readProviders(providerRoot)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Cannot read AI provider configuration.")
 		os.Exit(1)
@@ -259,8 +264,11 @@ func run(root, out string, providers map[string]provider, names []string, result
 		return err
 	}
 	owners := []int64{qa.Owner}
-	for index := range names {
+	for index, name := range names {
 		owners = append(owners, int64(23456000+index))
+		if name == "layered-memory" {
+			owners = append(owners, int64(23457000+index))
+		}
 	}
 	config["zero"].(map[string]any)["super_users"] = owners
 	if err = qa.WriteJSON(h.ConfigPath, config); err != nil {
@@ -427,6 +435,9 @@ func task(c *qa.Client, uid int64) (map[string]any, error) {
 }
 
 func checkCase(ctx context.Context, c *qa.Client, h *qa.Harness, out string, uid int64, name, nonce string) (map[string]any, error) {
+	if name == "layered-memory" {
+		return checkLayeredMemory(ctx, c, h, out, uid, nonce)
+	}
 	checkCtx, cancel := context.WithTimeout(ctx, 100*time.Second)
 	defer cancel()
 	expected := "REAL_" + strings.ReplaceAll(name, "-", "_") + "_" + nonce
@@ -562,4 +573,124 @@ func checkCase(ctx context.Context, c *qa.Client, h *qa.Harness, out string, uid
 		}
 	}
 	return t, nil
+}
+
+// checkLayeredMemory uses the deployed binary with synthetic identities; it never
+// writes to the daily instance's memories or sends QQ messages.
+func checkLayeredMemory(ctx context.Context, c *qa.Client, h *qa.Harness, out string, uid int64, nonce string) (map[string]any, error) {
+	result := map[string]any{}
+	send := func(user int64, prompt string) (string, error) {
+		now := time.Now().In(time.FixedZone("Asia/Shanghai", 8*3600))
+		minute := now.Hour()*60 + now.Minute()
+		if now.Weekday() != time.Saturday && now.Weekday() != time.Sunday && ((minute >= 540 && minute < 720) || (minute >= 840 && minute < 1080)) {
+			return "", errors.New("real test stopped at peak period")
+		}
+		callCtx, cancel := context.WithTimeout(ctx, 100*time.Second)
+		defer cancel()
+		reply, _, e := h.SendWithContext(callCtx, user, prompt)
+		if e != nil {
+			return "", errors.New("layered reply timed out")
+		}
+		state, e := task(c, user)
+		if e != nil {
+			return "", e
+		}
+		if state["status"] != "completed" {
+			return "", fmt.Errorf("layered task status %v reason %v", state["status"], state["error"])
+		}
+		if state["activity"].(map[string]any)["fallbackPreparations"] != float64(0) {
+			return "", errors.New("layered test fell back to ordinary chat")
+		}
+		return reply, nil
+	}
+	read := func() (map[string]any, map[string]any, error) {
+		v, e := c.Checked("GET", "/api/agent/memories?"+scopeQuery(uid), nil)
+		if e != nil {
+			return nil, nil, e
+		}
+		var personal, shared map[string]any
+		for _, r := range v["items"].([]any) {
+			m := r.(map[string]any)
+			switch m["kind"] {
+			case "personal":
+				if personal != nil {
+					return nil, nil, errors.New("duplicate personal attribute")
+				}
+				personal = m
+			case "permanent":
+				shared = m
+			}
+		}
+		if personal == nil || shared == nil {
+			return nil, nil, errors.New("classified memories missing")
+		}
+		return personal, shared, nil
+	}
+	first := "LAYERED_FIRST_" + nonce
+	global := "GLOBAL_" + nonce
+	prompt := fmt.Sprintf("这是合成验收。请实际执行两个save_memory：1) kind=personal, subject=\"%d\", attribute=\"preference.test_drink\", text=\"合成用户喜欢红茶\"；2) kind=permanent, attribute=\"test.knowledge.%s\", text=\"合成通用代号=%s\"。我作为主人明确授权第二条群无关合成知识跨会话共享，不共享第一条个人偏好。两个保存都成功后，通过send_private_msg向当前用户回复%s，最后end_action。只输出动作JSON。", uid, nonce, global, first)
+	reply, e := send(uid, prompt)
+	if e != nil {
+		return result, e
+	}
+	if !strings.Contains(reply, first) {
+		return result, errors.New("initial acknowledgement missing")
+	}
+	personal, shared, e := read()
+	if e != nil {
+		return result, e
+	}
+	if personal["subject"] != fmt.Sprint(uid) || personal["revision"] != "1" || personal["sourceSeq"] == "0" || !strings.Contains(fmt.Sprint(shared["text"]), global) {
+		return result, errors.New("initial metadata mismatch")
+	}
+	id := personal["id"]
+	result["initialSave"] = true
+	prompt = fmt.Sprintf("合成偏好已改变：我现在喜欢绿茶，不再喜欢红茶。请更新原个人记忆，save_memory使用kind=personal,subject=\"%d\",attribute=\"preference.test_drink\",revision=\"1\",text=\"合成用户现在喜欢绿茶，不再喜欢红茶\"。不要新建其他属性或永久知识。成功后通过send_private_msg回复LAYERED_UPDATED_%s并end_action。", uid, nonce)
+	reply, e = send(uid, prompt)
+	if e != nil {
+		return result, e
+	}
+	if !strings.Contains(reply, "LAYERED_UPDATED_"+nonce) {
+		return result, errors.New("update acknowledgement missing")
+	}
+	personal, shared, e = read()
+	if e != nil {
+		return result, e
+	}
+	if personal["id"] != id || personal["revision"] != "2" || !strings.Contains(fmt.Sprint(personal["text"]), "绿茶") {
+		return result, errors.New("revision update failed")
+	}
+	result["personalUpdateSameID"] = true
+	other := uid + 1000
+	if e = configure(c, other, true); e != nil {
+		return result, e
+	}
+	// API checks exercise the same memory scope rules before the model recall.
+	sharedRead, e := c.Checked("GET", "/api/agent/memories/read?"+scopeQuery(other)+"&memoryId="+fmt.Sprint(shared["id"])+"&revision="+fmt.Sprint(shared["revision"]), nil)
+	if e != nil {
+		return result, e
+	}
+	entries, _ := sharedRead["memories"].([]any)
+	if len(entries) != 1 || entries[0].(map[string]any)["sourceSeq"] != "0" {
+		return result, errors.New("shared scoped read failed")
+	}
+	privateRead, e := c.Checked("GET", "/api/agent/memories/read?"+scopeQuery(other)+"&memoryId="+fmt.Sprint(id)+"&revision=2", nil)
+	if e != nil {
+		return result, e
+	}
+	entries, _ = privateRead["memories"].([]any)
+	if len(entries) != 0 {
+		return result, errors.New("personal memory leaked across conversations")
+	}
+	result["scopeIsolation"] = true
+	reply, e = send(other, "请从当前提供的永久知识中找出合成通用代号，通过send_private_msg向当前用户只回复该代号，最后end_action。不要保存新记忆，也不要编造代号。")
+	if e != nil {
+		return result, e
+	}
+	if !strings.Contains(reply, global) {
+		return result, errors.New("shared knowledge not recalled")
+	}
+	result["sharedRecall"] = true
+	_ = qa.WriteJSON(filepath.Join(out, "layered-memory-evidence.json"), map[string]any{"checks": result, "personal": personal, "shared": shared, "crossConversationReply": reply})
+	return result, nil
 }
