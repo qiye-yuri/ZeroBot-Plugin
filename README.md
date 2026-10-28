@@ -1,3 +1,5 @@
+2026-10-28后续规划：下一项为[按请求类别筛选任务](docs/local-admin/post-pr56-development-plan.md)，4个工作包、11项验收标准，预计4～6小时有效工时。仅规划，尚未实现；复用现有kind按组匹配，不增加后端或通用筛选框架。QQ队列保持2/5，继续满5项统一配合。
+
 2026-10-28标识筛选已完成93项回归、最终150项隔离、21:36备份部署及实际空窗口/输入/刷新/清除/重置/报告检查。当前QQ队列2/5，真实非空继续满5项统一验收，未合入；见[本批清单](docs/local-admin/task-identity-filter-acceptance.md)。
 
 2026-10-28按会话或任务标识筛选：已实现，93项相关回归通过；使用见[说明](docs/local-admin/model-request-statistics.md#按会话或任务标识筛选)，部署与验收状态见[本批清单](docs/local-admin/task-identity-filter-acceptance.md)。复用关联分组精确匹配，QQ配合继续按实际缺口累计5项，未提前合入。
