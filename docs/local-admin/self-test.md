@@ -2068,3 +2068,9 @@ PR #46、#47、#48、#49已在真实非空验收和用户收件确认后依次�
 ## PR50后规划文档检查（2026-10-28）
 
 对照modelTaskUsage.grouped、selectModelTaskGroups、任务控件及既有重置/导航测试核对[开发计划](post-pr50-development-plan.md)，分类不重复解析标识，独立请求与单次关联组明确区分；实现、部署、真实验收和合入分别规定。本轮仅文档，不将PR #50的77项回归和150项隔离结果记为新功能通过。文档专项18/18通过，0失败、0跳过；全量检查183份文档、2206个本地引用、586个锚点，0错误，296个外部引用未联网验证、0个非Markdown未验证片段。暂存差异检查通过；已人工核对分组/关联定义、固定样例分子分母、依赖PR及1/5队列、9份文档公开清单。检查从真实目录或脚本真实路径执行，无目录联接误判；本轮未运行机器人功能测试、部署或真实模型/QQ调用。
+
+## 请求关联类型筛选最终检查（2026-10-28）
+
+相关命令：node --check internal/localadmin/assets/overview.js；node --test scripts/test-model-cost-hints.mjs scripts/test-model-cost-hints-ui.mjs scripts/test-model-usage-check.mjs scripts/test-overview-ui.mjs scripts/test-maintenance-navigation-ui.mjs。最终80通过、0失败、0跳过；完整隔离150个Passed为true，isolated=true、realQQMessagesSent=false。四宽度明暗布局和最长文字宽度通过；184份文档链接及差异检查通过。
+
+首次测试修正了新测试脚本语法和旧Tab顺序预期；随后人工复核发现宽屏选项文字裁剪，调整任务工具栏列宽并重跑全套80项通过。未放宽功能断言。14:19一次部署成功，1324份备份、8份部署资源源码一致、401/403访问保护、单实例、原配置与OneBot保持通过。Chrome实际登录、空窗口组合筛选/刷新/重置、截图和实际下载独立校验通过；报告requestCount=0，不记作真实非空或QQ验收。准确下载副本已清理，最小证据仅留本机。完整范围见[验收清单](task-association-filter-acceptance.md)，队列2/5。

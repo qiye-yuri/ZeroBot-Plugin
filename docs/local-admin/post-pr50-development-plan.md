@@ -1,5 +1,7 @@
 # PR50之后的开发计划：按请求关联类型筛选
 
+执行更新（2026-10-28）：用户已授权实施，实际基线为PR #50头fdbc39f0。本功能已实现，80项相关回归通过，最终隔离与部署结果见[验收清单](task-association-filter-acceptance.md)。以下为原设计时点记录，阶段状态以验收清单为准。
+
 日期：2026-10-28（Asia/Shanghai）。设计基线为`codex/task-output-sort`的`023cc4617a119efc30fe5474f17439a387748c1d`，已核对远端一致。[PR #50](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/50)仍为草稿，目标master；输出量排序已完成开发、部署和独立检查，真实非空与QQ收件待集中验收，见[上一批清单](task-output-sort-acceptance.md)。当前队列1/5，本轮只交付规划，不新增计数。
 
 ## 1 目标与边界

@@ -499,3 +499,9 @@ PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈�
 ## PR50后开发规划文档交付（2026-10-28）
 
 基于codex/task-output-sort的023cc461新增[关联类型筛选开发计划](post-pr50-development-plan.md)，同步主README、文档索引、通用指南规划入口、todo、operations、progress、self-test及本记录，共9份公开文档。PR #50仍是目标master的草稿；本轮上传该分支，不新建功能PR、不合入、不部署。队列保持1/5，未来实际开发部署完成才增加验收项；已有data和两份测试修改保持不提交。文档专项18/18及全量183份文档、2206个本地引用、586个锚点检查通过，差异检查通过。计划提交4ed0cd1125e5414eb97bf3f7c1692645ab8e66e3已推送origin/codex/task-output-sort，git ls-remote核对一致；本条为随后同步的上传结果记录。PR #50保持草稿，未合入master，功能规划未计入1/5队列。
+
+## 请求关联类型筛选开发与部署（2026-10-28）
+
+基于PR #50头fdbc39f0创建codex/task-association-filter，实现提交9634a444。只增加现有grouped筛选、控件生命周期和必要列宽调整，同步使用说明与验收记录。80项相关回归、150项最终完整隔离、14:19备份部署及实际空窗口/报告检查通过；具体哈希和证据见[本批清单](task-association-filter-acceptance.md)。
+
+上传目标为用户origin，草稿PR的base为codex/task-output-sort。当前待集中配合2/5，累计5项统一验收；上传不等于合入。仅显式暂存功能源码、测试和公开文档，保留data及两份无关测试修改，程序、配置、密钥、运行数据及私有证据不上传。
