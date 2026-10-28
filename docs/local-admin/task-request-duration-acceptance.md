@@ -24,3 +24,5 @@
 实际Chrome用已有填充登录，确认版本及耗时口径说明、当前空窗口，agent筛选在手动刷新后保持，重置七个选项all/all/all/all/all/all/original，最终实机截图已保存。实际下载独立校验passed=true、issues=[]、requestCount=0，未知保持null；副本哈希核对后准确清理下载，最少证据留本机。
 
 99项相关回归、JavaScript语法、四宽度明暗8份截图及199份文档链接/锚点与差异检查通过。保留真实报告离线对照1296.5206 ms显示1297 ms且原值保持，明确为离线证据，不代替新部署非空。C09通过，实际尚无新请求，C10真实耗时明细/报告和QQ收件登记第4项，当前4/5，满5项统一配合；C11待验收后按#55→#56→#57→本批合入。本轮未发送QQ或调用付费模型，历史#46～#54不重复计数。
+
+上传结果：[草稿PR #58](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/58)，head codex/task-request-duration，base codex/task-kind-filter。源码与公开说明/交付记录已上传；C10/C11继续待满5项集中验收及依赖顺序合入，当前4/5。
