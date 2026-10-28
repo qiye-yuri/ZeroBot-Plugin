@@ -382,3 +382,19 @@ test('token subtotals keep inconsistent fields and exact integers without infere
  for(const label of ['输入','缓存命中','缓存未命中'])assert.ok(huge.includes('全窗口已知'+label+'：18014398509481982 Token（已知2/3次）'));
  assert.doesNotMatch(text([]),/已知输入|已知缓存/);assert.doesNotMatch(taskTableText(c,null),/已知输入|已知缓存/);
 });
+
+test('identity query matches complete case-sensitive group keys and whole-group intersections',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},s1='a'.repeat(24),s2='c'.repeat(24),t1='b'.repeat(24),t2='d'.repeat(24);
+ const r=(id,session,task,input,output,outcome='completed')=>({id,session,task,outcome,usage:{input,hit:input,miss:0,output}}),rows=[r(1,s1,t1,100,10),r(2,s1,t1,1,null,'failed'),r(3,s1,t2,1,0),r(4,s2,t1,1,20),r(5,s1,null,1,null)];
+ const v=c.modelTaskUsage(rows,meta),before=JSON.stringify(v),select=(q,coverage='all',assoc='all',risk='all',sort='original',outcome='all',count='all')=>c.selectModelTaskGroups(v,risk,sort,{large:100,minimum:100,missPercent:80},outcome,count,assoc,coverage,q);
+ const ids=gs=>Array.from(gs,g=>g.requests[0].id);assert.deepEqual(ids(select('')),[1,3,4,5]);assert.deepEqual(ids(select('  \t ')),[1,3,4,5]);assert.deepEqual(ids(select(' '+s1+' ')),[1,3]);assert.deepEqual(ids(select(t1)),[1,4]);assert.deepEqual(ids(select(s1,'complete')),[3]);assert.deepEqual(ids(select(s1,'all','independent')),[]);
+ for(const q of [s1.slice(0,12),s1.toUpperCase(),'z'.repeat(24),s1+'a'])assert.deepEqual(ids(select(q)),[]);
+ for(const sort of ['original','count','input','miss','output']){const gs=select(s1,'partial','linked','large',sort,'failed','multiple');assert.deepEqual(ids(gs),[1]);assert.equal(gs[0].count,2);assert.equal(c.modelTaskTokenTotal(gs,'input').value,'101');assert.equal(c.modelTaskTokenTotal(gs,'output').value,'10');}
+ assert.match(taskTableText(c,v,select(s1,'complete')),/匹配任务已知输出：0 Token（已知1\/1次）/);assert.match(taskTableText(c,v,select(s1,'all','independent')),/全窗口已知输出：30 Token（已知3\/5次）/);assert.equal(JSON.stringify(v),before);
+});
+test('identity query does not merge case variants, double count OR matches or search discarded rows',()=>{
+ const {c}=fixture(),meta={startedAt:'2026-10-28',checkedAt:'2026-10-29'},lower='a'.repeat(24),upper=lower.toUpperCase();
+ const rows=[{...row(1,1,0),id:1,session:lower,task:lower},{...row(2,2,0),id:2,session:upper,task:upper},{...row(3,3,0),id:3,session:lower,task:null}];const select=(v,q)=>c.selectModelTaskGroups(v,'all','original',undefined,'all','all','all','all',q);
+ const v=c.modelTaskUsage(rows,meta);assert.equal(select(v,lower).length,1);assert.equal(select(v,lower)[0].count,1);assert.equal(select(v,upper)[0].requests[0].id,2);
+ const bounded=c.modelTaskUsage([rows[0],...Array.from({length:256},(_,i)=>({...rows[2],id:i+10}))],meta);assert.equal(select(bounded,lower).length,0);assert.equal(select(c.modelTaskUsage([],meta),lower).length,0);assert.equal(select(null,lower).length,0);
+});

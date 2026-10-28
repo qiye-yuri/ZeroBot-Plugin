@@ -1,3 +1,5 @@
+2026-10-28按会话或任务标识筛选：已实现，93项相关回归通过；使用见[说明](docs/local-admin/model-request-statistics.md#按会话或任务标识筛选)，部署与验收状态见[本批清单](docs/local-admin/task-identity-filter-acceptance.md)。复用关联分组精确匹配，QQ配合继续按实际缺口累计5项，未提前合入。
+
 2026-10-28后续规划：下一项为[按会话或任务标识筛选](docs/local-admin/post-pr55-development-plan.md)，4个工作包、11项验收标准，预计4～6小时有效工时。仅规划，尚未实现；复用有效关联分组做本地完整精确匹配，不加后端或持久化。QQ队列保持1/5，继续满5项统一配合。
 
 2026-10-28任务用量汇总表已完成90项相关回归、最终150项隔离、21:00备份部署及实机空态/刷新/重置/报告检查。旧真实样本离线对照通过，新部署非空按实际缺口登记1/5，累计5项统一QQ配合，尚未合入。详见[本批清单](docs/local-admin/task-usage-table-acceptance.md)。
