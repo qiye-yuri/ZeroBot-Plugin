@@ -2080,3 +2080,9 @@ PR #46、#47、#48、#49已在真实非空验收和用户收件确认后依次�
 新增[筛选结果已知输出量小计计划](post-pr51-development-plan.md)，同步9份公开文档。node --test scripts/test-doc-links.mjs最终18通过、0失败、0跳过；首轮10通过、8失败，均因沙箱禁止临时Git夹具写HEAD，获得执行权限后原测试重跑通过，未修改断言。全量185份文档链接/锚点检查及差异检查通过；人工核对样例、零/未知、BigInt精度、依赖链和2/5队列一致。
 
 本轮无产品代码变化，未构建、部署、重启或重跑业务机器人测试，未发送QQ/调用付费模型。当前PR #50/#51的部署证据保持；本次测试只证明文档工具和引用检查通过，不证明规划功能已实现。上传结果见交付记录。
+
+## 输出量小计最终检查（2026-10-28）
+
+node --check internal/localadmin/assets/overview.js通过；node --test scripts/test-model-cost-hints.mjs scripts/test-model-cost-hints-ui.mjs scripts/test-model-usage-check.mjs scripts/test-overview-ui.mjs scripts/test-maintenance-navigation-ui.mjs共83通过、0失败、0跳过。四宽度明暗截图8份复核通过，长整数可完整选择并执行复制操作，未改CSS；完整报告独立校验通过。186份文档链接/锚点及差异检查通过。
+
+最终程序完整隔离150个Passed全部为true，isolated=true、realQQMessagesSent=false。14:49一次部署成功，1324份备份、8份实际资源与源码一致、401/403访问保护、单实例、原配置及OneBot保持通过。Chrome实际登录、空态无虚构小计、组合筛选/刷新/重置、下载报告检查通过，requestCount=0；准确下载副本已清理，最小证据仅留本机。真实非空仍待集中验收，当前3/5，见[本批清单](task-output-summary-acceptance.md)。

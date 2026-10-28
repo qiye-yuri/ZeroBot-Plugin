@@ -1,5 +1,7 @@
 # PR51之后的开发计划：筛选结果已知输出量小计
 
+执行更新（2026-10-28）：已按用户授权实施，实际基线为PR #51头30e9daa8。83项相关回归通过，部署与验收阶段见[本批清单](task-output-summary-acceptance.md)。以下为原规划时点记录，不将当时的2/5视为后续实时队列。
+
 日期：2026-10-28（Asia/Shanghai）。设计基线为codex/task-association-filter的`b28d7ecce48a59a2d5092ab98131d9da8c3bb9f7`，已核对远端一致。[PR #51](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/51)为草稿，base为codex/task-output-sort，依赖[PR #50](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/50)。两批均已部署并通过独立检查，真实非空与QQ收件仍待集中验收，当前2/5。本轮只设计与上传文档，不实现、不部署、不增加验收计数。
 
 ## 1 目标与范围
