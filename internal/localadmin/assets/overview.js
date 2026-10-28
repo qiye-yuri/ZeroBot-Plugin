@@ -296,11 +296,23 @@ function modelTaskUsage(recent,meta){
     return {session:g.session,task:g.task,grouped:g.grouped,count:g.rows.length,totals,cacheSummary:summarizeModelCache(g.rows),requests:g.rows};
   })};
 }
+function modelTaskOutputTotal(groups){
+  let sum=0n,known=0,count=0;
+  for(const g of groups){
+    count+=g.count;known+=g.totals.output.known;
+    if(g.totals.output.value!==null)sum+=BigInt(g.totals.output.value);
+  }
+  return {value:known?String(sum):null,known,count};
+}
 function modelTaskUsageText(value,groups=value?.groups){
   if(!value)return "任务用量未知，缺少有效统计窗口。";
   if(!value.count)return "暂无近期请求，任务用量未知。";
   const lines=[`统计起点：${value.startedAt}。当前窗口${value.count}次请求，${value.groups.length}组。仅包含最近最多256条已结束请求，可能缺少早期轮次；不代表任务完整用量、任务完成状态或费用。缺少有效会话/任务标识的请求逐条显示。`];
   lines.push(`匹配任务 ${groups.length}/${value.groups.length}；匹配任务内窗口请求 ${groups.reduce((n,g)=>n+g.count,0)}/${value.count}次；展开任务查看全部窗口内请求。`);
+  const matched=modelTaskOutputTotal(groups),all=modelTaskOutputTotal(value.groups);
+  lines.push(`匹配任务已知输出：${matched.value===null?"未知":matched.value+" Token"}（已知${matched.known}/${matched.count}次）。`);
+  lines.push(`全窗口已知输出：${all.value===null?"未知":all.value+" Token"}（已知${all.known}/${value.count}次）。`);
+  lines.push("仅合计已返回的有效输出Token；未知不补零，不代表完整用量或费用。");
   if(!groups.length)lines.push("当前条件无匹配任务。");
   return lines.join("\n");
 }
