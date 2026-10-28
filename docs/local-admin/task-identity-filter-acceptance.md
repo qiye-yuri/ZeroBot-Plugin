@@ -24,3 +24,5 @@
 实际Chrome用已有填充登录，核对版本与空窗口；带首尾空格标识输入、Enter不提交、手动刷新保留原文及linked关联通过。Escape原生清除后关联仍为linked；重置查询为空、六个选项all/all/all/all/all/original，最终截图已保存。实际完整下载独立校验passed=true、issues=[]、requestCount=0，未知保持null；核对副本哈希后准确清理下载，最小证据留本机。
 
 93项回归、JavaScript语法、四宽度明暗8份截图及195份文档链接/锚点和差异检查通过。C09通过，实际窗口尚无请求；C10真实非空、表格与报告及QQ收件登记第2项，当前2/5，继续满5项统一配合。C11待验收后先#55再本批合入。合成关联样例不冒充真实有效关联命中，本轮未发送QQ或调用付费模型，历史#46～#54不重复计数。
+
+上传结果：[草稿PR #56](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/56)，head codex/task-identity-filter，base codex/task-usage-table。源码与公开说明/交付记录已上传；C10/C11继续待满5项集中验收和依赖顺序合入，当前2/5。
