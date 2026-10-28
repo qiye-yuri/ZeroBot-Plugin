@@ -1,4 +1,4 @@
-2026-10-28筛选结果已知输入与缓存用量小计：已实现，89项相关回归通过；操作见[使用说明](docs/local-admin/model-request-statistics.md#筛选结果已知输入与缓存用量小计)，最终部署与集中验收状态见[本批清单](docs/local-admin/task-token-summary-acceptance.md)。完成独立检查后登记第五项统一安排QQ配合，未提前合入。
+2026-10-28筛选结果已知输入与缓存用量小计：已实现，89项相关回归通过；操作见[使用说明](docs/local-admin/model-request-statistics.md#筛选结果已知输入与缓存用量小计)，最终部署与集中验收状态见[本批清单](docs/local-admin/task-token-summary-acceptance.md)。已完成备份部署及独立检查，当前5/5；空闲时段统一QQ配合，最终重置回读/实机截图集中补核对，未合入。
 
 2026-10-28后续规划：下一项为[筛选结果已知输入与缓存用量小计](docs/local-admin/post-pr53-development-plan.md)，含4个工作包、11项验收标准，预计4～6小时有效工时。仅设计，尚未实现；现有功能与QQ队列4/5保持，完成第五项部署独立检查后再统一安排配合验收。
 
