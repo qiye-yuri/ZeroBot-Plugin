@@ -1,3 +1,5 @@
+实施更新（2026-10-28）：本计划已完成局部实现与77项回归；部署、集中验收及上传状态见[验收清单](task-output-sort-acceptance.md)。下文保留设计阶段基线与原交付范围。
+
 # PR49之后的开发计划：按窗口内已知输出量排序
 
 日期：2026-10-28（Asia/Shanghai）。设计基线为master `aa35924ddadb918eae4fff1f305b9cc70b82f15a`，已核对origin/master一致。PR #46～#49已完成集中验收并依次合入，当前QQ配合队列0/5，见[最终记录](task-request-coverage-acceptance.md#四项合入收尾2026-10-28)。本轮仅交付设计文档，下述功能尚未实现，不计入待验收队列。
