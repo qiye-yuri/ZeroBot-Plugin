@@ -1,3 +1,5 @@
+2026-10-28任务明细单次请求耗时：已实现，99项相关回归通过；操作见[使用说明](docs/local-admin/model-request-statistics.md#任务明细显示单次请求耗时)，部署及验收状态见[本批清单](docs/local-admin/task-request-duration-acceptance.md)。复用已有字段，报告精度保持，QQ配合继续按实际缺口累计5项，未提前合入。
+
 2026-10-28后续规划：下一项为[任务明细显示单次请求耗时](docs/local-admin/post-pr57-development-plan.md)，4个工作包、11项验收标准，预计3～5小时有效工时。仅规划，尚未实现；直接显示已有milliseconds，区分已知0和未知，不增加采集或通用格式框架。QQ队列保持3/5，继续满5项统一配合。
 
 2026-10-28类别筛选已完成96项回归、最终150项隔离、22:53备份部署及实际空窗口/类别/刷新/重置/报告检查。当前QQ队列3/5，真实非空继续满5项统一验收，未合入；见[本批清单](docs/local-admin/task-kind-filter-acceptance.md)。

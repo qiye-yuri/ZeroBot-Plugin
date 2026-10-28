@@ -1,5 +1,7 @@
 # PR57之后的开发计划：任务明细显示单次请求耗时
 
+执行更新：用户已授权实施，实际基线PR #57头80a7cb61，99项回归通过；最终部署和集中验收见[本批清单](task-request-duration-acceptance.md)。下文保留设计时点。
+
 日期：2026-10-28（Asia/Shanghai）。设计基线为codex/task-kind-filter的844d21e43f3be811db704e38b361d9dfd4a07f3f，已核对origin一致。[PR #57](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/57)为开放草稿，base codex/task-identity-filter，依赖#55/#56。三批已完成部署独立检查，真实非空及QQ收件待集中验收，当前3/5。本轮仅规划，不实现、不部署、不增加计数。
 
 ## 1 问题与目标
