@@ -1,3 +1,13 @@
+2026-10-30上传完成：本批实现和部署说明已上传 `origin/codex/bili-video-first`，远端回读与本地 `e4e36e430fdab2611aacb168c68e9fa4d378b33d` 一致。[草稿PR #62](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/62)以codex/ctb-resend为base，依赖待验收PR #61，仅审查本批增量。QQ队列3/5，继续满5项统一配合；未合入master。本条补记上传事实，不改变已部署程序。
+
+2026-10-30 B站视频优先返回最终交付准备：实现60c23321、最终153项完整隔离及专项通过，19:25备份部署成功。分支codex/bili-video-first依赖PR #61，当前QQ队列3/5，未合入master。使用说明、待办、计划执行状态和验收结果同步；仅上传本批源码、测试及公开说明，实际远端结果另记。
+
+## 2026-10-30 B站视频基础信息优先返回候选
+
+核对待办中的总结业务失败及实际串行发送代码后，选择先发送已就绪基础信息，再单独反馈总结。范围、局限和验收见[本批记录](bili-video-first-acceptance.md)，用法见[说明](bili-video-first.md)。分支codex/bili-video-first基于PR #61头94a5051f，未合入master。
+
+B站全包回归、新增慢响应与HTTP专项、5项独立机器人公开样本、25项原权限/开关/路由及前两批功能复验通过。公开样本仅取公开视频信息，不用真实Cookie；不把无Cookie失败反馈写成真实总结成功。完整隔离、部署和上传按实际追加。当前QQ仍2/5，部署独立检查后登记第3项，满5项统一进行。
+
 2026-10-30上传完成：FTB重发实现及部署说明已上传 `origin/codex/ctb-resend`，远端回读与本地 `e86b3c216d48f2cad3f17816047735991ffc050d` 一致。[草稿PR #61](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/61)以codex/aiimage-reference-recall为base，依赖待验收PR #60，仅审查本批增量。QQ队列2/5，继续满5项统一配合，未合入master；此条仅登记上传事实，程序不变。
 
 2026-10-30 FTB重发最终交付准备：实现提交 aaad0679，最终153项完整隔离及专项通过，17:53备份部署成功；215份文档检查通过。分支codex/ctb-resend依赖PR #60的codex/aiimage-reference-recall，当前QQ队列2/5，未合入master。仅上传本批源码、合成测试及说明；实际远端结果另记。

@@ -1,3 +1,5 @@
+本批候选改进：[视频基础信息优先返回](bili-video-first.md)。总结开启时，先发送准备好的视频信息，再单独发送带视频链接的总结或不可用提示；原开关、权限及上游业务失败待办保持，部署状态见[本批验收](bili-video-first-acceptance.md)。
+
 # 统一B站功能
 
 P019资料查询、P020链接解析、P021订阅推送合并为P020 `bilibiliparse`。用户服务列表只显示一个B站入口，`/启用 bilibiliparse`、`/禁用 bilibiliparse` 按现有服务权限控制全部能力。旧 `bilibili`、`bilibilipush` 不再独立注册。
