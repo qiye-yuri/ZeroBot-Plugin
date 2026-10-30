@@ -1,3 +1,13 @@
+2026-10-30上传完成：FTB重发实现及部署说明已上传 `origin/codex/ctb-resend`，远端回读与本地 `e86b3c216d48f2cad3f17816047735991ffc050d` 一致。[草稿PR #61](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/61)以codex/aiimage-reference-recall为base，依赖待验收PR #60，仅审查本批增量。QQ队列2/5，继续满5项统一配合，未合入master；此条仅登记上传事实，程序不变。
+
+2026-10-30 FTB重发最终交付准备：实现提交 aaad0679，最终153项完整隔离及专项通过，17:53备份部署成功；215份文档检查通过。分支codex/ctb-resend依赖PR #60的codex/aiimage-reference-recall，当前QQ队列2/5，未合入master。仅上传本批源码、合成测试及说明；实际远端结果另记。
+
+## 2026-10-30 FTB已下载文件重发候选
+
+核对现有待办后，选择补齐已有FTB发送失败后的重发入口，依据和范围见[本批计划及验收](ctb-resend-acceptance.md)，操作见[重发说明](ctb-resend.md)。开发分支 `codex/ctb-resend` 基于PR #60头0ecd316c，不提前合入master。配置、原下载次数、已完成历史验收和其他条件性待办保持。
+
+核心/后台Go回归及合成下载器、独立OneBot专项通过，上批画图/撤回和测试隔离复验通过；完整隔离、部署及上传结果随后按实际补记。仅上传本批源码、合成测试和公开说明，不上传下载文件、重发记录、真实配置或原始QQ证据。
+
 2026-10-30上传完成：实现、最终部署及说明提交已上传自有 `origin/codex/aiimage-reference-recall`，远端回读与本地 `52aa9c866543e45c539f1ec243d65775ecb90bb4` 一致。已创建[草稿PR #60](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/60)，base为master；保持草稿，未合入。QQ队列1/5，继续累计5项统一配合。此条仅补记实际上传事实，不改变已部署程序。
 
 2026-10-30收敛最终结果：源码提交 `b1a23b41`、资源格式整理 `64eb3a82`；最终程序来源为64eb3a82对应产品文件，SHA256及153项完整隔离、专项复验和17:35备份部署证据见[本批记录](image-convergence-acceptance.md)。使用说明、计划执行状态和待验收同步；本次向自有origin的codex/aiimage-reference-recall上传，保持草稿和QQ队列1/5，不合入master。实际远端回读另记。

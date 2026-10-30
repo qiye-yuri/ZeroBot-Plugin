@@ -103,6 +103,12 @@ func TestRunAndSettings(t *testing.T) {
 		if r.Action == "download" && !strings.HasSuffix(v.Files[0], "-windows.zip") {
 			t.Fatal("download did not select the repaired artifact")
 		}
+		if r.Action == "download" {
+			files, err := deliveryFiles(c.OutputDir, v.TaskID)
+			if err != nil || len(files) != 1 || files[0] != v.Files[0] {
+				t.Fatal("download receipt does not identify final artifact", files, err)
+			}
+		}
 		if r.Action != "download" && !strings.Contains(v.Text, "查询成功") {
 			t.Fatalf("process output encoding lost: %q", v.Text)
 		}

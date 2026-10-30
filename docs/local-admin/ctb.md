@@ -1,3 +1,5 @@
+新增功能：主人可用 `FTB重发 任务编号` 发送本版本登记的已下载ZIP，不重新下载或重复扣群次数。具体权限、当前目标和旧任务限制见[重发说明](ctb-resend.md)，候选状态见[验收记录](ctb-resend-acceptance.md)。
+
 # FTB整合包查询与下载
 
 源码交付：[PR #26](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/26)已于2026-10-24合并至master，合并提交[d072e20b](https://github.com/qiye-yuri/ZeroBot-Plugin/commit/d072e20b627c48e6a41a0fc70621eb6e4359964a)。下方保留各阶段测试及部署记录，早期“尚未提交”描述仅为当时状态。
