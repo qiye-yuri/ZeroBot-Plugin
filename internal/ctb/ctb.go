@@ -40,6 +40,7 @@ type Result struct {
 	Text   string   `json:"text"`
 	Files  []string `json:"files"`
 	Upload bool     `json:"upload"`
+	TaskID string   `json:"taskId,omitempty"`
 }
 type Snapshot struct {
 	Config   Config `json:"config"`
@@ -322,6 +323,10 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 		if len(result.Files) == 0 {
 			return result, fmt.Errorf("命令结束但没有zip；请检查本地目录 %s", dir)
 		}
+		if err = recordDelivery(dir, result.Files); err != nil {
+			return result, fmt.Errorf("重发记录保存失败，文件已保留本机：%w", err)
+		}
+		result.TaskID = filepath.Base(dir)
 		result.Text = "下载并校验完成：\n" + strings.Join(result.Files, "\n")
 		result.Upload = c.Upload
 	}

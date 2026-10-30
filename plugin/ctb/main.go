@@ -14,10 +14,10 @@ import (
 	"github.com/wdvxdr1123/ZeroBot/message"
 )
 
-var engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{Brief: "FTB整合包查询和下载", Help: "FTB搜索 关键词 / FTB查询 整合包ID / FTB下载 整合包ID [版本ID或latest] [light/full] / FTB工具状态。私聊仅主人，群聊需@机器人，权限、每日下载次数和群文件/私聊发送位置可在后台FTB工具调整。"})
+var engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{Brief: "FTB整合包查询和下载", Help: "FTB搜索 关键词 / FTB查询 整合包ID / FTB下载 整合包ID [版本ID或latest] [light/full] / FTB重发 任务编号（仅主人，不重新下载或扣下载次数） / FTB工具状态。私聊仅主人，群聊需@机器人，权限、每日下载次数和群文件/私聊发送位置可在后台FTB工具调整。"})
 
 func init() {
-	engine.OnRegex(`(?i)^FTB(搜索|查询|下载|工具状态)(?:\s+(.*))?$`).SetBlock(true).Handle(handle)
+	engine.OnRegex(`(?i)^FTB(搜索|查询|下载|重发|工具状态)(?:\s+(.*))?$`).SetBlock(true).Handle(handle)
 }
 
 func handle(ctx *zero.Ctx) {
@@ -30,7 +30,11 @@ func handle(ctx *zero.Ctx) {
 		return
 	}
 	m := ctx.State["regex_matched"].([]string)
-	action := map[string]string{"搜索": "search", "查询": "inspect", "下载": "download", "工具状态": "status"}[m[1]]
+	action := map[string]string{"搜索": "search", "查询": "inspect", "下载": "download", "重发": "resend", "工具状态": "status"}[m[1]]
+	if action == "resend" && !owner {
+		ctx.SendChain(message.Text("FTB重发仅限机器人主人操作，请联系主人；不需要重新下载。"))
+		return
+	}
 	snap, e := core.Default.Settings("", nil)
 	if e != nil {
 		ctx.SendChain(message.Text("配置读取失败。下一步：请主人检查后台FTB工具。"))
@@ -44,6 +48,30 @@ func handle(ctx *zero.Ctx) {
 	}
 	if action == "status" {
 		ctx.SendChain(message.Text(fmt.Sprintf("启用：%t\n忙碌：%t\n群聊权限：%s\n群聊文件发送：%s\n每群每天最多发起%d次下载（失败也计次，北京时间零点重置）\n下一步：发送 FTB搜索 Evolution；群聊请先@机器人。", snap.Config.Enabled, snap.Busy, snap.Config.GroupAccess, snap.Config.GroupDelivery, snap.Config.GroupDailyLimit)))
+		return
+	}
+	if action == "resend" {
+		task := strings.TrimSpace(m[2])
+		if task == "" {
+			ctx.SendChain(message.Text("格式：FTB重发 下载完成消息中的任务编号。仅重发已登记的ZIP，不重新下载、不扣群下载次数。"))
+			return
+		}
+		go func() {
+			uploadCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			err := core.Default.Resend(task, ctx.Event.UserID, ctx.Event.GroupID, func(action string, params map[string]any) error {
+				reply := ctx.CallActionWithContext(uploadCtx, action, zero.Params(params))
+				if reply.Status != "ok" || reply.RetCode != 0 {
+					return fmt.Errorf("QQ文件发送接口未确认成功（状态%s，代码%d）", reply.Status, reply.RetCode)
+				}
+				return nil
+			})
+			if err != nil {
+				ctx.SendChain(message.Text("FTB重发失败：", err, "。未重新下载、未扣下载次数；已有文件保留。"))
+				return
+			}
+			ctx.SendChain(message.Text("QQ接口已接受重发，未重新下载、未扣下载次数。请按当前发送设置在本群文件或与机器人的私聊确认收到；接口成功不代表已收件。"))
+		}()
 		return
 	}
 	r := core.Request{Action: action, Pack: strings.TrimSpace(m[2])}
@@ -110,6 +138,7 @@ func handle(ctx *zero.Ctx) {
 		if !group {
 			completed = res.Text
 		}
+		completed += "\n重发任务编号：" + res.TaskID + "\n需要再次发送时请主人发送 FTB重发 " + res.TaskID
 		if !res.Upload {
 			ctx.SendChain(message.Text(completed, "\n自动发送未开启。下一步：请主人在后台FTB工具开启下载后发送文件，或从本机下载目录取得ZIP。"))
 			return
@@ -125,7 +154,7 @@ func handle(ctx *zero.Ctx) {
 			return nil
 		})
 		if err != nil {
-			ctx.SendChain(message.Text(err, "。文件已保留本机。\n下一步：群文件请检查机器人群文件权限及空间；私聊请先添加机器人好友。请联系主人重新发送已有文件，避免重复下载消耗次数。"))
+			ctx.SendChain(message.Text(err, "。文件已保留本机。\n下一步：群文件请检查机器人群文件权限及空间；私聊请先添加机器人好友。修复后请主人发送 FTB重发 ", res.TaskID, "，避免重复下载消耗次数。"))
 			return
 		}
 		destination := "与机器人的私聊"
