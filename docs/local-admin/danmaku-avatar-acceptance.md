@@ -56,3 +56,5 @@ go run scripts/smoke-local-admin.go -binary-name zerobot-danmaku-avatar.exe
 登记第5项，QQ队列达到5/5，进入[统一清单](qq-batch-20261030.md)。目前尚未登记本轮QQ实机通过结果；公共样本请求失败/超时仍未通过出图验证，取消任务前置条件也不当作已满足。未合入master，不继续开发下一批来绕过集中验收。
 
 FTB重发已用独立临时配置和合成下载器准备小型测试ZIP，走现有校验/记录流程；未写日常配置或群次数、未发送QQ。具体任务编号仅留本机步骤与本次聊天，后续按精确文件清单清理。
+
+上传完成：[草稿PR #65](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/65)，head codex/danmaku-avatar-fallback，base codex/ctb-cancel。远端与本地已核对一致，QQ5/5待集中实际反馈，未合入。最终公开文档223份、2934处本地引用、646处锚点零错误，外链未联网验证。

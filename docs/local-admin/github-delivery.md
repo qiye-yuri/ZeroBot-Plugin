@@ -1,3 +1,5 @@
+2026-10-30上传完成：本批源码和部署说明已上传 `origin/codex/danmaku-avatar-fallback`，远端回读与本地 `3e2498635c7be29a07143408050c56da78aada96` 一致。[草稿PR #65](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/65)以codex/ctb-cancel为base，依赖PR #64。首次推送TLS握手中断，同目标保留TLS校验重试成功。QQ已5/5，统一清单和合成重发文件已准备，等待实际反馈；公共记录请求未成功等条件仍待验收，未合入master。
+
 2026-10-30查弹幕头像降级最终交付准备：实现1e2b7545，最终153项完整隔离及合成整页验证通过，20:54备份部署成功，公共样本请求失败/超时仍单列未验收。分支codex/danmaku-avatar-fallback依赖PR #64；QQ已5/5，集中清单和小型重发测试文件准备完成，未合入。实际远端结果另记。
 
 ## 2026-10-30 查弹幕头像故障降级候选
