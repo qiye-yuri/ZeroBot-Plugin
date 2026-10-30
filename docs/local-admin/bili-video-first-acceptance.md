@@ -1,0 +1,55 @@
+# B站视频基础信息优先返回：计划与验收
+
+日期：2026-10-30（Asia/Shanghai）。分支 codex/bili-video-first，基于待验收PR #61头94a5051f；本批独立审查，不合入master。
+
+## 待办核对与目标依据
+
+前两项画图/引用/撤回、FTB重发已部署并完成独立检查，QQ队列2/5，仍待集中配合。多人权限、真实转账、好友/入群与更新通知缺角色或真实事件；本地模型、定时整合和非必要后台页面保持原状态，不为凑数开发。
+
+B站待办明确记录视频总结样本业务码-1，尚无成功内容。源码核对发现，handleVideo已取得标题/封面后仍等待getVideoSummary，再一次性发送；依赖NewDefaultClient复制默认客户端，未为该总结请求设置专用超时，响应读取无大小上限。因此可选总结慢或失败会拖延已经可用的基础解析结果。
+
+本批目标是让基础信息先返回、总结独立反馈，并限制总结HTTP请求；不是修复或绕过B站业务码，也不迁移接口或改Cookie权限。
+
+## 实施与退出条件
+
+1. 保留现有链接解析与开关，基础消息立即交给原QQ发送入口，确认接口成功后再执行可选总结。
+2. 总结单独携带视频链接；成功、空内容和失败分别保留真实状态，不重复基础消息。失败无自动重试或模型兜底。
+3. 总结HTTP设置12秒、2MiB上限和不跟随重定向；WBI签名继续复用依赖，不新增签名缓存/通用客户端框架。签名键获取不包含在这12秒内，但在基础消息之后进行。
+4. 先用阻塞的假总结证明发送顺序，再覆盖开关关闭、基础发送失败、空总结、上游错误、超时/超大响应和重定向。
+5. 独立OneBot验证现有权限与开关，并用无Cookie公开样本核对基础消息与单独错误反馈；最终完整隔离、前置候选复验和备份部署通过后登记QQ第3项，上传草稿PR。
+
+## 使用与范围
+
+入口、权限、实际限制见[使用说明](bili-video-first.md)。基础信息自身读取或QQ发送失败不在“总结不阻塞”的保证中；上游业务码-1及有效总结样本仍待验收。返回的是B站已有总结，不调用付费模型，不恢复已删除的视频下载/上传功能。
+
+## 自动化与独立验证
+
+B站插件及push/query/userselect全包Go回归通过。新增3项主测试：慢总结被阻塞时基础消息已发出；4种发送/内容状态；5种HTTP路径（成功、超时、重定向、超过2MiB、503）。慢路径验证使用缩短的测试客户端超时，不等待12秒凑时长；生产值保持12秒。所有测试使用合成Cookie及本机接口。
+
+首次构建发现依赖Card.BvID类型为any，直接拼接不能编译；按实际类型改用fmt.Sprint后完整复跑通过，失败轮不计通过。
+
+独立OneBot公开样本检查5项通过：未恢复视频上传入口、基础信息成功、随后明确总结不可用、恰好一条基础消息加一条总结反馈、反馈没有video段。样本使用已有公开视频BV1xx411c7mD，只读真实公共信息接口，未加载真实Cookie；无Cookie时总结明确失败，没有真实总结成功证据。未发送真实QQ消息，未调用模型。基础消息的文字内容和发送顺序由实际二进制链路验证，图片渲染不作为本轮客户端实机结果。
+
+候选SHA256：B82D266A3469A25C3EB964C7C98B942F4BA116DAC9768E1A7F99E754FDFC575D。Go 1.26.10、CGO_ENABLED=0、go build -trimpath，构建时基线94a5051f含本批工作区改动；产品文件与提交逐项核对。
+
+~~~powershell
+go test ./plugin/bilibiliparse/... -count=1 -timeout=180s
+go build -trimpath -o .local/bin/zerobot-bili-video-first.exe .
+go run scripts/test-bili-video-first.go -binary-name zerobot-bili-video-first.exe
+go run scripts/test-bilibili-merge.go -binary-name zerobot-bili-video-first.exe
+go run scripts/smoke-ctb-resend.go -binary .local/bin/zerobot-bili-video-first.exe
+go run scripts/smoke-recall.go -binary .local/bin/zerobot-bili-video-first.exe
+go run scripts/smoke-local-admin.go -binary-name zerobot-bili-video-first.exe
+~~~
+
+完整隔离从仓库真实物理路径运行。外部Cookie、日常配置和消息均不用于这些测试；公开样本测试涉及真实公共API，其余使用隔离数据和本机模拟接口。完整隔离、部署和上传结果按实际追加。
+
+## QQ集中验收
+
+部署独立检查完成后登记第3项，之前仍为2/5；前两项不重复计数。满5项后在已准备好测试隔离和适用视频的会话中，用户发送一条视频链接，核对基础消息先到、开启总结时有独立带链接的反馈，按实际内容记录成功/暂无/失败。没有成功总结时仍不能关闭上游业务码-1的缺口。
+
+当前不要求用户发送QQ消息，不更改日常开关或Cookie，不为获得成功总结反复请求上游。未验收前保持草稿，不合入master。
+
+原B站路由、权限、分功能开关及重启持久化25项独立检查通过；FTB重发与画图/撤回专项在同一候选复验通过。未改变日常Cookie、订阅或功能开关，前两项QQ缺口保持。
+
+最终完整隔离于2026-10-30 19:24:12（Asia/Shanghai）通过，153项成功检查（不含passed/isolated元数据）。两份产品文件与候选及暂存内容一致。217份文档、2793处本地引用、646处锚点零错误，外链未联网验证；18项文档检查器回归及差异检查通过。

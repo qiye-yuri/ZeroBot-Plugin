@@ -4,7 +4,6 @@ package bilibiliparse
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -12,7 +11,6 @@ import (
 	bz "github.com/FloatTech/AnimeAPI/bilibili"
 	"github.com/FloatTech/ZeroBot-Plugin/plugin/bilibiliparse/internal/push"
 	"github.com/FloatTech/ZeroBot-Plugin/plugin/bilibiliparse/internal/query"
-	"github.com/FloatTech/floatbox/web"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/ctxext"
@@ -128,16 +126,13 @@ func handleVideo(ctx *zero.Ctx) {
 		return
 	}
 	c, ok := ctx.State["manager"].(*ctrl.Control[*zero.Ctx])
+	var summarize func() ([]message.Segment, error)
 	if ok && c.GetData(scope(ctx))&enableVideoSummary == enableVideoSummary {
-		summaryMsg, err := getVideoSummary(cfg, card)
-		if err != nil {
-			msg = append(msg, message.Text("ERROR: ", err))
-		} else {
-			msg = append(msg, summaryMsg...)
-		}
+		summarize = func() ([]message.Segment, error) { return getVideoSummary(cfg, card) }
 	}
-	ctx.SendChain(msg...)
-
+	sendVideoResult(msg, fmt.Sprint("https://www.bilibili.com/video/", card.BvID), summarize, func(m []message.Segment) bool {
+		return ctx.SendChain(m...).ID() != 0
+	})
 }
 
 func handleDynamic(ctx *zero.Ctx) {
@@ -184,25 +179,14 @@ func handleLive(ctx *zero.Ctx) {
 
 // getVideoSummary AI视频总结
 func getVideoSummary(cookiecfg *bz.CookieConfig, card bz.Card) (msg []message.Segment, err error) {
-	var (
-		data []byte
-	)
-	data, err = web.RequestDataWithHeaders(web.NewDefaultClient(), bz.SignURL(fmt.Sprintf(bz.VideoSummaryURL, card.BvID, card.CID, card.Owner.Mid)), "GET", func(req *http.Request) error {
-		if cookiecfg != nil {
-			cookie := ""
-			cookie, err = cookiecfg.Load()
-			if err != nil {
-				return err
-			}
-			req.Header.Add("cookie", cookie)
+	cookie := ""
+	if cookiecfg != nil {
+		cookie, err = cookiecfg.Load()
+		if err != nil {
+			return nil, fmt.Errorf("视频总结Cookie不可读取，请主人检查配置")
 		}
-		req.Header.Set("User-Agent", ua)
-		return nil
-	}, nil)
-	if err != nil {
-		return
 	}
-	return decodeVideoSummary(data)
+	return requestVideoSummary(videoSummaryClient, bz.SignURL(fmt.Sprintf(bz.VideoSummaryURL, card.BvID, card.CID, card.Owner.Mid)), cookie)
 }
 
 func decodeVideoSummary(data []byte) (msg []message.Segment, err error) {
@@ -229,7 +213,7 @@ func decodeVideoSummary(data []byte) (msg []message.Segment, err error) {
 		msg = append(msg, message.Text("该视频暂无可用的B站视频总结。"))
 		return
 	}
-	msg = append(msg, message.Text("已为你生成视频总结\n\n"))
+	msg = append(msg, message.Text("B站提供的视频总结\n\n"))
 	msg = append(msg, message.Text(videoSummary.Data.ModelResult.Summary, "\n\n"))
 	for _, v := range videoSummary.Data.ModelResult.Outline {
 		msg = append(msg, message.Text("● ", v.Title, "\n"))
