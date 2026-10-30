@@ -1,3 +1,9 @@
+## 2026-10-30 查弹幕头像故障降级候选
+
+核对待办与代码后，修复已取得记录仍因可选头像失败中断及跳过WebP时串用上一头像的问题。分支codex/danmaku-avatar-fallback基于PR #64头98f88872，范围见[本批记录](danmaku-avatar-acceptance.md)，用法见[说明](danmaku-avatar.md)。没有后台扩展或自动重试。
+
+B站全包、合成头像和整页渲染测试通过，预览已目视检查；公开样本本次在记录接口超时，不计出图成功、不反复请求。最终完整隔离、部署和上传随后记录；完成后累计5项按[统一清单](qq-batch-20261030.md)配合，未验收不合入。
+
 2026-10-30上传完成：FTB取消实现及部署说明已上传 `origin/codex/ctb-cancel`，远端回读与本地 `a76ca3945dcd501319891369ab70206dbfca7922` 一致。[草稿PR #64](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/64)以codex/image-error-delivery为base，依赖待验收PR #63。QQ队列4/5，继续满5项统一配合，未合入master。本条仅补记上传事实，程序不变。
 
 2026-10-30 FTB取消最终交付准备：实现2acf0fb6，最终153项完整隔离及专项通过，20:05备份部署成功。分支codex/ctb-cancel依赖PR #63，QQ现4/5，未合入master；使用说明、待办和进度同步。仅上传本批源码、合成测试与公开说明，实际远端结果另记。
