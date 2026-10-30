@@ -21,4 +21,3 @@ AI画图 --background=opaque --format=jpeg --compression=90 海边风景
 AI画图 --moderation=auto 水彩风格的花束
 
 transparent不能配jpeg；无效组合会在请求前拒绝。QQ可能重新编码图片，不保证保留API原始格式或透明度。
-

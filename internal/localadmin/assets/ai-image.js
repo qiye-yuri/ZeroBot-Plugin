@@ -68,5 +68,3 @@ async function loadAIImage(){
  finally{if(generation===aiGeneration)aiBusyState(false);}
 }
 $("ai-image-load").addEventListener("click",loadAIImage);
-
-
