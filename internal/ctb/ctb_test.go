@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -40,6 +41,20 @@ func TestHelperProcess(t *testing.T) {
 	if strings.Contains(strings.Join(os.Args, " "), "999999") {
 		os.Stderr.WriteString("unknown pack")
 		os.Exit(2)
+	}
+	if marker := os.Getenv("CTB_CANCEL_MARKER"); marker != "" {
+		for i, arg := range os.Args {
+			if arg == "--output" {
+				if err := os.WriteFile(filepath.Join(os.Args[i+1], "partial.part"), []byte("synthetic partial"), 0600); err != nil {
+					os.Exit(3)
+				}
+			}
+		}
+		if err := os.WriteFile(marker, []byte("started"), 0600); err != nil {
+			os.Exit(3)
+		}
+		time.Sleep(30 * time.Second)
+		os.Exit(0)
 	}
 	for i, a := range os.Args {
 		if a == "--output" {
