@@ -49,10 +49,12 @@ type Snapshot struct {
 	Last     string `json:"last"`
 }
 type Service struct {
-	mu   sync.Mutex
-	Path string
-	busy bool
-	last string
+	mu          sync.Mutex
+	Path        string
+	busy        bool
+	last        string
+	cancel      context.CancelFunc
+	activeGroup int64
 }
 
 var Default = &Service{Path: filepath.Join(".local", "ctb", "config.json")}
@@ -250,12 +252,26 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 			return result, e
 		}
 	}
+	timeout := time.Duration(c.TimeoutMinutes) * time.Minute
+	if r.Action != "download" {
+		timeout = 90 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	s.cancel, s.activeGroup = cancel, groupID
 	s.busy = true
 	s.last = "正在执行 " + r.Action
 	s.mu.Unlock()
+	defer cancel()
+	dir := ""
 	defer func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		// Completion and cancellation share the lock: an accepted cancellation
+		// cannot race a successful return that would start QQ file delivery.
+		if ctx.Err() != nil && err == nil {
+			err = taskContextError(ctx, dir)
+		}
+		s.cancel, s.activeGroup = nil, 0
 		s.busy = false
 		if err != nil {
 			s.last = "失败：" + err.Error()
@@ -267,13 +283,6 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 	if c.NoProxy {
 		args = append(args, "--no-proxy")
 	}
-	timeout := time.Duration(c.TimeoutMinutes) * time.Minute
-	if r.Action != "download" {
-		timeout = 90 * time.Second
-	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	dir := ""
 	if r.Action == "download" {
 		if err = os.MkdirAll(c.OutputDir, 0700); err != nil {
 			return result, fmt.Errorf("无法创建下载目录")
@@ -296,7 +305,7 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 	text := readableOutput(out.b)
 	result.Text = text
 	if ctx.Err() != nil {
-		return result, fmt.Errorf("任务超时或取消；部分下载保留于 %s", dir)
+		return result, taskContextError(ctx, dir)
 	}
 	if err != nil {
 		if runes := []rune(text); len(runes) > 1500 {
@@ -310,6 +319,9 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 			return result, e
 		}
 		for _, entry := range entries {
+			if ctx.Err() != nil {
+				return result, taskContextError(ctx, dir)
+			}
 			if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".zip") {
 				continue
 			}
@@ -322,6 +334,9 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 		}
 		if len(result.Files) == 0 {
 			return result, fmt.Errorf("命令结束但没有zip；请检查本地目录 %s", dir)
+		}
+		if ctx.Err() != nil {
+			return result, taskContextError(ctx, dir)
 		}
 		if err = recordDelivery(dir, result.Files); err != nil {
 			return result, fmt.Errorf("重发记录保存失败，文件已保留本机：%w", err)

@@ -1,3 +1,13 @@
+2026-10-30上传完成：FTB取消实现及部署说明已上传 `origin/codex/ctb-cancel`，远端回读与本地 `a76ca3945dcd501319891369ab70206dbfca7922` 一致。[草稿PR #64](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/64)以codex/image-error-delivery为base，依赖待验收PR #63。QQ队列4/5，继续满5项统一配合，未合入master。本条仅补记上传事实，程序不变。
+
+2026-10-30 FTB取消最终交付准备：实现2acf0fb6，最终153项完整隔离及专项通过，20:05备份部署成功。分支codex/ctb-cancel依赖PR #63，QQ现4/5，未合入master；使用说明、待办和进度同步。仅上传本批源码、合成测试与公开说明，实际远端结果另记。
+
+## 2026-10-30 FTB运行中任务取消候选
+
+核对现有FTB串行任务和缺少取消入口的说明后，选择补齐主人FTB取消命令。基于PR #63头34e39586，分支codex/ctb-cancel；复用既有上下文/锁，群范围受限，保留文件和已扣次数，不新增后台页面。用法见[取消说明](ctb-cancel.md)，开发和验证见[本批记录](ctb-cancel-acceptance.md)。
+
+Go核心/配置回归和合成长任务、独立OneBot专项通过；最终完整隔离及部署结果随后记录，完成独立检查后才登记第4项。仅上传源码、合成测试与公开说明，真实配置、下载文件、QQ记录和本机证据不上传。
+
 2026-10-30上传完成：画图错误回执源码、验证和部署说明已上传 `origin/codex/image-error-delivery`，远端回读与本地 `d28e8ce7c380186fe3d411f8da10fb1c3949d65a` 一致。[草稿PR #63](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/63)以codex/bili-video-first为base，依赖待验收PR #62。本项沿用画图第1项，QQ仍3/5，满5项统一配合；未合入master。本条仅补记上传事实，程序不变。
 
 2026-10-30画图错误回执最终交付准备：实现fdf41996，最终153项完整隔离及专项通过，19:45备份部署成功，画图配置和预算账本哈希不变。分支codex/image-error-delivery依赖PR #62，QQ仍3/5，未合入master；使用说明、待办和进度同步。实际远端结果另记，私有证据和无关改动留本机。

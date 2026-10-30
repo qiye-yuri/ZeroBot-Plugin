@@ -14,10 +14,10 @@ import (
 	"github.com/wdvxdr1123/ZeroBot/message"
 )
 
-var engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{Brief: "FTB整合包查询和下载", Help: "FTB搜索 关键词 / FTB查询 整合包ID / FTB下载 整合包ID [版本ID或latest] [light/full] / FTB重发 任务编号（仅主人，不重新下载或扣下载次数） / FTB工具状态。私聊仅主人，群聊需@机器人，权限、每日下载次数和群文件/私聊发送位置可在后台FTB工具调整。"})
+var engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{Brief: "FTB整合包查询和下载", Help: "FTB搜索 关键词 / FTB查询 整合包ID / FTB下载 整合包ID [版本ID或latest] [light/full] / FTB重发 任务编号（仅主人，不重新下载或扣下载次数） / FTB取消（仅主人，停止当前查询或下载，保留文件及已扣次数） / FTB工具状态。私聊仅主人，群聊需@机器人，权限、每日下载次数和群文件/私聊发送位置可在后台FTB工具调整。"})
 
 func init() {
-	engine.OnRegex(`(?i)^FTB(搜索|查询|下载|重发|工具状态)(?:\s+(.*))?$`).SetBlock(true).Handle(handle)
+	engine.OnRegex(`(?i)^FTB(搜索|查询|下载|重发|取消|工具状态)(?:\s+(.*))?$`).SetBlock(true).Handle(handle)
 }
 
 func handle(ctx *zero.Ctx) {
@@ -30,7 +30,27 @@ func handle(ctx *zero.Ctx) {
 		return
 	}
 	m := ctx.State["regex_matched"].([]string)
-	action := map[string]string{"搜索": "search", "查询": "inspect", "下载": "download", "重发": "resend", "工具状态": "status"}[m[1]]
+	action := map[string]string{"搜索": "search", "查询": "inspect", "下载": "download", "重发": "resend", "取消": "cancel", "工具状态": "status"}[m[1]]
+	if action == "cancel" {
+		if !owner {
+			ctx.SendChain(message.Text("FTB取消仅限机器人主人操作。"))
+			return
+		}
+		if strings.TrimSpace(m[2]) != "" {
+			ctx.SendChain(message.Text("格式：FTB取消（不带参数，停止当前查询或下载）"))
+			return
+		}
+		cancelled, err := core.Default.Cancel(ctx.Event.GroupID)
+		switch {
+		case err != nil:
+			ctx.SendChain(message.Text(err))
+		case cancelled:
+			ctx.SendChain(message.Text("已请求取消FTB任务，请等待原任务结束提示。部分文件保留，已扣下载次数不退还。"))
+		default:
+			ctx.SendChain(message.Text("当前没有可取消的FTB查询或下载；已提交的QQ上传不在取消范围内。"))
+		}
+		return
+	}
 	if action == "resend" && !owner {
 		ctx.SendChain(message.Text("FTB重发仅限机器人主人操作，请联系主人；不需要重新下载。"))
 		return
