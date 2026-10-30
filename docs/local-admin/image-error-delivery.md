@@ -1,0 +1,51 @@
+# 画图接口错误详情：收敛与交付
+
+日期：2026-10-30（Asia/Shanghai）。本批基于PR #62头03fe2d44，独立分支codex/image-error-delivery。
+
+## 待办核对与目标
+
+当前QQ队列3/5，分别为画图/引用/撤回、FTB重发、B站基础信息优先返回。多人角色、真实事件、有效B站总结样本仍缺条件；非必要后台、本地模型和定时整合保持原范围。
+
+检查发现画图非2xx错误详情于19:27已部署，但源码、测试与说明尚未提交。实际运行程序SHA256为616B71D329530CB42EA23E1F5D8B31C6A7802EE2F45C6950425E73CA074D1C7E，与该轮部署记录一致。本轮优先收敛这一已存在功能，确保源码、验证、部署及远端交付可对应，而不是继续在未交付改动上新增独立功能。
+
+本项沿用画图第1项，不新增计数，队列仍3/5。不把补丁、文档或审查发现的问题拆为第4项。
+
+## 使用方式与限制
+
+仍发送原AI画图命令，无新增开关或后台页面。接口返回非2xx时，失败回执显示HTTP状态及实际提供的error.message、type、code、param、x-request-id。可据参数、错误码和请求编号定位配置/权限/服务商故障；未提供的字段不会编造。历史已被丢弃的错误正文不能补回。
+
+错误正文最多读取64KiB；原因600字符、类型/参数/错误码100字符、请求编号160字符。只取这些结构化字段，不原样展示HTML、原始响应或其他字段；已知配置密钥、完整提示词回显、参考图数据、URL及长编码片段按现有规则隐藏，控制字符和CQ方括号做文本处理。这里只是已知值和模式过滤，不承诺识别服务商任意变形或截取后的敏感文本。
+
+数值错误码保留JSON原文精度，不先转float64，也不擅自解释含义。过长字段仍按规则过滤或截断。空响应、非JSON、格式不匹配及超过读取上限时保留HTTP状态并提示缺少可读取的结构化详情。
+
+失败仍保留本次预算预留，不自动重试或退还，不改质量、模型、代理和月预算。脱敏回执随原有聊天档案机制记录，功能本身不保存原始错误体。完整画图入口见[AI画图](aiimage.md)及[QQ帮助](aiimage-qq-help.md)。本次数字精度修复在候选部署后生效。
+
+## 实施与验证计划
+
+1. 对齐19:27已部署改动、说明和原私有验收；仅纳入功能源码、合成测试及整理后的公开记录。
+2. 审查回执解析并复现根因。发现数值错误码9007199254740993被改写为9.007199254740992e+15，使用json.Number保留原值；不扩展供应商协议猜测或错误重试框架。
+3. 运行画图及必要配置Go回归；把错误回执、精确数字、脱敏和预算不退还检查并入现有smoke-recall.go，复验原引用/撤回链路，不复制新的通用测试框架。
+4. 对最终候选执行完整隔离和前置FTB/B站必要回归；通过后备份部署，保持OneBot、配置和数据，记录源码与程序哈希。
+5. 同步使用说明、待办、验收和交付记录，上传独立草稿PR；真实QQ未验收前不合入。
+
+## 验证记录
+
+数字精度专项首轮按预期失败，证明确有错误码改写；修正后结果在下方追加。其余已部署历史回归不当作本轮重测。本轮只用合成错误体、独立数据目录和本机假模型，不产生真实模型或QQ测试消息。
+
+~~~powershell
+go test ./plugin/aiimage ./internal/localadmin -count=1 -timeout=180s
+go build -trimpath -o .local/bin/zerobot-image-error-delivery.exe .
+go run scripts/smoke-recall.go -binary .local/bin/zerobot-image-error-delivery.exe
+go run scripts/smoke-ctb-resend.go -binary .local/bin/zerobot-image-error-delivery.exe
+go run scripts/test-bilibili-merge.go -binary-name zerobot-image-error-delivery.exe
+go run scripts/smoke-test-isolation.go -binary-name zerobot-image-error-delivery.exe
+go run scripts/smoke-local-admin.go -binary-name zerobot-image-error-delivery.exe
+~~~
+
+完整隔离从仓库真实物理路径运行。后续集中QQ验收仍沿用画图第1项，按实际覆盖记录；不为收集错误详情故意触发付费失败请求。普通成功收件不自动证明实际错误详情分支通过。
+
+数字精度修复后画图全包与localadmin回归通过。新增专项覆盖大整数、科学计数写法及0，原错误详情/脱敏和限长回归保持。最终候选SHA256：E71A24AC92A49B77279FCFE41623A1F7232DB3D0288E0A7B13BA5E44AC8463D2；Go 1.26.10、CGO_ENABLED=0、go build -trimpath。构建基线03fe2d44包含本批工作区改动，3份产品文件与构建时间及交付内容逐项核对。
+
+独立OneBot错误回执/精确数值/脱敏/预算保留通过，合成错误接口仅调用1次；原引用图、撤回、预算门控及帮助回归通过。FTB重发与B站25项权限/开关/重启检查通过；测试生命周期验证独立记忆、结束后日常无回流和第二批次隔离，4次本机假模型请求，真实调用0。218份文档、2829处本地引用、646处锚点零错误（外链未联网验证），文档检查器18项及差异检查通过。
+
+最终完整隔离于2026-10-30 19:43:54（Asia/Shanghai）通过，153项成功检查（不含passed/isolated元数据）。程序与专项使用同一SHA256，3份产品文件与暂存内容一致，可进入备份部署。
