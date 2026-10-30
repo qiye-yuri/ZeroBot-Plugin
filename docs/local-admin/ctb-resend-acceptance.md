@@ -61,3 +61,5 @@ go run scripts/smoke-local-admin.go -binary-name zerobot-ctb-resend.exe
 回退备份位于本机忽略目录 .local/ctb-resend/deployment-20261030-175334/。需要时停止ZeroBot，恢复backup/zerobot.exe并启动检查健康，保留现有配置、下载次数、ZIP和delivery.json；旧程序不识别重发命令，不删除新记录来回退。新功能仅在后续正常下载时生成记录，未批量改写历史下载。
 
 开发、自动化、独立整机及部署检查完成；真实QQ登记第2项，当前2/5。第1项仍为PR #60画图/引用/撤回；本批为独立FTB重发，继续满5项统一配合。未合入master。上传与PR链接见[交付记录](github-delivery.md)。
+
+上传完成：[草稿PR #61](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/61)，head codex/ctb-resend，base codex/aiimage-reference-recall，依赖PR #60。远端与本地提交已核对一致，QQ待验收、未合入master；本次补记不改变已部署程序。

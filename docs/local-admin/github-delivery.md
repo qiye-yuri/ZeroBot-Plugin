@@ -1,3 +1,5 @@
+2026-10-30上传完成：FTB重发实现及部署说明已上传 `origin/codex/ctb-resend`，远端回读与本地 `e86b3c216d48f2cad3f17816047735991ffc050d` 一致。[草稿PR #61](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/61)以codex/aiimage-reference-recall为base，依赖待验收PR #60，仅审查本批增量。QQ队列2/5，继续满5项统一配合，未合入master；此条仅登记上传事实，程序不变。
+
 2026-10-30 FTB重发最终交付准备：实现提交 aaad0679，最终153项完整隔离及专项通过，17:53备份部署成功；215份文档检查通过。分支codex/ctb-resend依赖PR #60的codex/aiimage-reference-recall，当前QQ队列2/5，未合入master。仅上传本批源码、合成测试及说明；实际远端结果另记。
 
 ## 2026-10-30 FTB已下载文件重发候选
