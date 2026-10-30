@@ -223,8 +223,16 @@ func readArchive(ctx context.Context, root string, bot int64, q ArchiveQuery, co
 		return page, nil
 	}
 	historySource := "history"
+	recallFilter := ""
+	var hasRecall int
+	if tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE name='recalled_history' AND type='view'").Scan(&hasRecall) != nil {
+		return page, ErrArchive
+	}
+	if hasRecall != 0 {
+		recallFilter = recallPredicate
+	}
 	if hasIsolation != 0 {
-		historySource = "(SELECT * FROM history WHERE 1" + testHistoryPredicate(q.TestRun) + ") AS history"
+		historySource = "(SELECT * FROM history WHERE 1" + testHistoryPredicate(q.TestRun) + recallFilter + ") AS history"
 	}
 	if q.Search {
 		limit = 5001

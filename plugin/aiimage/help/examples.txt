@@ -1,0 +1,25 @@
+AI画图帮助 · 可复制示例
+
+沿用后台全部默认值：
+AI画图 水彩风格的橘猫
+
+4K横图、高质量：
+AI画图 --size=4k --quality=high 海边日落
+
+2K方图、最高质量：
+AI画图 --size=2k --quality=max 森林里的小屋
+
+4K竖图：
+AI画图 --size=4k-portrait 一张旅行海报
+
+两张透明WebP：
+AI画图 --n=2 --background=transparent --format=webp --compression=80 一枚叶子徽章
+
+流式带两张预览：
+AI画图 --stream=true --partial-images=2 云海中的城堡
+
+模型自动选质量与尺寸：
+AI画图 --size=auto --quality=auto 一片星空
+
+例子只展示参数写法，未写的项继承后台。如果后台开了透明背景，改JPEG时还需--background=opaque；如果后台有预览，关闭流式时还需--partial-images=0。尺寸、质量与张数越大通常占用越多预算。
+这些例子复制成新消息发送会尝试生成；仅查看此帮助不收费。

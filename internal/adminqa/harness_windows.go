@@ -42,6 +42,7 @@ type Harness struct {
 	sentMu                                      sync.Mutex
 	lastSent                                    json.RawMessage
 	apiActions                                  []string
+	messageFixtures                             map[int64]json.RawMessage
 	requestCalls                                []RequestCall
 	failAction                                  string
 	voiceModels                                 any
@@ -196,6 +197,7 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 			h.apiActions = append(h.apiActions, request.Action)
 			fail := h.failAction == request.Action
 			voiceModels := h.voiceModels
+			fixture := append(json.RawMessage(nil), h.messageFixtures[request.Params.MessageID]...)
 			if request.Action == "set_friend_add_request" || request.Action == "set_group_add_request" {
 				h.requestCalls = append(h.requestCalls, RequestCall{request.Action, request.Params.Flag, request.Params.SubType, request.Params.Approve})
 			}
@@ -219,6 +221,9 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 				data = voiceModels
 			}
 			status, code := "ok", 0
+			if request.Action == "get_msg" && len(fixture) > 0 {
+				data = fixture
+			}
 			if fail {
 				status, code = "failed", 1200
 			}
@@ -332,6 +337,21 @@ func (h *Harness) RecallLast(ctx context.Context, uid, gid int64) (int64, error)
 	case <-ctx.Done():
 		return 0, ctx.Err()
 	}
+}
+
+// RecallMessage injects a notice without requiring a bot deletion as an acknowledgement.
+func (h *Harness) RecallMessage(uid, gid, id int64) error {
+	if id == 0 {
+		id = int64(h.messageID)
+	}
+	kind := "friend_recall"
+	if gid != 0 {
+		kind = "group_recall"
+	}
+	p := h.current
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.conn.WriteJSON(map[string]any{"time": time.Now().Unix(), "self_id": h.mockQQ, "post_type": "notice", "notice_type": kind, "group_id": gid, "user_id": uid, "operator_id": uid, "message_id": id})
 }
 
 // WaitConnection attaches an extra fixture endpoint to the already started test process.
@@ -705,4 +725,18 @@ func fixtureMessageText(raw json.RawMessage) (string, error) {
 		}
 	}
 	return out.String(), nil
+}
+
+func (h *Harness) SetMessageFixture(id int64, value any) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	h.sentMu.Lock()
+	defer h.sentMu.Unlock()
+	if h.messageFixtures == nil {
+		h.messageFixtures = map[int64]json.RawMessage{}
+	}
+	h.messageFixtures[id] = raw
+	return nil
 }
