@@ -107,7 +107,7 @@ func generateImageWithPreview(client *http.Client, cfg imageConfig, mode, prompt
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("接口返回HTTP %d（401/403检查密钥和权限，429检查额度或频率，400检查模型与参数）", resp.StatusCode)
+		return nil, imageAPIError(resp, cfg, prompt, references)
 	}
 	if o.Stream && strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream") {
 		return readImageStream(resp.Body, o.Count, o.PartialImages, preview)

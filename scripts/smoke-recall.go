@@ -61,7 +61,7 @@ func run() error {
 		return err
 	}
 	expected := sha256.Sum256(source.Bytes())
-	var gets, edits, generations, bad atomic.Int32
+	var gets, edits, generations, bad, diagnostics atomic.Int32
 	started := make(chan struct{})
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +86,13 @@ func run() error {
 		if json.NewDecoder(r.Body).Decode(&body) != nil {
 			bad.Add(1)
 			http.Error(w, "bad", 400)
+			return
+		}
+		if strings.Contains(body.Prompt, "DIAGNOSTIC_400") {
+			diagnostics.Add(1)
+			w.Header().Set("x-request-id", "req_synthetic_diagnostic")
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"message": "Invalid image parameter synthetic-key", "type": "invalid_image", "code": json.Number("9007199254740993"), "param": "images"}})
 			return
 		}
 		if r.URL.Path == "/v1/images/edits" {
@@ -270,7 +277,32 @@ func run() error {
 	if after["budget"].(map[string]any)["chargedUSD"] != "0.300000" {
 		return fmt.Errorf("in-flight budget lost: %v", after["budget"])
 	}
-	result := map[string]any{"inFlightOutputSuppressed": true, "inFlightBudgetRetained": true, "recalledQuoteRejected": true, "passed": true, "isolated": true, "realQQMessagesSent": false, "realModelCalls": 0, "referenceBytesVerified": true, "referenceHelpVerified": true, "quotedImageVerified": true, "crossSessionRejected": true, "referenceRoutingVerified": true, "invalidImageNoCharge": true, "budgetStopVerified": true, "syntheticEditCalls": edits.Load(), "syntheticGenerationCalls": generations.Load()}
+	if err = send("AI画图 DIAGNOSTIC_400", "", "正在生成"); err != nil {
+		return err
+	}
+	failed, err := h.AwaitReply(ctx)
+	if err != nil {
+		return err
+	}
+	for _, value := range []string{"HTTP 400", "Invalid image parameter", "invalid_image", "9007199254740993", "req_synthetic_diagnostic", "预算预留保留"} {
+		if !strings.Contains(failed, value) {
+			return fmt.Errorf("missing diagnostic field: %s", value)
+		}
+	}
+	if strings.Contains(failed, "synthetic-key") {
+		return fmt.Errorf("diagnostic exposed synthetic key")
+	}
+	after, err = c.Checked("GET", "/api/ai-image", nil)
+	if err != nil {
+		return err
+	}
+	if after["budget"].(map[string]any)["chargedUSD"] != "0.400000" {
+		return fmt.Errorf("diagnostic failure lost reservation")
+	}
+	if diagnostics.Load() != 1 {
+		return fmt.Errorf("unexpected diagnostic request count: %d", diagnostics.Load())
+	}
+	result := map[string]any{"syntheticErrorCalls": diagnostics.Load(), "diagnosticReplyVerified": true, "diagnosticBudgetRetained": true, "inFlightOutputSuppressed": true, "inFlightBudgetRetained": true, "recalledQuoteRejected": true, "passed": true, "isolated": true, "realQQMessagesSent": false, "realModelCalls": 0, "referenceBytesVerified": true, "referenceHelpVerified": true, "quotedImageVerified": true, "crossSessionRejected": true, "referenceRoutingVerified": true, "invalidImageNoCharge": true, "budgetStopVerified": true, "syntheticEditCalls": edits.Load(), "syntheticGenerationCalls": generations.Load()}
 	b, _ := json.MarshalIndent(result, "", "  ")
 	os.WriteFile(filepath.Join(parent, "integration-result.json"), b, 0600)
 	fmt.Println(string(b))
