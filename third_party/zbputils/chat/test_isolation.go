@@ -170,7 +170,7 @@ func (s *MemoryStore) dailyMemoryFilter(alias string) string {
 	if s.history.testRun != "" {
 		return ""
 	}
-	return " AND " + alias + "id NOT IN (SELECT memory_id FROM memory_test_records) AND " + alias + "source_seq NOT IN (SELECT seq FROM history_test_records)"
+	return " AND " + alias + "source_seq NOT IN (SELECT seq FROM recalled_history) AND " + alias + "id NOT IN (SELECT memory_id FROM memory_test_records) AND " + alias + "source_seq NOT IN (SELECT seq FROM history_test_records)"
 }
 
 func rememberTestMessage(tx *sql.Tx, grp, seq int64, kind, payload, run string) error {
@@ -254,6 +254,9 @@ func rememberTestMessage(tx *sql.Tx, grp, seq int64, kind, payload, run string) 
 
 // Used by platform-history consumers: omit known test events and bot replies.
 func TestMessageReadAllowed(bot, grp int64, id, run string) (bool, error) {
+	if e := MessageRecallCheck(bot, grp, id, run); e != nil {
+		return false, e
+	}
 	store, e := AgentMemories(bot)
 	if e != nil {
 		return false, e

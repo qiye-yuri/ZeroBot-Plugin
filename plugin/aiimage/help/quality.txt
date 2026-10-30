@@ -1,0 +1,18 @@
+AI画图帮助 · 质量 --quality
+
+可选值：
+low：低档
+medium：中等
+high：高档
+xhigh：超高，仅GPT Image 2.5
+max：最高，仅GPT Image 2.5
+auto：模型自动选择，写--quality=auto，预算按最高档预留
+
+例：AI画图 --size=2k --quality=max 一座细节丰富的城堡
+
+不写--quality就沿用后台保存的档位，不固定为medium。提高质量通常增加用量与等待时间，并不保证每次效果都更好。
+GPT Image 2和旧模型不支持xhigh/max。原硅基流动协议不发送此quality参数；要使用这些档位需OpenAI兼容接口。
+
+实际默认参数请到后台读取；主人私聊“查看AI画图配置”可核对接口、模型和密钥设置状态。帮助不会显示实际接口或密钥。
+
+

@@ -103,6 +103,10 @@ func openAgentHistory(root string, selfID int64, budget int, config func() (Agen
 		db.Close()
 		return nil, err
 	}
+	if err = initializeRecall(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	s.tasks, err = newTaskStore(db, taskInstance)
 	if err != nil {
 		db.Close()
@@ -226,6 +230,12 @@ func (s *agentHistory) appendWithSequence(grp int64, kind string, item fmt.Strin
 			return 0, err
 		}
 	}
+	if ev, ok := value.(map[string]any); ok && run == "" && kind == "event" && (ev["notice_type"] == "group_recall" || ev["notice_type"] == "friend_recall") {
+		if err = invalidateRecalledSummary(tx, grp); err != nil {
+			s.failed[grp] = true
+			return 0, err
+		}
+	}
 	if err = tx.Commit(); err != nil {
 		s.failed[grp] = true
 		return 0, err
@@ -277,7 +287,7 @@ func (s *agentHistory) recent(grp int64) ([]historyRecord, bool, error) {
 	if err := s.db.QueryRow(`SELECT text,through_seq FROM agent_summaries WHERE conversation=? AND ?='' AND reset_seq=COALESCE((SELECT MAX(seq) FROM history WHERE conversation=? AND kind='reset'),0)`, grp, run, grp).Scan(&summary, &through); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, false, errAgentHistory
 	}
-	rows, err := s.db.Query("SELECT kind,payload FROM history WHERE conversation=? AND seq>?"+testHistoryPredicate(run)+" ORDER BY seq DESC", grp, through)
+	rows, err := s.db.Query("SELECT kind,payload FROM history WHERE conversation=? AND seq>?"+testHistoryPredicate(run)+recallPredicate+" ORDER BY seq DESC", grp, through)
 	if err != nil {
 		return nil, false, errAgentHistory
 	}

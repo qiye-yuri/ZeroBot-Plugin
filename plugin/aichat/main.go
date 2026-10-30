@@ -286,7 +286,10 @@ func init() {
 				req = webSearch.WithSources(req)
 				if req.Action == "get_msg" {
 					allowed, e := chat.TestMessageReadAllowed(ctx.Event.SelfID, gid, fmt.Sprint(req.Params["message_id"]), character.TestRun)
-					if e != nil || !allowed {
+					if e != nil {
+						return e
+					}
+					if !allowed {
 						return errors.New("消息属于其他测试范围，不能读入当前上下文")
 					}
 				}
@@ -297,6 +300,11 @@ func init() {
 				hasresp = true
 				outcome = "unknown"
 				rsp := task.Call(req.Action, req.Params, ctx.CallAction)
+				if req.Action == "get_msg" {
+					if e := chat.MessageRecallCheck(ctx.Event.SelfID, gid, fmt.Sprint(req.Params["message_id"]), character.TestRun); e != nil {
+						return e
+					}
+				}
 				if req.Action == "get_msg" && character.TestRun == "" {
 					cutoff, e := chat.TestIsolationCutoff(ctx.Event.SelfID)
 					if e != nil || (cutoff > 0 && rsp.Data.Get("time").Int() > 0 && rsp.Data.Get("time").Int() <= cutoff) {

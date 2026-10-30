@@ -21,6 +21,7 @@ import (
 	"github.com/FloatTech/ZeroBot-Plugin/internal/aicenter"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/basiccommands"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/batteryhub"
+	"github.com/FloatTech/ZeroBot-Plugin/internal/imagegen"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/localadmin"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/modelstats"
 	"github.com/FloatTech/ZeroBot-Plugin/internal/processidentity"
@@ -291,7 +292,7 @@ func main() {
 		if identityErr != nil {
 			logrus.Warnln("[admin] 观察报告进程信息不可读取，保留无关联报告")
 		}
-		admin, err := localadmin.Start(localadmin.Config{Addr: adminAddr, DataDir: adminDataDir, Plugins: plugins, PluginControl: pluginControl, Connections: connections, AI: localadmin.NewUnifiedAIStore(controls, aicenter.Settings, aicenter.Commands), Resources: resourcecheck.New("data"), UpdateWatch: updatewatchcore.RuntimeAdmin, Logs: logs, Backups: backups, ModelRequests: modelstats.Default.Read, ReplyTasks: replystats.Default.Read, ProcessIdentity: identity, Overview: localadmin.RuntimeOverview(time.Now(), len(config.W)+len(config.S), len(plugins))})
+		admin, err := localadmin.Start(localadmin.Config{Addr: adminAddr, DataDir: adminDataDir, Plugins: plugins, PluginControl: pluginControl, Connections: connections, AI: localadmin.NewUnifiedAIStore(controls, aicenter.Settings, aicenter.Commands), Resources: resourcecheck.New("data"), UpdateWatch: updatewatchcore.RuntimeAdmin, ImageGen: imagegen.RuntimeAdmin, Logs: logs, Backups: backups, ModelRequests: modelstats.Default.Read, ReplyTasks: replystats.Default.Read, ProcessIdentity: identity, Overview: localadmin.RuntimeOverview(time.Now(), len(config.W)+len(config.S), len(plugins))})
 		if err != nil {
 			logrus.Fatalln("[admin] 本地后台启动失败:", err)
 		}

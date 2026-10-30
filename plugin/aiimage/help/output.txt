@@ -1,0 +1,24 @@
+AI画图帮助 · 输出、张数与审核
+
+--background=auto / opaque / transparent
+自动 / 不透明 / 透明背景。透明背景必须配PNG或WebP。
+--format=png / jpeg / webp
+输出文件格式；JPEG值写jpeg，不写jpg。
+--compression=80
+值可填0–100的整数。只对JPEG/WebP发送；PNG忽略该值。
+--n=2
+值可填1–10的整数，表示一次生成张数，预算按张数预留。
+--moderation=auto / low
+标准自动审核 / 较宽松；low仍受服务商内容规则限制，不保证请求被接受。
+
+透明PNG：
+AI画图 --background=transparent --format=png 一枚叶子徽章
+两张WebP：
+AI画图 --n=2 --format=webp --compression=80 森林小屋，两种构图
+JPEG：
+AI画图 --background=opaque --format=jpeg --compression=90 海边风景
+审核：
+AI画图 --moderation=auto 水彩风格的花束
+
+transparent不能配jpeg；无效组合会在请求前拒绝。QQ可能重新编码图片，不保证保留API原始格式或透明度。
+

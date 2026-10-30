@@ -1,0 +1,16 @@
+AI画图帮助 · 流式预览
+
+--stream=true：启用流式
+--stream=false：关闭流式
+--partial-images=0 / 1 / 2 / 3：期望的预览图数，须配合--stream=true
+0表示只等待最终图。实际预览数可能少于所填数量；预览会额外占用预算。
+
+例：
+AI画图 --stream=true --partial-images=2 --size=4k 云海中的城堡
+只要最终图：
+AI画图 --stream=true --partial-images=0 水彩森林
+关闭流式并清除预览：
+AI画图 --stream=false --partial-images=0 海边日落
+
+如果后台保存了预览数2，仅写--stream=false会与继承的预览数冲突；关闭时同时写--partial-images=0。
+预览消息会标注“非最终图片”。收到预览不代表成功，最终完成后另发结果。断流或超时仍会报失败，保留本次预算占用，避免远端已收费后重复放行。等待上限由主人在后台设置，普通画图参数不能修改。

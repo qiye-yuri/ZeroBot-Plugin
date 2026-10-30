@@ -1,0 +1,23 @@
+AI画图帮助 · 参数速查
+
+每项都是可选的，不写就沿用后台值。
+--size=4k → 尺寸size
+--quality=high → 质量quality
+--background=transparent → 背景background
+--format=png → 格式output_format
+--compression=80 → 压缩质量output_compression
+--n=2 → 张数n
+--moderation=auto → 审核moderation
+--stream=true → 流式stream
+--partial-images=2 → 预览数partial_images
+
+完整例子：
+AI画图 --size=2k --quality=high --n=2 森林小屋
+
+注意英文符号：正确是--size=4k，不是—size=4k、--size 4k、size=4k或--size＝4k。参数值通常用小写；size的2K/4K也可识别。
+
+接口、模型、密钥不能写成--model/--key等普通画图参数。月预算、代理、等待上限和安全标识只在后台设置。设置方式发送：AI画图帮助 配置
+
+值的详细解释发送：AI画图帮助 尺寸 / 质量 / 输出 / 流式（斜线是说明，请每次只选一个主题）。
+
+--refs=2 → 仅选前2张参考图（先附图后引用图，1–16）；省略时全选，不改变输出张数。

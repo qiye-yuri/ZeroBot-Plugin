@@ -373,7 +373,8 @@ func logev(ctx *zero.Ctx) {
 		seq, err := history.appendWithSequence(gid, "event", ev, testRun)
 		if err != nil {
 			logrus.Warnln("[chat] 对话事件保存失败，未绑定任务来源。")
-			ctx.Block();return
+			ctx.Block()
+			return
 		} else {
 			mp.Store(stateKeyAgentEventSource, agentEventSource{event: ctx.Event, bot: ctx.Event.SelfID, conversation: gid, sequence: seq})
 		}
@@ -424,6 +425,17 @@ func logev(ctx *zero.Ctx) {
 			}
 		}),
 	)
+	if ctx.Event.PostType == "message" {
+		for _, seg := range ctx.Event.Message {
+			if seg.Type == "reply" {
+				if e := MessageRecallCheck(ctx.Event.SelfID, gid, seg.Data["id"], testRun); e != nil {
+					ctx.SendChain(message.Text("无法处理引用消息: ", e))
+					ctx.Block()
+					return
+				}
+			}
+		}
+	}
 	if controlReply != "" {
 		ctx.SendChain(message.Text(controlReply))
 		ctx.Block()

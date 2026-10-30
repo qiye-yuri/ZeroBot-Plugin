@@ -59,17 +59,17 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 		through = reset
 	}
 	var size int64
-	if s.db.QueryRow(`SELECT COALESCE(SUM(length(CAST(payload AS BLOB))+64),0) FROM history WHERE conversation=? AND seq>? AND seq NOT IN (SELECT seq FROM history_test_records)`, grp, through).Scan(&size) != nil || size+int64(len(previous)) < int64(s.budget)*3/5 {
+	if s.db.QueryRow(`SELECT COALESCE(SUM(length(CAST(payload AS BLOB))+64),0) FROM history WHERE conversation=? AND seq>? AND seq NOT IN (SELECT seq FROM history_test_records) AND seq NOT IN (SELECT seq FROM recalled_history)`, grp, through).Scan(&size) != nil || size+int64(len(previous)) < int64(s.budget)*3/5 {
 		return
 	}
 	// Keep at least eight whole message turns. The prefix ends immediately before
 	// an event, so a pending tool request/response is never split by compaction.
 	var tail int64
-	err = s.db.QueryRow(`SELECT seq FROM history WHERE conversation=? AND seq>? AND kind='event' AND seq NOT IN (SELECT seq FROM history_test_records) ORDER BY seq DESC LIMIT 1 OFFSET 7`, grp, through).Scan(&tail)
+	err = s.db.QueryRow(`SELECT seq FROM history WHERE conversation=? AND seq>? AND kind='event' AND seq NOT IN (SELECT seq FROM history_test_records) AND seq NOT IN (SELECT seq FROM recalled_history) ORDER BY seq DESC LIMIT 1 OFFSET 7`, grp, through).Scan(&tail)
 	if err != nil {
 		return
 	}
-	rows, err := s.db.Query(`SELECT seq,kind,payload FROM history WHERE conversation=? AND seq>? AND seq<? AND seq NOT IN (SELECT seq FROM history_test_records) ORDER BY seq LIMIT 2048`, grp, through, tail)
+	rows, err := s.db.Query(`SELECT seq,kind,payload FROM history WHERE conversation=? AND seq>? AND seq<? AND seq NOT IN (SELECT seq FROM history_test_records) AND seq NOT IN (SELECT seq FROM recalled_history) ORDER BY seq LIMIT 2048`, grp, through, tail)
 	if err != nil {
 		return
 	}
@@ -102,7 +102,7 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 	}
 	// If the whole prefix fits, include the last complete turn as well.
 	var last int64
-	if s.db.QueryRow(`SELECT COALESCE(MAX(seq),0) FROM history WHERE conversation=? AND seq>? AND seq<? AND seq NOT IN (SELECT seq FROM history_test_records)`, grp, through, tail).Scan(&last) != nil {
+	if s.db.QueryRow(`SELECT COALESCE(MAX(seq),0) FROM history WHERE conversation=? AND seq>? AND seq<? AND seq NOT IN (SELECT seq FROM history_test_records) AND seq NOT IN (SELECT seq FROM recalled_history)`, grp, through, tail).Scan(&last) != nil {
 		return
 	}
 	// A bounded query must never claim coverage of an unexamined record.
