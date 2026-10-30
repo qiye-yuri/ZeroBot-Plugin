@@ -1,3 +1,5 @@
+新增候选：[查弹幕头像故障降级](danmaku-avatar.md)。头像失效显示占位并保留已取得记录，不解决第三方记录接口自身超时；状态见[本批记录](danmaku-avatar-acceptance.md)。
+
 本批候选改进：[视频基础信息优先返回](bili-video-first.md)。总结开启时，先发送准备好的视频信息，再单独发送带视频链接的总结或不可用提示；原开关、权限及上游业务失败待办保持，部署状态见[本批验收](bili-video-first-acceptance.md)。
 
 # 统一B站功能
