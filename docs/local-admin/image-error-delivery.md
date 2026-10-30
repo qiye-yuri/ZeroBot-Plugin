@@ -57,3 +57,5 @@ go run scripts/smoke-local-admin.go -binary-name zerobot-image-error-delivery.ex
 回退目录为本机忽略路径 .local/image-error-delivery/deployment-20261030-194423/。停止ZeroBot后恢复backup/zerobot.exe并重启复查；保留当前配置、预算账本与聊天数据。回退版本已有结构化错误回执，但没有本批数值精度修复，不应声称回退后仍保留大整数错误码原值。
 
 开发、相关回归、完整隔离和部署独立检查完成。上传独立分支供审查，QQ仍沿用画图第1项，队列3/5；不新增计数、不提前合入。无真实模型调用、无真实QQ测试消息，原始错误体和本机运行证据不上传。
+
+上传完成：[草稿PR #63](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/63)，head codex/image-error-delivery，base codex/bili-video-first，依赖PR #62。远端与本地已核对一致，未合入master；QQ仍3/5。最终公开文档检查218份、2838处本地引用、646处锚点零错误，外链未联网验证。
