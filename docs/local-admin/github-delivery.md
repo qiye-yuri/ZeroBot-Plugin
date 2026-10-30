@@ -1,3 +1,5 @@
+2026-10-30 FTB重发最终交付准备：实现提交 aaad0679，最终153项完整隔离及专项通过，17:53备份部署成功；215份文档检查通过。分支codex/ctb-resend依赖PR #60的codex/aiimage-reference-recall，当前QQ队列2/5，未合入master。仅上传本批源码、合成测试及说明；实际远端结果另记。
+
 ## 2026-10-30 FTB已下载文件重发候选
 
 核对现有待办后，选择补齐已有FTB发送失败后的重发入口，依据和范围见[本批计划及验收](ctb-resend-acceptance.md)，操作见[重发说明](ctb-resend.md)。开发分支 `codex/ctb-resend` 基于PR #60头0ecd316c，不提前合入master。配置、原下载次数、已完成历史验收和其他条件性待办保持。
