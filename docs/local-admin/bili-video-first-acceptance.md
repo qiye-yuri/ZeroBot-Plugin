@@ -61,3 +61,5 @@ go run scripts/smoke-local-admin.go -binary-name zerobot-bili-video-first.exe
 回退备份位于本机忽略目录 .local/bili-video-first/deployment-20261030-192434/。需要时停止ZeroBot，恢复backup/zerobot.exe并启动复查，保留最新Cookie、配置、下载记录、预算和聊天数据；旧版会恢复等待总结后合并发送的行为，不应声称仍具备本次改进。
 
 本批开发、自动化、独立整机和部署检查完成，登记第3项，QQ当前3/5：画图/引用/撤回、FTB重发、B站基础信息优先返回。满5项统一配合，三项均未合入master；B站业务码-1和真实总结成功样本仍保持待验收。上传见[交付记录](github-delivery.md)。
+
+上传完成：[草稿PR #62](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/62)，head codex/bili-video-first，base codex/ctb-resend，依赖PR #61。远端与本地已核对一致，QQ仍待验收、未合入master。最终文档检查217份、2814处本地引用、646处锚点零错误，外链未联网验证；差异检查通过。
