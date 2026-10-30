@@ -1,3 +1,5 @@
+2026-10-30上传完成：FTB取消实现及部署说明已上传 `origin/codex/ctb-cancel`，远端回读与本地 `a76ca3945dcd501319891369ab70206dbfca7922` 一致。[草稿PR #64](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/64)以codex/image-error-delivery为base，依赖待验收PR #63。QQ队列4/5，继续满5项统一配合，未合入master。本条仅补记上传事实，程序不变。
+
 2026-10-30 FTB取消最终交付准备：实现2acf0fb6，最终153项完整隔离及专项通过，20:05备份部署成功。分支codex/ctb-cancel依赖PR #63，QQ现4/5，未合入master；使用说明、待办和进度同步。仅上传本批源码、合成测试与公开说明，实际远端结果另记。
 
 ## 2026-10-30 FTB运行中任务取消候选

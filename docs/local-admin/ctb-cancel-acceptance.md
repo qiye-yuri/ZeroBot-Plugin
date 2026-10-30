@@ -57,3 +57,5 @@ go run scripts/smoke-local-admin.go -binary-name zerobot-ctb-cancel.exe
 回退备份在本机忽略目录 .local/ctb-cancel/deployment-20261030-200500/。停止ZeroBot，恢复backup/zerobot.exe并启动复查，保留现有配置、次数、下载/重发记录、预算与聊天数据；旧版不支持FTB取消。部署前已检查无真实FTB工具进程正在执行，不用重启中断真实下载来代替取消验收。
 
 开发、自动化、独立整机和部署检查完成，登记第4项。QQ当前4/5：画图/引用/撤回（含错误详情）、FTB重发、B站基础信息优先返回、FTB运行中取消。继续满5项统一配合，未合入master；旧项目与本轮不同阶段的取消/重发操作不重复计数。上传与PR见[交付记录](github-delivery.md)。
+
+上传完成：[草稿PR #64](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/64)，head codex/ctb-cancel，base codex/image-error-delivery，依赖PR #63。远端与本地核对一致，QQ仍4/5，未合入master。最终公开文档检查220份、2877处本地引用、646处锚点零错误，外链未联网验证。
