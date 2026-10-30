@@ -1,3 +1,5 @@
+2026-10-30收敛最终结果：源码提交 `b1a23b41`、资源格式整理 `64eb3a82`；最终程序来源为64eb3a82对应产品文件，SHA256及153项完整隔离、专项复验和17:35备份部署证据见[本批记录](image-convergence-acceptance.md)。使用说明、计划执行状态和待验收同步；本次向自有origin的codex/aiimage-reference-recall上传，保持草稿和QQ队列1/5，不合入master。实际远端回读另记。
+
 ## 2026-10-30 画图、引用图片与撤回候选收敛
 
 按[后续计划](post-20261030-development-plan.md)收敛既有实现，分支 `codex/aiimage-reference-recall`，基线master `d2bbbd5d`。源码、必要配置、合成测试、使用说明与[本批验收记录](image-convergence-acceptance.md)一起交付。当前QQ队列1/5，真实QQ体验与未覆盖分支满5项统一配合，未合入master。
