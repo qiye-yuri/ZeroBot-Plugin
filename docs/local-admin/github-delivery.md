@@ -1,3 +1,5 @@
+2026-10-31 FTB首次发送修复已完成开发与部署：实现7bf5fdd9，最终153项完整隔离及相关专项通过，12:02备份部署成功。分支codex/ctb-delivery-lifecycle基于前批收尾后的master 6746c4c1；配置/下载次数/OneBot/监控保持，QQ取消状态不变。上传和合入结果按实际追加。
+
 ## 2026-10-31 FTB首次发送生命周期候选
 
 前批PR #66已按固定流程收尾合入，当前基线master 6746c4c1。本批分支codex/ctb-delivery-lifecycle修复首次发送期间状态过早释放，复用原任务锁和发送回执，不新增后台页面；[使用说明](ctb-delivery-lifecycle.md)及[本批验收](ctb-delivery-lifecycle-acceptance.md)同步。已取消QQ验收不重排，测试、部署、上传和合入分别记录。
