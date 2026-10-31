@@ -1,3 +1,5 @@
+2026-10-31收尾：FTB首次文件发送状态修复已通过审查并合入[PR #67](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/67)，合并2c93aabf，审查头c0236ac0，文件树完全一致。产品源码与12:02已部署候选一致，无需再次部署；已取消QQ验收不重排、不记实机通过。
+
 2026-10-31 12:02：FTB首次发送状态修复完成核心/后台回归、阻塞回执专项、重发/取消/测试隔离复验、最终153项完整隔离及备份部署。发送回执返回前保持busy，重复操作和配置保存被拒；配置/下载次数/OneBot/监控保持。用法见[说明](ctb-delivery-lifecycle.md)，证据见[本批记录](ctb-delivery-lifecycle-acceptance.md)。已取消QQ验收不重排，无新后台页面。
 
 2026-10-31新候选：[FTB首次发送保持忙碌](ctb-delivery-lifecycle.md)。核对当前代码并复现下载结束到QQ回执间过早释放状态，复用原锁修复连续阶段，保留发送独立超时、文件与已扣次数。验证见[本批记录](ctb-delivery-lifecycle-acceptance.md)。基于收尾PR #66后的最新master，不新增后台页面、不重排已取消QQ验收。

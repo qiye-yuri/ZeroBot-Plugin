@@ -1,3 +1,5 @@
+2026-10-31收尾：FTB首次文件发送状态修复已通过审查并合入[PR #67](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/67)，合并2c93aabf，审查头c0236ac0，文件树完全一致。产品源码与12:02已部署候选一致，无需再次部署；已取消QQ验收不重排、不记实机通过。
+
 # FTB首次发送生命周期：开发与验收
 
 日期：2026-10-31（Asia/Shanghai）。基线为最新master 6746c4c1，分支codex/ctb-delivery-lifecycle。
@@ -47,3 +49,7 @@ go run scripts/smoke-local-admin.go -binary-name zerobot-ctb-delivery-lifecycle.
 备份位于本机忽略目录 .local/ctb-delivery-lifecycle/deployment-20261031-120144/。需回退时停止ZeroBot、恢复backup/zerobot.exe后启动复查，保留当前配置、文件/重发记录、下载次数和聊天数据。旧版会恢复首次发送期间提前释放busy的行为。
 
 本批没有发起真实下载、真实QQ验收或付费模型测试，不把模拟接口成功记作实际收件。已取消QQ验收继续保持取消；上传及合入状态另行登记。
+
+## 收尾审查
+
+已核对忙碌状态连续性、取消转入发送的互斥边界、发送配置快照、独立超时、失败后文件/计次及状态释放；未发现阻断合入问题。审查头c0236ac0与部署之后仅有说明差异，合并2c93aabf的完整文件树与审查头一致。当前master产品源码仍对应已部署B74420B2B29EE18E4EEC4FE865F3A9794C99A3B182B3951B4CBD826A0212EB35。

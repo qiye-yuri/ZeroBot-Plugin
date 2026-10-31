@@ -1,3 +1,5 @@
+2026-10-31收尾：FTB首次文件发送状态修复已通过审查并合入[PR #67](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/67)，合并2c93aabf，审查头c0236ac0，文件树完全一致。产品源码与12:02已部署候选一致，无需再次部署；已取消QQ验收不重排、不记实机通过。
+
 执行更新（2026-10-31）：前批PR #66已收尾合入，新目标以master 6746c4c1为基线完成[FTB首次发送状态修复](ctb-delivery-lifecycle.md)及候选部署。按固定流程审查交付，已取消QQ验收不重新安排。
 
 执行更新（2026-10-31）：以最新master 4fc31b12为基线，完成[B站查询环境代理](bili-query-proxy.md)最小修复及候选部署；详情见[本批记录](bili-query-proxy-acceptance.md)。旧QQ验收保持取消，不新增后台网页，当前只上传开发分支供审查。
