@@ -1,3 +1,5 @@
+2026-10-31交付完成：[PR #68](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/68)已上传、审查并合入master，合并`39742d34`，锁定头`9161aeda`，合并树完全一致。实现`d86119f6`对应15:35已部署候选；相关回归、7次假模型专项和153项完整隔离通过，GitHub无CI检查项，不记CI通过。说明与交付记录同步，未重复部署，已取消QQ验收不重排、不记实机通过。
+
 2026-10-31必要修复：[凭据设置消息脱敏](credential-history.md)，补齐画图密钥、B站Cookie及旧历史回放/摘要路径，保留测试隔离元数据。基线master c3660663；验证、部署及交付状态见[本批记录](credential-history-acceptance.md)。不扩展后台网页，已取消QQ验收不重排、不记实机通过。
 
 2026-10-31收尾：FTB首次文件发送状态修复已通过审查并合入[PR #67](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/67)，合并2c93aabf，审查头c0236ac0，文件树完全一致。产品源码与12:02已部署候选一致，无需再次部署；已取消QQ验收不重排、不记实机通过。
