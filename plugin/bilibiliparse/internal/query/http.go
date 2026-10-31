@@ -14,7 +14,7 @@ import (
 )
 
 func newDanmakuClient() *http.Client {
-	return &http.Client{Timeout: 12 * time.Second, Transport: &http.Transport{DisableKeepAlives: true}}
+	return &http.Client{Timeout: 12 * time.Second, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, DisableKeepAlives: true}}
 }
 
 // Retry an empty/truncated JSON response once within the caller's deadline.
