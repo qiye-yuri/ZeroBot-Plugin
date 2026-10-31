@@ -168,12 +168,8 @@ func (s *agentHistory) appendWithSequence(grp int64, kind string, item fmt.Strin
 		return 0, errAgentHistory
 	}
 	value = redactHistoryValue(value, cfg)
-	// A newly submitted key may not yet be in the saved configuration.
-	if kind == "event" {
-		if ev, ok := value.(map[string]any); ok && containsKeySetting(ev["message"]) {
-			ev["message"] = []any{map[string]any{"type": "text", "data": map[string]any{"text": "[密钥设置内容已隐藏]"}}}
-		}
-	}
+	// Newly submitted credentials may not be in the chat configuration.
+	value = redactCredentialSettings(value)
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		s.markFailed(grp)
@@ -264,13 +260,87 @@ func redactHistoryValue(v any, cfg AgentConfig) any {
 }
 
 func containsKeySetting(v any) bool {
-	raw, _ := json.Marshal(v)
-	for _, prefix := range []string{"设置AI聊天密钥", "设置AI聊天Agent密钥", "设置AI聊天识图密钥"} {
-		if bytes.Contains(raw, []byte(prefix)) {
-			return true
+	// OneBot text segments are concatenated by the command dispatcher.
+	switch x := v.(type) {
+	case string:
+		for _, prefix := range []string{"设置AI聊天密钥", "设置AI聊天Agent密钥", "设置AI聊天识图密钥", "设置AI画图密钥", "设置b站cooki"} {
+			if strings.Contains(x, prefix) {
+				return true
+			}
+		}
+	case []any:
+		var plain strings.Builder
+		for _, item := range x {
+			if segment, ok := item.(map[string]any); ok && segment["type"] == "text" {
+				if data, ok := segment["data"].(map[string]any); ok {
+					if text, ok := data["text"].(string); ok {
+						plain.WriteString(text)
+					}
+				}
+			}
+			if containsKeySetting(item) {
+				return true
+			}
+		}
+		return plain.Len() > 0 && containsKeySetting(plain.String())
+	case map[string]any:
+		for _, item := range x {
+			if containsKeySetting(item) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+const hiddenCredentialSetting = "[密钥设置内容已隐藏]"
+
+// Mask message bodies, retaining routing and IDs used by test isolation.
+func redactCredentialSettings(v any) any {
+	switch x := v.(type) {
+	case string:
+		if containsKeySetting(x) {
+			return hiddenCredentialSetting
+		}
+	case []any:
+		for i := range x {
+			x[i] = redactCredentialSettings(x[i])
+		}
+	case map[string]any:
+		for key, item := range x {
+			if (key == "message" || key == "content" || key == "raw_message") && containsKeySetting(item) {
+				if _, ok := item.([]any); ok {
+					x[key] = []any{map[string]any{"type": "text", "data": map[string]any{"text": hiddenCredentialSetting}}}
+				} else {
+					x[key] = hiddenCredentialSetting
+				}
+			} else {
+				x[key] = redactCredentialSettings(item)
+			}
+		}
+	}
+	return v
+}
+
+// Read-side protection also covers records written before this rule existed.
+// Original archives stay unchanged. Plain summaries are hidden only when they
+// still contain a recognizable credential-setting command.
+func redactCredentialPayload(payload string) string {
+	if !json.Valid([]byte(payload)) {
+		if containsKeySetting(payload) {
+			return hiddenCredentialSetting
+		}
+		return payload
+	}
+	var value any
+	decoder := json.NewDecoder(strings.NewReader(payload))
+	decoder.UseNumber()
+	_ = decoder.Decode(&value)
+	if !containsKeySetting(value) {
+		return payload
+	}
+	raw, _ := json.Marshal(redactCredentialSettings(value))
+	return string(raw)
 }
 
 type historyRecord struct{ kind, payload string }
@@ -295,6 +365,7 @@ func (s *agentHistory) recent(grp int64) ([]historyRecord, bool, error) {
 	items := []historyRecord{}
 	remaining := s.budget
 	if summary != "" {
+		summary = redactCredentialPayload(summary)
 		if len(summary)+128 > s.budget/2 {
 			summary = historyExcerpt(summary, s.budget/2)
 		}
@@ -309,6 +380,7 @@ func (s *agentHistory) recent(grp int64) ([]historyRecord, bool, error) {
 		if item.kind == "reset" {
 			break
 		}
+		item.payload = redactCredentialPayload(item.payload)
 		if len(item.payload)+64 > remaining {
 			clipped = true
 			if len(items) == 0 {

@@ -347,7 +347,7 @@ func logev(ctx *zero.Ctx) {
 		return
 	}
 	data, _ := json.Marshal(ev)
-	logrus.Debugln("[chat] agent", gid, "add ev:", binary.BytesToString(data))
+	logrus.Debugln("[chat] agent", gid, "add ev:", redactCredentialPayload(binary.BytesToString(data)))
 	mp := ctx.State[control.StateKeySyncxState].(*syncx.Map[string, any])
 	mp.Delete(stateKeyAgentEventSource)
 	ag := AgentOf(ctx.Event.SelfID, "aichat")
