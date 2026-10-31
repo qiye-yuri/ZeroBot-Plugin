@@ -45,6 +45,7 @@ type Harness struct {
 	messageFixtures                             map[int64]json.RawMessage
 	requestCalls                                []RequestCall
 	failAction                                  string
+	fileUploadHold                              <-chan struct{}
 	voiceModels                                 any
 	current                                     *peer
 	messageID                                   int
@@ -196,6 +197,7 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 			h.sentMu.Lock()
 			h.apiActions = append(h.apiActions, request.Action)
 			fail := h.failAction == request.Action
+			uploadHold := h.fileUploadHold
 			voiceModels := h.voiceModels
 			fixture := append(json.RawMessage(nil), h.messageFixtures[request.Params.MessageID]...)
 			if request.Action == "set_friend_add_request" || request.Action == "set_group_add_request" {
@@ -227,7 +229,18 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 			if fail {
 				status, code = "failed", 1200
 			}
-			err = conn.WriteJSON(map[string]any{"status": status, "retcode": code, "data": data, "echo": request.Echo})
+			response := map[string]any{"status": status, "retcode": code, "data": data, "echo": request.Echo}
+			if uploadHold != nil && (request.Action == "upload_private_file" || request.Action == "upload_group_file") {
+				p.mu.Unlock()
+				go func() {
+					<-uploadHold
+					p.mu.Lock()
+					defer p.mu.Unlock()
+					_ = conn.WriteJSON(response)
+				}()
+				continue
+			}
+			err = conn.WriteJSON(response)
 			p.mu.Unlock()
 			if err != nil {
 				return
@@ -276,6 +289,14 @@ func (h *Harness) FailAction(action string) {
 	h.sentMu.Lock()
 	defer h.sentMu.Unlock()
 	h.failAction = action
+}
+
+// HoldFileUploads delays synthetic file receipts while other OneBot calls continue.
+// The test must release the channel, including on early failure.
+func (h *Harness) HoldFileUploads(until <-chan struct{}) {
+	h.sentMu.Lock()
+	defer h.sentMu.Unlock()
+	h.fileUploadHold = until
 }
 func (h *Harness) SendRequest(ctx context.Context, uid, gid int64, flag string) (string, error) {
 	p := h.current

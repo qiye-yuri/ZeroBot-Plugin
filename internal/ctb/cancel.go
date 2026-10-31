@@ -14,7 +14,7 @@ func (s *Service) Cancel(groupID int64) (bool, error) {
 		return false, nil
 	}
 	if s.cancel == nil {
-		return false, fmt.Errorf("当前是文件重发阶段，不能用FTB取消停止QQ上传")
+		return false, fmt.Errorf("当前是文件发送阶段，不能用FTB取消停止QQ上传")
 	}
 	if groupID > 0 && groupID != s.activeGroup {
 		return false, fmt.Errorf("当前任务不来自本群，请在来源群或主人私聊取消")

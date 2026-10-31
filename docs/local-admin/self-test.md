@@ -1,3 +1,7 @@
+2026-10-31 12:02：FTB首次发送状态修复完成核心/后台回归、阻塞回执专项、重发/取消/测试隔离复验、最终153项完整隔离及备份部署。发送回执返回前保持busy，重复操作和配置保存被拒；配置/下载次数/OneBot/监控保持。用法见[说明](ctb-delivery-lifecycle.md)，证据见[本批记录](ctb-delivery-lifecycle-acceptance.md)。已取消QQ验收不重排，无新后台页面。
+
+2026-10-31新候选：[FTB首次发送保持忙碌](ctb-delivery-lifecycle.md)。核对当前代码并复现下载结束到QQ回执间过早释放状态，复用原锁修复连续阶段，保留发送独立超时、文件与已扣次数。验证见[本批记录](ctb-delivery-lifecycle-acceptance.md)。基于收尾PR #66后的最新master，不新增后台页面、不重排已取消QQ验收。
+
 2026-10-31 11:06：B站查询环境代理修复已完成回归、25项B站隔离、最终153项完整隔离及备份部署。仅接入标准进程代理，配置/Cookie/OneBot/监控保持，未改代理值或新增网页。用法见[说明](bili-query-proxy.md)，验证与限制见[本批记录](bili-query-proxy-acceptance.md)。已取消QQ验收不重排，不将历史实网失败标为通过。
 
 2026-10-31新候选：[B站查询遵循进程代理](bili-query-proxy.md)。核对待办后复现共用客户端忽略环境代理，最小修复接入Go标准代理选择；保留超时、TLS和原重试规则。目标与证据见[本批记录](bili-query-proxy-acceptance.md)。已取消QQ验收不重排，不新增后台页面，未将历史接口失败标为已解决。

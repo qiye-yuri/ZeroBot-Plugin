@@ -1,3 +1,5 @@
+新候选：[首次文件发送连续占用任务状态](ctb-delivery-lifecycle.md)。启用自动发送时，下载/校验/QQ接口等待属于同一忙碌周期；状态与限制见[验收记录](ctb-delivery-lifecycle-acceptance.md)。
+
 新增候选：主人可用 `FTB取消` 请求停止运行中的查询/下载，保留部分文件及已扣次数；不停止已提交QQ上传或重发。权限、生效及等待边界见[取消说明](ctb-cancel.md)，状态见[验收记录](ctb-cancel-acceptance.md)。下方“没有任务取消按钮”为历史版本描述，当前不新增后台按钮。
 
 新增功能：主人可用 `FTB重发 任务编号` 发送本版本登记的已下载ZIP，不重新下载或重复扣群次数。具体权限、当前目标和旧任务限制见[重发说明](ctb-resend.md)，候选状态见[验收记录](ctb-resend-acceptance.md)。

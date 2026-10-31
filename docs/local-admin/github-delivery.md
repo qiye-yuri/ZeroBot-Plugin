@@ -1,3 +1,9 @@
+2026-10-31 FTB首次发送修复已完成开发与部署：实现7bf5fdd9，最终153项完整隔离及相关专项通过，12:02备份部署成功。分支codex/ctb-delivery-lifecycle基于前批收尾后的master 6746c4c1；配置/下载次数/OneBot/监控保持，QQ取消状态不变。上传和合入结果按实际追加。
+
+## 2026-10-31 FTB首次发送生命周期候选
+
+前批PR #66已按固定流程收尾合入，当前基线master 6746c4c1。本批分支codex/ctb-delivery-lifecycle修复首次发送期间状态过早释放，复用原任务锁和发送回执，不新增后台页面；[使用说明](ctb-delivery-lifecycle.md)及[本批验收](ctb-delivery-lifecycle-acceptance.md)同步。已取消QQ验收不重排，测试、部署、上传和合入分别记录。
+
 2026-10-31前批收尾：按现行开发交付顺序，PR #66已审查并合入master（72ac2863），合并树与锁定头6a8694a4完全一致。代理/TLS复验通过，原完整隔离及部署哈希对应已核对；没有重启服务或重新安排QQ验收。此后新目标以更新后的master为基线。
 
 2026-10-31上传完成：实现及部署说明已上传 `origin/codex/bili-query-proxy`，远端回读与本地 `5b36499b154357eef4473648dcce8cebc0e87bcb` 一致。已创建[草稿PR #66](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/66)，base为master，尚未合入。已取消QQ验收不再安排，不记实机通过；本条仅补记交付，不改变已部署程序。
