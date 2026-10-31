@@ -136,8 +136,39 @@ func handle(ctx *zero.Ctx) {
 		ctx.SendChain(message.Text("正在查询FTB。下一步：等待结果后按提示选择整合包或版本。"))
 	}
 	go func() {
-		res, err := core.Default.RunFor(context.Background(), r, ctx.Event.GroupID)
+		deliveryStarted := false
+		deliveryMode := ""
+		completedText := func(res core.Result) string {
+			names := make([]string, len(res.Files))
+			for i, p := range res.Files {
+				names[i] = filepath.Base(p)
+			}
+			completed := "下载并校验完成：\n" + strings.Join(names, "\n")
+			if !group {
+				completed = res.Text
+			}
+			completed += "\n重发任务编号：" + res.TaskID + "\n需要再次发送时请主人发送 FTB重发 " + res.TaskID
+			return completed
+		}
+		res, err := core.Default.RunWithDelivery(context.Background(), r, ctx.Event.GroupID, func(res core.Result, mode string) error {
+			deliveryStarted = true
+			deliveryMode = mode
+			ctx.SendChain(message.Text(completedText(res), "\n正在发送文件。下一步：等待QQ发送结果。"))
+			uploadCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			return core.Deliver(res.Files, ctx.Event.UserID, ctx.Event.GroupID, mode, func(action string, params map[string]any) error {
+				reply := ctx.CallActionWithContext(uploadCtx, action, zero.Params(params))
+				if reply.Status != "ok" || reply.RetCode != 0 {
+					return fmt.Errorf("QQ文件发送接口未确认成功（状态%s，代码%d）", reply.Status, reply.RetCode)
+				}
+				return nil
+			})
+		})
 		if err != nil {
+			if deliveryStarted {
+				ctx.SendChain(message.Text(err, "。文件已保留本机。\n下一步：群文件请检查机器人群文件权限及空间；私聊请先添加机器人好友。修复后请主人发送 FTB重发 ", res.TaskID, "，避免重复下载消耗次数。"))
+				return
+			}
 			detail := err.Error()
 			if group {
 				detail = strings.ReplaceAll(detail, snap.Config.OutputDir, "本机下载目录")
@@ -150,35 +181,14 @@ func handle(ctx *zero.Ctx) {
 			ctx.SendChain(message.Text(res.Text, "\n\n", core.NextStep(r), "\n群聊操作请@机器人。"))
 			return
 		}
-		names := make([]string, len(res.Files))
-		for i, p := range res.Files {
-			names[i] = filepath.Base(p)
-		}
-		completed := "下载并校验完成：\n" + strings.Join(names, "\n")
-		if !group {
-			completed = res.Text
-		}
-		completed += "\n重发任务编号：" + res.TaskID + "\n需要再次发送时请主人发送 FTB重发 " + res.TaskID
+
 		if !res.Upload {
-			ctx.SendChain(message.Text(completed, "\n自动发送未开启。下一步：请主人在后台FTB工具开启下载后发送文件，或从本机下载目录取得ZIP。"))
+			ctx.SendChain(message.Text(completedText(res), "\n自动发送未开启。下一步：请主人在后台FTB工具开启下载后发送文件，或从本机下载目录取得ZIP。"))
 			return
 		}
-		ctx.SendChain(message.Text(completed, "\n正在发送文件。下一步：等待QQ发送结果。"))
-		uploadCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-		err = core.Deliver(res.Files, ctx.Event.UserID, ctx.Event.GroupID, snap.Config.GroupDelivery, func(action string, params map[string]any) error {
-			reply := ctx.CallActionWithContext(uploadCtx, action, zero.Params(params))
-			if reply.Status != "ok" || reply.RetCode != 0 {
-				return fmt.Errorf("QQ文件发送接口未确认成功（状态%s，代码%d）", reply.Status, reply.RetCode)
-			}
-			return nil
-		})
-		if err != nil {
-			ctx.SendChain(message.Text(err, "。文件已保留本机。\n下一步：群文件请检查机器人群文件权限及空间；私聊请先添加机器人好友。修复后请主人发送 FTB重发 ", res.TaskID, "，避免重复下载消耗次数。"))
-			return
-		}
+
 		destination := "与机器人的私聊"
-		if group && snap.Config.GroupDelivery == "group" {
+		if group && deliveryMode == "group" {
 			destination = "本群聊天及群文件"
 		}
 		ctx.SendChain(message.Text("QQ接口已接受文件发送。下一步：打开", destination, "确认文件并下载；接口成功不代表已确认你收到。\n", core.NextStep(r)))

@@ -224,6 +224,16 @@ func (s *Service) Run(ctx context.Context, r Request) (result Result, err error)
 }
 
 func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result Result, err error) {
+	return s.runFor(ctx, r, groupID, nil)
+}
+
+// RunWithDelivery keeps a successful download and its enabled initial upload
+// in the same busy period. The caller owns the upload timeout and receipt.
+func (s *Service) RunWithDelivery(ctx context.Context, r Request, groupID int64, deliver func(Result, string) error) (Result, error) {
+	return s.runFor(ctx, r, groupID, deliver)
+}
+
+func (s *Service) runFor(ctx context.Context, r Request, groupID int64, deliver func(Result, string) error) (result Result, err error) {
 	args, err := Args(r)
 	if err != nil {
 		return result, err
@@ -263,12 +273,13 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 	s.mu.Unlock()
 	defer cancel()
 	dir := ""
+	sending := false
 	defer func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		// Completion and cancellation share the lock: an accepted cancellation
 		// cannot race a successful return that would start QQ file delivery.
-		if ctx.Err() != nil && err == nil {
+		if !sending && ctx.Err() != nil && err == nil {
 			err = taskContextError(ctx, dir)
 		}
 		s.cancel, s.activeGroup = nil, 0
@@ -348,5 +359,18 @@ func (s *Service) RunFor(ctx context.Context, r Request, groupID int64) (result 
 	if len([]rune(result.Text)) > 5000 {
 		result.Text = string([]rune(result.Text)[:5000]) + "\n（结果过长已截断，请缩小搜索范围）"
 	}
-	return result, nil
+	if r.Action == "download" && result.Upload && deliver != nil {
+		s.mu.Lock()
+		if ctx.Err() != nil {
+			s.mu.Unlock()
+			return result, taskContextError(ctx, dir)
+		}
+		// Atomically stop accepting download cancellation before starting QQ upload.
+		s.cancel = nil
+		sending = true
+		s.last = "正在发送 download " + r.Pack
+		s.mu.Unlock()
+		err = deliver(result, c.GroupDelivery)
+	}
+	return result, err
 }
