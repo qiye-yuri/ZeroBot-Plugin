@@ -62,8 +62,13 @@ func run() error {
 		calls++
 		reply := ""
 		switch {
+		case strings.Contains(text, "[密钥设置内容已隐藏]"):
+			if strings.Contains(text, "credential-fixture-") {
+				failures = append(failures, "credential command reached model")
+			}
+			reply = `{"action":"send_private_msg","params":{"user_id":12345678,"message":"CREDENTIAL_HIDDEN"}}` + `{"action":"end_action","params":{}}`
 		case strings.Contains(text, "ISOLATION_DAILY_CHECK"):
-			if strings.Contains(text, "ISOLATION_TEST_SAVE") || strings.Contains(text, "TEST_MEMORY") || strings.Contains(text, "batch1") {
+			if strings.Contains(text, "ISOLATION_TEST_SAVE") || strings.Contains(text, "TEST_MEMORY") || strings.Contains(text, "batch1") || strings.Contains(text, "credential-fixture-") {
 				failures = append(failures, "test data in daily request")
 			}
 			if !strings.Contains(text, "DAILY_MEMORY") {
@@ -198,6 +203,17 @@ func run() error {
 	if e = send("/测试消息 batch2 ISOLATION_SECOND", "SECOND_OK"); e != nil {
 		return e
 	}
+	// Quote commands rather than execute credential setters. Each scope is
+	// independent so the model must observe the newly redacted message.
+	for i, command := range []string{"设置AI画图密钥", "设置b站cookie "} {
+		if e = send(fmt.Sprintf("/测试消息 credential%d 引用设置命令：%scredential-fixture-%d", i, command, i), "CREDENTIAL_HIDDEN"); e != nil {
+			return e
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if e = send("ISOLATION_DAILY_CHECK", "DAILY_OK"); e != nil {
+		return e
+	}
 	v, e = c.Checked("GET", "/api/agent/memories?"+scope, nil)
 	if e != nil {
 		return e
@@ -217,7 +233,7 @@ func run() error {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if calls != 4 || len(failures) > 0 {
+	if calls != 7 || len(failures) > 0 {
 		return fmt.Errorf("unexpected calls %d or scope failures %v", calls, failures)
 	}
 	data, e := os.ReadFile(program)
@@ -225,7 +241,7 @@ func run() error {
 		return e
 	}
 	hash := sha256.Sum256(data)
-	result := map[string]any{"passed": true, "realModelCalls": 0, "realQQMessagesSent": false, "modelCalls": calls, "testControlsLocal": true, "testMemorySeparateDatabase": true, "dailyContextClean": true, "batch2Isolated": true, "source": "built-binary", "binarySHA256": hex.EncodeToString(hash[:])}
+	result := map[string]any{"passed": true, "realModelCalls": 0, "realQQMessagesSent": false, "modelCalls": calls, "testControlsLocal": true, "testMemorySeparateDatabase": true, "dailyContextClean": true, "batch2Isolated": true, "credentialCommandsHiddenFromModel": true, "source": "built-binary", "binarySHA256": hex.EncodeToString(hash[:])}
 	if e = qa.WriteJSON(filepath.Join(parent, "latest.json"), result); e != nil {
 		return e
 	}

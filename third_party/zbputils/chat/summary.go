@@ -88,7 +88,7 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 			candidate = input.String()
 			boundary = seq - 1
 		}
-		line := fmt.Sprintf("[#%d %s] %s\n", seq, kind, compactHistoryMedia(payload))
+		line := fmt.Sprintf("[#%d %s] %s\n", seq, kind, compactHistoryMedia(redactCredentialPayload(payload)))
 		if input.Len()+len(line) > 48000 {
 			break
 		}
@@ -116,7 +116,7 @@ func (s *agentHistory) scheduleSummary(grp int64, summarize Summarizer) {
 	s.summarizing[grp] = true
 	generation := AgentGeneration()
 	go func() {
-		result, e := summarize(SummaryRequest{Previous: previous, Records: candidate})
+		result, e := summarize(SummaryRequest{Previous: redactCredentialPayload(previous), Records: candidate})
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		defer delete(s.summarizing, grp)

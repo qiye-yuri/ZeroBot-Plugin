@@ -1,3 +1,7 @@
+2026-10-31 15:35：[凭据设置消息脱敏](credential-history.md)已完成相关回归、最终7次假模型专项、153项完整隔离及备份部署，配置和OneBot保持。Git提交两次因自动审批超时未执行，尚未上传或合入；详见[交付证据](credential-history-acceptance.md)。已取消QQ验收不重排、不记实机通过。
+
+2026-10-31必要修复：[凭据设置消息脱敏](credential-history.md)，补齐画图密钥、B站Cookie及旧历史回放/摘要路径，保留测试隔离元数据。基线master c3660663；验证、部署及交付状态见[本批记录](credential-history-acceptance.md)。不扩展后台网页，已取消QQ验收不重排、不记实机通过。
+
 ## 2026-10-31 FTB首次发送修复上传与合入完成
 
 前批PR #66已审查合入72ac2863并同步说明6746c4c1，本批以该最新master为基线开发。[PR #67](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/67)实现7bf5fdd9、部署说明c0236ac0已上传；锁定c0236ac03e9ff02499566de155f893c085edf7ad审查后合入master，合并2c93aabfd517793c683428ef392c9318658010ea，树完全一致。
