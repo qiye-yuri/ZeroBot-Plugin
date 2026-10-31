@@ -47,3 +47,5 @@ go run scripts/smoke-local-admin.go -binary-name zerobot-bili-query-proxy.exe
 部署首次被自动审核要求补充授权依据，核对用户沿用的当前计划C及AGENTS既定流程后复审通过，再执行实际部署。GitHub代理路径连接中断，后使用单次命令直连及Windows既有信任根的公共副本供OpenSSL校验恢复访问；未关闭证书验证、未添加信任根，也未修改持久Git/系统/机器人代理设置。
 
 本批只交付开发分支供审查。已取消的QQ验收保持取消，不再安排、不记实机通过；没有真实QQ消息或付费模型调用。外部服务实际可用性不因合成代理通过而变成已验证。
+
+上传完成：[草稿PR #66](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/66)，head codex/bili-query-proxy，base master，未合入。远端与本地提交已核对一致。GitHub上传的临时TLS/凭据参数仅用于本次开发工具，未写入持久Git配置或机器人环境，也未输出令牌。226份文档链接/锚点零错误，差异检查通过。

@@ -1,3 +1,5 @@
+2026-10-31上传完成：实现及部署说明已上传 `origin/codex/bili-query-proxy`，远端回读与本地 `5b36499b154357eef4473648dcce8cebc0e87bcb` 一致。已创建[草稿PR #66](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/66)，base为master，尚未合入。已取消QQ验收不再安排，不记实机通过；本条仅补记交付，不改变已部署程序。
+
 2026-10-31 B站查询环境代理交付准备：实现53e383c9，最终153项完整隔离及专项通过，11:06已备份部署；1,374份备份核对，配置/Cookie/OneBot/监控保持。分支codex/bili-query-proxy基于最新master 4fc31b12，未合入；已取消QQ验收不再安排，外部可用性不伪记通过。实际远端结果另记。
 
 ## 2026-10-31 B站查询环境代理候选
