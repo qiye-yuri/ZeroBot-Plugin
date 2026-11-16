@@ -778,3 +778,7 @@ PR #50部署记录：2026-10-28 11:43已部署并完成独立检查，程序哈�
 按明确范围整理本批重构及链接阅读、深度搜索、费用查询必要依赖，分支`codex/interface-request-key-refactor`；其他本机功能和原暂存内容保留。独立发布范围195项Go测试、42项界面测试通过。部署对应范围及上传状态见[本批交付](interface-refactor-delivery.md)，不将原完整日常程序的验收写为精简分支整树部署通过。
 
 2026-11-16上传核对：本批实现提交`87df13a1cc1c052cb64fd64ddfd37171bacf9af9`已推送自有origin/codex/interface-request-key-refactor，远端回读一致；已创建[草稿PR #69](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/69)，未合入master。31份文件均为本批及必要依赖，配置、数据、原始证据和其他本机功能未上传。
+
+## 2026-11-16 PR69核对合并
+
+按用户要求核对并合并[PR #69](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/69)。锁定头bdcd4eff，合并提交1e2f5b9e，合并树完全一致；无待处理审查意见，无GitHub CI检查项。代码与195项Go测试、42项界面测试和独立构建的版本一致，已有部署中的本批源码及程序哈希未变。本轮仅合并和同步记录，没有重启日常程序或调用真实模型。完整部署与精简发布树的范围区别见[交付说明](interface-refactor-delivery.md)。其他未提交内容只作盘点，未上传；原工作区和暂存区保持。
