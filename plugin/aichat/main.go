@@ -47,6 +47,7 @@ var (
 )
 
 func init() {
+	registerDocumentInputs()
 	en.OnMessage(chat.EnsureConfig, func(ctx *zero.Ctx) bool {
 		if ctx.Event.UserID == ctx.Event.SelfID {
 			return false
@@ -102,7 +103,19 @@ func init() {
 		defer conversationRuns.Delete(key)
 		cfg := chat.ConfigOf(ctx)
 		storage := ctx.State[zero.StateKeyPrefixKeep+"aichatcfg_stor__"].(chat.Storage)
+		if _, isDocument := documentCommand(ctx.ExtractPlainText()); isDocument && !linkAddressed(ctx.Event) {
+			return
+		}
+		if _, _, isTTS := ttsCommand(ctx.ExtractPlainText()); isTTS && !linkAddressed(ctx.Event) {
+			return
+		}
 		if _, isDeep := deepSearchCommand(ctx.ExtractPlainText()); isDeep && !linkAddressed(ctx.Event) {
+			return
+		}
+		if asrCommand(ctx.ExtractPlainText()) && !linkAddressed(ctx.Event) {
+			return
+		}
+		if ocrCommand(ctx.ExtractPlainText()) && !linkAddressed(ctx.Event) {
 			return
 		}
 		if _, isLink := linkCommand(ctx.ExtractPlainText()); isLink && !linkAddressed(ctx.Event) {
@@ -127,8 +140,53 @@ func init() {
 		}
 		task := replystats.Default.Begin(ctx, kind)
 		defer task.End()
+		if question, isDocument := documentCommand(ctx.ExtractPlainText()); isDocument {
+			text, err := runDocumentQA(context.Background(), cfg, ctx.Event, documentScope(ctx), agentRole(ctx), kind == replystats.Agent, question, nil, ctx.CallActionWithContext)
+			if err != nil {
+				task.Fail()
+				text = err.Error()
+			}
+			ctx.SendChain(message.Text(text))
+			return
+		}
+		if voice, text, isTTS := ttsCommand(ctx.ExtractPlainText()); isTTS {
+			audio, err := runTTS(context.Background(), cfg, ctx.Event, agentRole(ctx), voice, text, nil)
+			if err == nil {
+				err = sendTTSAudio(context.Background(), ctx.Event, audio, func(c context.Context, action string, p zero.Params) zero.APIResponse {
+					return task.Call(action, p, func(a string, params zero.Params) zero.APIResponse { return ctx.CallActionWithContext(c, a, params) })
+				})
+			}
+			if err != nil {
+				task.Fail()
+				ctx.SendChain(message.Text(err.Error()))
+			}
+			return
+		}
 		if question, isDeep := deepSearchCommand(ctx.ExtractPlainText()); isDeep {
 			text, err := runDeepSearch(context.Background(), cfg, ctx.Event, agentRole(ctx), kind == replystats.Agent, question, nil)
+			if err != nil {
+				task.Fail()
+				text = err.Error()
+			}
+			ctx.SendChain(message.Text(text))
+			return
+		}
+		if asrCommand(ctx.ExtractPlainText()) {
+			text, err := runASR(context.Background(), cfg, ctx.Event, agentRole(ctx), nil, ctx.CallActionWithContext)
+			if err != nil {
+				task.Fail()
+				text = err.Error()
+			}
+			ctx.SendChain(message.Text(text))
+			return
+		}
+		if ocrCommand(ctx.ExtractPlainText()) {
+			generation := chat.AgentGeneration()
+			text, err := runOCR(context.Background(), cfg, ctx.Event, agentRole(ctx), nil, ctx.CallActionWithContext)
+			if generation != chat.AgentGeneration() {
+				task.Fail()
+				return
+			}
 			if err != nil {
 				task.Fail()
 				text = err.Error()
@@ -149,6 +207,21 @@ func init() {
 			}
 			ctx.SendChain(message.Text(text))
 			return
+		}
+		if id, ok := mentionedReplyID(ctx.Event); ok {
+			text, voice, err := readQuotedVoice(ctx.Event.GroupID, id, ctx.CallActionWithContext)
+			if err == nil && voice && !transcriptOnly(ctx.ExtractPlainText()) {
+				text, err = answerQuotedVoice(cfg, kind == replystats.Agent, ctx.Event.SelfID, ctx.Event.GroupID, storage.Temp(), ctx.ExtractPlainText(), text)
+			}
+			if err != nil {
+				task.Fail()
+				ctx.SendChain(message.Text(err.Error()))
+				return
+			}
+			if voice {
+				ctx.SendChain(message.Text(text))
+				return
+			}
 		}
 		var activeRun *chat.AgentTask
 		var runError error

@@ -226,6 +226,13 @@ func NewWithIdentity(root, binary, destination string, mockQQ int64) (*Harness, 
 			if request.Action == "get_msg" && len(fixture) > 0 {
 				data = fixture
 			}
+			if request.Action == "fetch_ptt_text" && len(fixture) > 0 {
+				var voice struct {
+					Text string `json:"fixture_transcript"`
+				}
+				_ = json.Unmarshal(fixture, &voice)
+				data = map[string]string{"text": voice.Text}
+			}
 			if fail {
 				status, code = "failed", 1200
 			}
