@@ -687,3 +687,7 @@ AI画图附图：把图片和AI画图命令放在同一条消息中，绘图模�
 ## 语音、OCR与文件问答
 
 [独立ASR](asr.md) · [独立TTS](tts.md) · [OCR](ocr.md) · [文件问答](document-qa.md) · [引用语音](quoted-voice.md)。配置、权限、费用及限制见各使用页；[本批交付范围](voice-document-delivery.md)单独记录验证结果。
+
+## 角色卡
+
+登录后台后，可在「会话人物」中保存人物设定快照，再预览并复制到同一机器人的群或私聊。[使用步骤](conversation-persona.md#保存和复用角色卡) · [验证与交付范围](persona-cards-delivery.md)。卡片不包含聊天档案或记忆。

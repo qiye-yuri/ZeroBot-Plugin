@@ -13,6 +13,13 @@ type AgentPersona struct {
 	Sex       string `json:"sex"`
 }
 
+// PersonaCard stores a snapshot in one bot's library. Conversations keep their own AgentPersona.
+type PersonaCard struct {
+	BotID string `json:"botId"`
+	Name  string `json:"name"`
+	AgentPersona
+}
+
 func personaKey(bot, conversation int64) string {
 	return strconv.FormatInt(bot, 10) + ":" + strconv.FormatInt(conversation, 10)
 }

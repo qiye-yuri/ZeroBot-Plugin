@@ -277,6 +277,29 @@ function renderAIPersona(value) {
   const update=()=>{character.readOnly=sex.readOnly=mode.value==="inherit";character.required=mode.value==="custom";};mode.addEventListener("change",update);update();
   const save=document.createElement("button"),discard=document.createElement("button");save.type="submit";save.className="primary";save.textContent="备份并保存会话人物";discard.type="button";discard.className="secondary";discard.dataset.aiDiscard="persona";discard.textContent="放弃此表单更改";discard.addEventListener("click",()=>{discardAIForm("persona");update();});fields.append(save,discard);form.append(fields);
   rememberAIForm("persona",form,{botId:value.botId,type:value.type,id:value.id});
+  const library=document.createElement("details"),title=document.createElement("summary");
+  title.textContent="此机器人的角色卡（"+(value.cards || []).length+"）";library.append(title);fields.append(library);
+  async function cardAction(params) {
+    if(aiBusy||!authenticated)return;
+    if(aiDrafts().includes("persona")){showError("ai-error",new Error("请先保存或放弃会话人物的编辑，再操作角色卡。"));return;}
+    const generation=aiGeneration;
+    aiBusyState(true);$("ai-error").hidden=true;
+    try {
+      const saved=await api("/api/ai-persona",{botId:value.botId,type:value.type,id:value.id,revision:value.revision,...params});
+      if(generation!==aiGeneration||!authenticated)return;
+      renderAIPersona(saved);
+      $("ai-status").textContent=params.mode==="saveCard"?"角色卡已保存。":"已将角色设定复制到当前会话，下一个 Agent 任务生效。";
+    } catch(error){if(generation===aiGeneration&&authenticated)showError("ai-error",error);}
+    finally{if(generation===aiGeneration)aiBusyState(false);}
+  }
+  const create=document.createElement("button");create.type="button";create.textContent="将已保存的人物设定存为角色卡";
+  create.onclick=()=>{const name=window.prompt("角色卡名称");if(name!==null)cardAction({mode:"saveCard",name});};library.append(create);
+  for(const card of value.cards || []){
+    const row=document.createElement("details"),name=document.createElement("summary"),preview=document.createElement("pre"),apply=document.createElement("button");
+    name.textContent=card.name;preview.textContent=card.character+(card.sex?"\n性别："+card.sex:"");apply.type="button";apply.textContent="复制到此会话";
+    apply.onclick=()=>{if(window.confirm("将「"+card.name+"」复制到"+(value.type==="group"?"群 ":"私聊 ")+value.id+"，替换当前人物设定？"))cardAction({mode:"applyCard",cardIndex:card.index});};
+    row.append(name,preview,apply);library.append(row);
+  }
   form.onsubmit=async event=>{
     event.preventDefault();if(aiBusy||!authenticated)return;
     const generation=aiGeneration,body={botId:value.botId,type:value.type,id:value.id,revision:value.revision,mode:mode.value};
