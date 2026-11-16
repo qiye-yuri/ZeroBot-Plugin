@@ -65,28 +65,12 @@ func (s *Server) aiSearch(w http.ResponseWriter, r *http.Request) {
 		if c.WebSearch != nil {
 			config = *c.WebSearch
 		}
-		switch req.Key.Action {
-		case "keep":
-			if req.Key.Value != "" || req.Key.Confirm {
-				apiError(w, 400, "保留密钥无需新值或确认")
-				return
-			}
-		case "replace":
-			if req.Key.Value == "" || req.Key.Confirm {
-				apiError(w, 400, "替换密钥须填写新值")
-				return
-			}
-			config.Key = chat.ModelKey(req.Key.Value)
-		case "clear":
-			if !req.Key.Confirm || req.Key.Value != "" {
-				apiError(w, 400, "请确认清除搜索密钥")
-				return
-			}
-			config.Key = ""
-		default:
-			apiError(w, 400, "搜索密钥操作无效")
+		key, err := req.Key.apply(string(config.Key))
+		if err != nil {
+			apiError(w, 400, err.Error())
 			return
 		}
+		config.Key = chat.ModelKey(key)
 		config.Enabled = req.Enabled
 		if config.Scopes == nil {
 			config.Scopes = map[string]chat.WebSearchPolicy{}

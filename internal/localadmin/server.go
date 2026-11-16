@@ -74,6 +74,7 @@ type Config struct {
 }
 
 type Server struct {
+	costMu            sync.Mutex
 	cfg               Config
 	http              *http.Server
 	mu                sync.Mutex
@@ -166,6 +167,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/resources/check", s.authorize(s.resources, true))
 	mux.HandleFunc("GET /api/updatewatch", s.authorize(s.updateWatch, false))
 	mux.HandleFunc("POST /api/updatewatch", s.authorize(s.updateWatch, true))
+	mux.HandleFunc("GET /api/ai-image-costs", s.authorize(s.imageCostSettings, false))
+	mux.HandleFunc("POST /api/ai-image-costs", s.authorize(s.imageCostSettings, true))
+	mux.HandleFunc("POST /api/ai-image-costs/query", s.authorize(s.imageCostQuery, true))
 	mux.HandleFunc("GET /api/ai-image", s.authorize(s.imageSettings, false))
 	mux.HandleFunc("POST /api/ai-image", s.authorize(s.imageSettings, true))
 	mux.HandleFunc("GET /api/ai-search", s.authorize(s.aiSearch, false))

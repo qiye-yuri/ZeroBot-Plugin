@@ -78,24 +78,11 @@ func (s *AIStore) SaveModels(update modelsUpdate) error {
 		if display, redacted := chat.DisplayAPI(previous.API); exists && redacted && item.API == display {
 			p.API = previous.API
 		}
-		switch item.Key.Action {
-		case "keep":
-			if item.Key.Value != "" || item.Key.Confirm {
-				return invalidAI("保留密钥无需新值或确认")
-			}
-			p.Key = previous.Key
-		case "replace":
-			if item.Key.Value == "" || item.Key.Confirm {
-				return invalidAI("替换密钥须填写新值")
-			}
-			p.Key = chat.ModelKey(item.Key.Value)
-		case "clear":
-			if !item.Key.Confirm || item.Key.Value != "" {
-				return invalidAI("请确认清除密钥")
-			}
-		default:
-			return invalidAI("密钥操作无效")
+		key, err := item.Key.apply(string(previous.Key))
+		if err != nil {
+			return invalidAI(err.Error())
 		}
+		p.Key = chat.ModelKey(key)
 		if !exists && p.Type != 1 && p.Key == "" {
 			return invalidAI("新建非 OLLaMA 配置需要密钥")
 		}

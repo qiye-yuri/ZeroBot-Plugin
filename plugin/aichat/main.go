@@ -2,6 +2,7 @@
 package aichat
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -101,6 +102,12 @@ func init() {
 		defer conversationRuns.Delete(key)
 		cfg := chat.ConfigOf(ctx)
 		storage := ctx.State[zero.StateKeyPrefixKeep+"aichatcfg_stor__"].(chat.Storage)
+		if _, isDeep := deepSearchCommand(ctx.ExtractPlainText()); isDeep && !linkAddressed(ctx.Event) {
+			return
+		}
+		if _, isLink := linkCommand(ctx.ExtractPlainText()); isLink && !linkAddressed(ctx.Event) {
+			return
+		}
 		if ctx.Event.GroupID != 0 && storage.Proactive() && ctx.State["aichat_direct"] != true {
 			due, turns := proactive.plan(proactiveKey{ctx.Event.SelfID, ctx.Event.GroupID}, time.Now(),
 				time.Duration(storage.ProactiveMinutes())*time.Minute, time.Duration(storage.FollowupMinutes())*time.Minute)
@@ -120,6 +127,29 @@ func init() {
 		}
 		task := replystats.Default.Begin(ctx, kind)
 		defer task.End()
+		if question, isDeep := deepSearchCommand(ctx.ExtractPlainText()); isDeep {
+			text, err := runDeepSearch(context.Background(), cfg, ctx.Event, agentRole(ctx), kind == replystats.Agent, question, nil)
+			if err != nil {
+				task.Fail()
+				text = err.Error()
+			}
+			ctx.SendChain(message.Text(text))
+			return
+		}
+		if input, isLink := linkCommand(ctx.ExtractPlainText()); isLink {
+			linkGeneration := chat.AgentGeneration()
+			text, err := readLink(context.Background(), cfg, kind == replystats.Agent, ctx.Event.SelfID, conversation, agentRole(ctx), input, nil)
+			if chat.AgentGeneration() != linkGeneration {
+				task.Fail()
+				return
+			}
+			if err != nil {
+				task.Fail()
+				text = err.Error()
+			}
+			ctx.SendChain(message.Text(text))
+			return
+		}
 		var activeRun *chat.AgentTask
 		var runError error
 		generation := chat.AgentGeneration()

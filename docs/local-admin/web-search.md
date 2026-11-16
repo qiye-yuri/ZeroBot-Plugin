@@ -24,6 +24,8 @@ Agent 会话的[配置核对](conversation-check.md)可查看本机器人会话�
 
 全局开关和会话开关需要同时开启，且调用者角色在允许列表中。缺少配置时默认关闭；不会自动开放已有群、私聊或普通成员。GPT、群总结和普通聊天不自动联网，模型选择和 R5/R6 参数保持原流程。
 
+密钥的保留、替换和清除组合遵循[后台密钥操作规则](named-models.md#后台密钥操作规则)，搜索密钥仍独立保存。
+
 ## 结果、费用与限制
 
 - 固定调用 [DeepSeek Search API](https://api-docs.deepseek.com/zh-cn/api/search/)，地址为 `https://api.deepseek.com/v1/tools/search`。仅提交模型生成的 `query`、`count: 5`、`need_content: false`，不自动附加原问题、QQ 身份、历史、记忆或配置。查询文本本身由模型生成，使用时不要要求搜索私密资料。

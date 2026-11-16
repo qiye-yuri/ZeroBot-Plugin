@@ -189,23 +189,12 @@ func (s *AIStore) Save(update AIUpdate) error {
 		if name != "Key" && name != "ImageKey" && name != "AgentKey" {
 			return invalidAI("未知密钥设置")
 		}
-		switch key.Action {
-		case "keep":
-			if key.Value != "" || key.Confirm {
-				return invalidAI("保留密钥时无需填写新值或确认")
-			}
-		case "replace":
-			if key.Value == "" || key.Confirm {
-				return invalidAI("替换密钥时须填写新值")
-			}
-			fields[name], _ = json.Marshal(key.Value)
-		case "clear":
-			if !key.Confirm || key.Value != "" {
-				return invalidAI("请确认清除密钥")
-			}
-			fields[name] = json.RawMessage(`""`)
-		default:
-			return invalidAI("密钥操作无效")
+		value, err := key.apply("")
+		if err != nil {
+			return invalidAI(err.Error())
+		}
+		if key.Action != "keep" {
+			fields[name], _ = json.Marshal(value)
 		}
 	}
 	if err := chat.ValidateConfigFields(fields); err != nil {
