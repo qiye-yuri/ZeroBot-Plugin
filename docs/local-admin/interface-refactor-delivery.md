@@ -25,4 +25,4 @@
 
 ## 上传状态
 
-目标为用户自己的origin仓库，分支 `codex/interface-request-key-refactor`，只交付上述范围。上传及远端提交回读结果另记；未合入master，不创建发布标签，不推进下一批功能。原工作区及其暂存内容保留。
+目标为用户自己的origin仓库，分支 `codex/interface-request-key-refactor`，只交付上述范围。实现提交 `87df13a1cc1c052cb64fd64ddfd37171bacf9af9` 已推送并回读确认与远端一致；已创建[草稿PR #69](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/69)。发布前234份文档、3070处本地引用及649个锚点检查零错误。此后仅补记本交付说明；未合入master，不创建发布标签，不推进下一批功能。原工作区及其暂存内容保留。
