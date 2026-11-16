@@ -87,6 +87,7 @@ type AgentConfig struct {
 	Separator, ReasoningEffort                string
 	NoSystemP                                 ModelBool
 	Personas                                  map[string]AgentPersona `json:",omitempty"`
+	PersonaCards                              []PersonaCard           `json:",omitempty"`
 	ModelProfiles                             []ModelProfile          `json:",omitempty"`
 	ModelRoutes                               *ModelRoutes            `json:",omitempty"`
 	WebSearch                                 *WebSearchConfig        `json:",omitempty"`
@@ -349,7 +350,8 @@ func (r *ConfigRepository) Update(revision string, fields map[string]json.RawMes
 		return result, err
 	})
 	_, personaOnly := fields["Personas"]
-	if err == nil && changed && !(personaOnly && len(fields) == 1) {
+	_, cardsOnly := fields["PersonaCards"]
+	if err == nil && changed && !((personaOnly || cardsOnly) && len(fields) == 1) {
 		ReloadAgents()
 	}
 	return saved, err

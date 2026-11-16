@@ -102,6 +102,7 @@ func (s *AIStore) Get(gid int64) (AIView, error) {
 		delete(fields, name)
 	}
 	delete(fields, "Personas")
+	delete(fields, "PersonaCards")
 	delete(fields, "ModelProfiles")
 	delete(fields, "ModelRoutes")
 	delete(fields, "WebSearch")
@@ -177,7 +178,7 @@ func (s *AIStore) Save(update AIUpdate) error {
 	}
 	fields := map[string]json.RawMessage{}
 	for name, value := range update.Fields {
-		if name == "Personas" || name == "ModelProfiles" || name == "ModelRoutes" || name == "WebSearch" {
+		if name == "Personas" || name == "PersonaCards" || name == "ModelProfiles" || name == "ModelRoutes" || name == "WebSearch" {
 			return invalidAI("会话人物和命名模型须通过各自的专用表单设置")
 		}
 		if name == "Key" || name == "ImageKey" || name == "AgentKey" {

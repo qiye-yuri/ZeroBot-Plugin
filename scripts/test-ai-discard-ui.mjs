@@ -41,6 +41,25 @@ async function dialogAction(page,accept,action){
   const d=await dialog;assert.equal(d.type(),'confirm');if(accept)await d.accept();else await d.dismiss();await result;
 }
 
+test('save a persona card, preview its contents and confirm the destination group',async t=>{
+  const page=await harness(t);
+  const scope={botId:'12345678',id:'101',type:'group',mode:'inherit',character:'喜欢解谜',sex:'',revision:'a'.repeat(64),cards:[]};
+  const saved={...scope,revision:'b'.repeat(64),cards:[{index:0,name:'小鲸鱼',character:scope.character,sex:''}]};
+  await page.evaluate(({scope,saved})=>{renderAIPersona(scope);replies.push(saved);},{scope,saved});
+  const form=page.locator('#ai-persona-form');
+  await form.locator('summary').first().click();
+  page.once('dialog',dialog=>dialog.accept('小鲸鱼'));
+  await form.getByText('将已保存的人物设定存为角色卡').click();await waitIdle(page);
+  assert.equal(await page.evaluate(()=>requests.at(-1).body.name),'小鲸鱼');
+  await page.evaluate(saved=>{renderAIPersona({...saved,id:'202'});replies.push({...saved,id:'202',mode:'custom'});},saved);
+  await form.locator('summary').first().click();await form.getByText('小鲸鱼',{exact:true}).click();
+  assert.equal(await form.locator('pre').innerText(),'喜欢解谜');
+  await dialogAction(page,false,()=>form.getByText('复制到此会话').click());
+  assert.equal(await page.evaluate(()=>requests.length),1);
+  await dialogAction(page,true,()=>form.getByText('复制到此会话').click());await waitIdle(page);
+  assert.deepEqual(await page.evaluate(()=>requests.at(-1).body),{botId:'12345678',id:'202',type:'group',revision:saved.revision,mode:'applyCard',cardIndex:0});
+});
+
 test('confirmed discard restores only the chosen form, while cancellation keeps all three drafts and sends nothing',async t=>{
   const page=await harness(t);
   for(const name of ['global','aichatcfg','llm'])assert.equal(await page.locator('#discard-ai-'+name).isDisabled(),true);
@@ -112,4 +131,39 @@ test('busy operations, expired sessions and late confirmations cannot restore or
   await page.evaluate(()=>replies.push({error:'session expired',status:401}));await page.locator('#save-ai').click();await page.waitForFunction(()=>!authenticated);assert.equal(await page.locator('#ai-global-inputs').textContent(),'');assert.equal(await page.locator('#discard-ai-global').isDisabled(),true);assert.deepEqual(await dirty(page),[]);
   await page.evaluate(value=>{authenticated=true;csrf='last-session';aiState=value;aiGroup='123456789';document.getElementById('auth').hidden=true;document.getElementById('workspace').hidden=false;renderAIGlobal(value);renderAIGroups(value.groups);aiBusyState(false);replies.push({});},fixture());
   await page.locator('#ai-field-AgentChar').fill('logout draft');await dialogAction(page,true,()=>page.locator('#logout').click());await page.waitForFunction(()=>!authenticated);assert.equal(await page.locator('#discard-ai-global').isDisabled(),true);assert.deepEqual(await dirty(page),[]);
+});
+test('persona card actions preserve an unsaved persona draft',async t=>{
+  const page=await harness(t);
+  const scope={botId:'12345678',id:'101',type:'group',mode:'custom',character:'saved',sex:'',revision:'a'.repeat(64),cards:[{index:0,name:'saved card',character:'saved',sex:''}]};
+  await page.evaluate(scope=>renderAIPersona(scope),scope);
+  const form=page.locator('#ai-persona-form');
+  await page.locator('#ai-field-persona-character').fill('unsaved draft');
+  await form.locator('summary').first().click();
+  page.once('dialog',d=>d.accept('new card'));
+  await form.getByText('将已保存的人物设定存为角色卡').click();
+  assert.equal(await page.evaluate(()=>requests.length),0);
+  assert.match(await page.locator('#ai-error').textContent(),/先保存或放弃/);
+  await form.getByText('saved card',{exact:true}).click();
+  await dialogAction(page,true,()=>form.getByText('复制到此会话').click());
+  assert.equal(await page.evaluate(()=>requests.length),0);
+  assert.equal(await page.locator('#ai-field-persona-character').inputValue(),'unsaved draft');
+});
+
+test('persona card applies to the loaded private scope and ignores a response after logout',async t=>{
+  const page=await harness(t);
+  const scope={botId:'12345678',id:'202',type:'private',mode:'inherit',character:'global',sex:'',revision:'a'.repeat(64),cards:[{index:0,name:'<img src=x>',character:'<img src=x onerror=alert(1)>',sex:''}]};
+  await page.evaluate(scope=>renderAIPersona(scope),scope);
+  await page.locator('#ai-persona-id').fill('999');
+  const form=page.locator('#ai-persona-form');
+  await form.locator('summary').first().click();
+  await form.locator('details details summary').click();
+  assert.equal(await form.locator('img').count(),0);
+  assert.equal(await form.locator('pre').innerText(),scope.cards[0].character);
+  await dialogAction(page,true,()=>form.getByText('复制到此会话').click());
+  await page.waitForFunction(()=>pending.length===1);
+  assert.deepEqual(await page.evaluate(()=>requests[0].body),{botId:scope.botId,id:'202',type:'private',revision:scope.revision,mode:'applyCard',cardIndex:0});
+  await page.evaluate(async scope=>{resetAI();authenticated=false;pending[0]({ok:true,status:200,json:async()=>scope});await new Promise(r=>setTimeout(r,0));},scope);
+  assert.equal(await form.isHidden(),true);
+  assert.equal(await form.locator('pre').count(),0);
+  assert.equal(await page.evaluate(()=>requests.length),1);
 });
