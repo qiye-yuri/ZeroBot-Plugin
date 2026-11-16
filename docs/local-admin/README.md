@@ -272,3 +272,8 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 - [深度搜索](deep-search.md)
 - [绘图服务商费用查询](aiimage-usage-costs.md)
 - [本批接口整合交付](interface-refactor-delivery.md)
+
+
+## 语音、OCR与文件问答
+
+[独立ASR](asr.md) · [独立TTS](tts.md) · [OCR](ocr.md) · [文件问答](document-qa.md) · [引用语音](quoted-voice.md)。配置、权限、费用及限制见各使用页；[本批交付范围](voice-document-delivery.md)单独记录验证结果。
