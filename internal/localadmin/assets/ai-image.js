@@ -68,3 +68,27 @@ async function loadAIImage(){
  finally{if(generation===aiGeneration)aiBusyState(false);}
 }
 $("ai-image-load").addEventListener("click",loadAIImage);
+
+function resetImageCosts(){aiBaselines.delete("costs");const form=$("ai-cost-form");if(form){form.replaceChildren();form.hidden=true;}}
+function renderImageCosts(value){
+ const form=$("ai-cost-form");form.replaceChildren();form.hidden=false;
+ const fields=document.createElement("fieldset"),h=document.createElement("h2"),note=document.createElement("p");h.textContent="OpenAI费用查询 · 独立凭据";note.textContent="按UTC日期查询GPT Image费用，结束日期不包含在内，最多31天。结果是服务商汇总，不是单张图片账单，不重复扣减本地预算。Admin Key不会用于生成图片，也不会发送到自定义接口。";fields.append(h,note);
+ const project=aiInput(fields,"cost-project","项目ID（必填，proj_…）","text",value.projectID||"");project.required=true;project.maxLength=200;
+ const apiKey=aiInput(fields,"cost-api-id","绘图API Key ID（可选，不是密钥值）","text",value.apiKeyID||"");apiKey.maxLength=200;
+ const proxy=aiInput(fields,"cost-proxy","费用查询代理（可选）","text",value.proxyURL||"");proxy.placeholder="http://127.0.0.1:7897";
+ const key=aiInput(fields,"cost-key","Admin API Key（留空保留，当前值不显示）","password","");key.autocomplete="new-password";key.maxLength=4096;
+ const clear=aiInput(fields,"cost-clear","确认清除已保存Admin Key","checkbox",false);
+ const status=document.createElement("p");status.textContent=value.keyConfigured?"费用查询密钥已配置。":"尚未配置费用查询密钥。";fields.append(status);
+ const save=document.createElement("button");save.type="submit";save.textContent="备份并保存费用配置";fields.append(save);
+ const report=value.report;const today=new Date().toISOString().slice(0,10);
+ const start=aiInput(fields,"cost-start","开始日期（UTC）","date",report?.start||today.slice(0,8)+"01");
+ const end=aiInput(fields,"cost-end","结束日期（UTC，不包含）","date",report?.end||new Date(Date.now()+86400000).toISOString().slice(0,10));
+ const query=document.createElement("button");query.type="button";query.className="secondary";query.textContent="查询服务商费用";fields.append(query);
+ const result=document.createElement("p");result.id="ai-cost-result";result.textContent=report?`${report.start} 至 ${report.end}（UTC，结束不含）· GPT Image服务商费用 $${report.totalUSD} · 查询时间 ${report.queriedAt}。项目 ${report.projectID}；API Key ID：${report.apiKeyID||"该项目全部"}。该金额未加入本地预算。`:"尚未查询账单；无结果不代表消费为零。";fields.append(result);
+ if(report){const table=document.createElement("table");for(const row of [["UTC日期","费用项目","数量","单位","美元"],...report.rows.map(r=>[r.date||"—",r.item,r.quantity??"未知",r.unit||"未知",r.amountUSD])]){const tr=document.createElement("tr");for(const cell of row){const td=document.createElement(table.children.length?"td":"th");td.textContent=String(cell);tr.append(td);}table.append(tr);}const scroll=document.createElement("div");scroll.style.overflowX="auto";scroll.append(table);fields.append(scroll);}
+ form.append(fields);rememberAIForm("costs",form);aiBaselines.get("costs").costs=value;form.oninput=renderAIDrafts;form.onchange=renderAIDrafts;
+ const run=async(path,body)=>{if(!authenticated||aiBusy)return;const gen=aiGeneration;aiBusyState(true);$("ai-error").hidden=true;try{const saved=await api(path,body);if(gen===aiGeneration&&authenticated){renderImageCosts(saved);$("ai-status").textContent=path.endsWith("query")?"费用查询完成，未调用绘图模型。":"费用查询配置已保存。";}}catch(e){if(gen===aiGeneration&&authenticated)showError("ai-error",e);}finally{if(gen===aiGeneration)aiBusyState(false);}};
+ form.onsubmit=e=>{e.preventDefault();if(clear.checked&&key.value){showError("ai-error",new Error("清除密钥时请留空新密钥"));return;}run("/api/ai-image-costs",{revision:value.revision,projectID:project.value.trim(),apiKeyID:apiKey.value.trim(),proxyURL:proxy.value.trim(),key:clear.checked?{action:"clear",confirm:true}:key.value?{action:"replace",value:key.value}:{action:"keep"}});};
+ query.onclick=()=>{if(project.value.trim()!==value.projectID||apiKey.value.trim()!==value.apiKeyID||proxy.value.trim()!==value.proxyURL||key.value||clear.checked){showError("ai-error",new Error("请先保存费用查询配置"));return;}run("/api/ai-image-costs/query",{revision:value.revision,start:start.value,end:end.value});};
+}
+$("ai-cost-load")?.addEventListener("click",async()=>{if(!authenticated||aiBusy)return;if(aiDrafts().includes("costs")&&!window.confirm("重新读取将放弃未保存的费用查询配置，继续？"))return;const gen=aiGeneration;aiBusyState(true);try{const value=await api("/api/ai-image-costs");if(gen===aiGeneration&&authenticated)renderImageCosts(value);}catch(e){if(gen===aiGeneration&&authenticated)showError("ai-error",e);}finally{if(gen===aiGeneration)aiBusyState(false);}});

@@ -264,3 +264,11 @@ R14文档导航整理已完成，上传及合并状态见[交付记录](github-d
 - [AI画图参考图](aiimage-reference.md)：同条QQ图文输入、图片编辑接口及输入预算。
 
 - [消息撤回状态检查](message-recall.md)
+
+
+## 链接阅读、深度搜索与独立费用查询
+
+- [链接阅读](link-reading.md)
+- [深度搜索](deep-search.md)
+- [绘图服务商费用查询](aiimage-usage-costs.md)
+- [本批接口整合交付](interface-refactor-delivery.md)

@@ -78,3 +78,18 @@ test('custom dimensions auto quality and disabled compression controls',async t=
 test('reference input reserve is visible and saved independently of monthly budget',async t=>{
  const page=await fixture(t);assert.equal(await page.locator('#ai-field-image-reference-reserve').inputValue(),'0.25');await page.locator('#ai-field-image-reference-reserve').fill('0.5');await reply(page,{...settings,options:{referenceReserveUSD:'0.5'}});await page.locator('#ai-image-form button[type=submit]').click();await idle(page);const body=await page.evaluate(()=>requests[0].body);assert.equal(body.options.referenceReserveUSD,'0.5');assert.equal(body.monthlyBudgetUSD,'100');assert.deepEqual(body.key,{action:'keep'});
 });
+
+test('cost config uses separate key, masks draft and renders provider report as text',async t=>{
+ const page=await fixture(t);const costs={revision:'c'.repeat(64),keyConfigured:false,projectID:'proj_test',apiKeyID:'',proxyURL:'',report:null};
+ await page.evaluate(v=>renderImageCosts(v),costs);
+ await page.locator('#ai-field-cost-key').fill('SYNTHETIC_ADMIN_KEY');
+ assert.doesNotMatch(await page.locator('#ai-draft-field-list').textContent(),/SYNTHETIC_ADMIN_KEY/);
+ await reply(page,{...costs,revision:'d'.repeat(64),keyConfigured:true});await page.locator('#ai-cost-form button[type=submit]').click();await idle(page);
+ const request=await page.evaluate(()=>requests[0]);assert.equal(request.url,'/api/ai-image-costs');assert.equal(request.body.key.value,'SYNTHETIC_ADMIN_KEY');assert.equal(await page.locator('#ai-field-cost-key').inputValue(),'');
+ await page.locator('#ai-field-cost-start').fill('2026-10-29');await page.locator('#ai-field-cost-end').fill('2026-10-30');
+ await reply(page,{...costs,keyConfigured:true,report:{start:'2026-10-29',end:'2026-10-30',queriedAt:'2026-11-02T00:00:00Z',projectID:'proj_test',apiKeyID:'',totalUSD:'0.113882000',rows:[{item:'<img src=x onerror=alert(1)>',amountUSD:'0.113882000',quantity:3512,unit:'tokens'}]}});
+ await page.getByRole('button',{name:'查询服务商费用',exact:true}).click();await idle(page);
+ assert.match(await page.locator('#ai-cost-result').textContent(),/0.113882000/);assert.equal(await page.locator('#ai-cost-form img').count(),0);
+ assert.equal(await page.evaluate(()=>requests[1].body.start),'2026-10-29');
+ await page.evaluate(()=>resetAI());assert.equal(await page.locator('#ai-cost-form').isHidden(),true);
+});
