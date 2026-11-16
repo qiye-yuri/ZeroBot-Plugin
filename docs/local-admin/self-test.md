@@ -2269,3 +2269,8 @@ node --check internal/localadmin/assets/overview.js通过；node --test scripts/
 ## 2026-11-16 PR69核对合并
 
 按用户要求核对并合并[PR #69](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/69)。锁定头bdcd4eff，合并提交1e2f5b9e，合并树完全一致；无待处理审查意见，无GitHub CI检查项。代码与195项Go测试、42项界面测试和独立构建的版本一致，已有部署中的本批源码及程序哈希未变。本轮仅合并和同步记录，没有重启日常程序或调用真实模型。完整部署与精简发布树的范围区别见[交付说明](interface-refactor-delivery.md)。其他未提交内容只作盘点，未上传；原工作区和暂存区保持。
+
+
+## 2026-11-16 PR70核对合并
+
+按用户要求核对并合并[PR #70](https://github.com/qiye-yuri/ZeroBot-Plugin/pull/70)。锁定头44671627，合并提交5e566628，合并树完全一致；无待处理审查意见或合并冲突。复用对应相同源码的72项Go测试、6个隔离场景和构建结果，1项既有真实测试未启用，GitHub无CI检查项。原工作区5份功能实现仍一致，日常程序和配置未改，本轮未调用真实模型或发送QQ消息。实际QQ未验收范围继续保留，详见[交付说明](voice-document-delivery.md)。其他未上传内容仅盘点，不混入本次合并。
